@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from vm.protocol.sequence import PySequenceMethods
     from vm.pyobject import PyComparisonValue
     from vm.protocol.buffer import PyBuffer
+    from vm.protocol.mapping import PyMapping
 
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.vm import VirtualMachine
@@ -199,6 +200,27 @@ T = TypeVar("T")
 
 # PTC = TypeVar("PTC", bound=PTComparableProtocol)
 
+# TODO: when intersection types are available change bound to `AsMappingMixin & PyValueMixin`
+AsMappingT = TypeVar("AsMappingT", contravariant=True, bound="AsMappingMixin")
+
+
+@dataclass
+class AsMappingMixin(ABC):
+    @classmethod
+    @abstractmethod
+    def as_mapping(
+        cls: Type[AsMappingT], zelf: PyRef[AsMappingT], vm: VirtualMachine
+    ) -> PyMapping:
+        ...
+
+    @pyslot()
+    @classmethod
+    def slot_as_mapping(cls: Any, zelf: PyObject, vm: VirtualMachine) -> PyMappingMethods:
+        return cls.as_mapping(zelf.downcast_unchecked_ref(cls), vm)
+
+    @classmethod
+    def mapping_downcast(cls: Type[AsMappingT], mapping: PyMapping) -> PyRef[AsMappingT]:
+        return mapping.obj.downcast_unchecked_ref(cls)  # type: ignore :(
 
 HashableT = TypeVar("HashableT", contravariant=True, bound="HashableMixin")
 
@@ -220,7 +242,6 @@ class HashableMixin(ABC):
 
     @classmethod
     @abstractmethod
-    # @classmethod
     def hash(
         cls: Type[HashableT], zelf: PyRef[HashableT], vm: VirtualMachine
     ) -> PyHash:

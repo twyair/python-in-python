@@ -481,6 +481,19 @@ def pyimpl(
     return inner
 
 
+# TODO: use `base`
+def pyexception(name: str, base: str, doc: str):
+    def inner(cls):
+        cls.NAME = name
+        cls.TP_NAME = name
+        cls.MODULE_NAME = None
+        cls.DOC = doc
+        return cls
+
+    return inner
+
+
+# TODO: use `base`
 def pyclass(
     name: str,
     *,
@@ -659,6 +672,7 @@ class PyClassImpl(PyClassDef, StaticTypeMixin):
     @classmethod
     def extend_class(cls, ctx: PyContext, class_: PyTypeRef) -> None:
         import vm.builtins.function as pyfunction
+
         if cls.TP_FLAGS.has_feature(slot.PyTypeFlags.HAS_DICT):
             class_.payload.set_str_attr(
                 "__dict__",

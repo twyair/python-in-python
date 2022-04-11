@@ -164,7 +164,9 @@ class VirtualMachine:
 
     def run_code_object(self, code: PyRef[PyCode], scope: scope.Scope) -> PyResult:
         assert self.builtins.dict is not None
-        frame = vm_frame.Frame.new(code, scope, self.builtins.dict.d, [], self).into_ref(self)
+        frame = vm_frame.Frame.new(
+            code, scope, self.builtins.dict.d, [], self
+        ).into_ref(self)
         return self.run_frame_full(frame)
 
     def run_frame_full(self, frame: FrameRef) -> PyResult:
@@ -539,7 +541,6 @@ class VirtualMachine:
         if attrs is not None:
             for k, v in attrs.items():
                 exc.as_object().set_attr(self.mk_str(k), v, self)
-        print(exc_type.payload.name())
         raise PyImplException(exc)
 
     def new_exception_empty(
@@ -891,6 +892,30 @@ class VirtualMachine:
         if hint_i < 0:
             self.new_value_error("__length_hint__() should return >= 0")
         return hint_i
+
+    def exception_args_as_string(
+        self, varargs: PyTupleRef, str_single: bool
+    ) -> list[PyStrRef]:
+        def get_repr(a: PyObjectRef) -> PyStrRef:
+            try:
+                return a.repr(self)
+            except PyImplBase as _:
+                return PyStr.from_str("<element repr() failed>", self.ctx)
+
+        args = varargs.payload.as_slice()
+        if len(args) == 0:
+            return []
+        elif len(args) == 1:
+            arg = args[0]
+            if str_single:
+                try:
+                    return [arg.str(self)]
+                except PyImplBase as _:
+                    return [PyStr.from_str("<element str() failed>", self.ctx)]
+            else:
+                return [get_repr(arg)]
+        else:
+            return [get_repr(a) for a in args]
 
 
 R = TypeVar("R")

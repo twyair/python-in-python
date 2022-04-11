@@ -334,7 +334,6 @@ class ExecutingFrame:
 
     def run(self, vm: VirtualMachine) -> ExecutionResult:
         instrs = self.code.payload.code.instructions
-        print(instrs)
         while 1:
             idx = self.get_lasti()
             self.update_lasti(lambda i: i + 1)

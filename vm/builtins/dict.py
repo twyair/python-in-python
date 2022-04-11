@@ -1,7 +1,9 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Iterable, Optional, TypeAlias
 
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar, Optional, TypeAlias
+
+from common.deco import pymethod
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
@@ -9,10 +11,12 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 
-from vm.dictdatatype import Dict as DictContentType
+import vm.function_ as vm_function_
+import vm.protocol.mapping as mapping
 import vm.pyobject as po
 import vm.pyobjectrc as prc
-import vm.protocol.mapping as mapping
+import vm.types.slot as slot
+from vm.dictdatatype import Dict as DictContentType
 
 
 @po.tp_flags(basetype=True)
@@ -21,11 +25,15 @@ import vm.protocol.mapping as mapping
 )
 @po.pyclass("dict")
 @dataclass
-class PyDict(po.TryFromObjectMixin, po.PyValueMixin, po.PyClassImpl):
+class PyDict(
+    po.TryFromObjectMixin, po.PyValueMixin, po.PyClassImpl, slot.AsMappingMixin
+):
     entries: DictContentType
 
     MAPPING_METHODS: ClassVar = mapping.PyMappingMethods(
-        length=None, subscript=None, ass_subscript=lambda m, k, v, vm: print(v)
+        length=lambda m, vm: PyDict.mapping_downcast(m).payload.len(),
+        subscript=lambda m, k, vm: PyDict.mapping_downcast(m).payload.get_item(k, vm),
+        ass_subscript=lambda m, k, v, vm: PyDict.ass_subscript(m, k, v, vm),
     )
 
     @staticmethod
@@ -36,10 +44,60 @@ class PyDict(po.TryFromObjectMixin, po.PyValueMixin, po.PyClassImpl):
     def class_(vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_type
 
+    @classmethod
+    def ass_subscript(
+        cls,
+        m: mapping.PyMapping,
+        key: PyObjectRef,
+        value: Optional[PyObjectRef],
+        vm: VirtualMachine,
+    ) -> None:
+        zelf = cls.mapping_downcast(m)
+        if value is not None:
+            zelf.payload.inner_setitem(key, value, vm)
+        else:
+            zelf.payload.del_item(key, vm)
+
+    def missing_opt(
+        self, key: PyObjectRef, vm: VirtualMachine
+    ) -> Optional[PyObjectRef]:
+        method = vm.get_method(self.into_ref(vm), "__missing__")
+        if method is None:
+            return None
+        return vm.invoke(method, vm_function_.FuncArgs([key]))
+
+    def inner_getitem_opt(
+        self, key: PyObjectRef, vm: VirtualMachine
+    ) -> Optional[PyObjectRef]:
+        if (value := self.entries.get(vm, key)) is not None:
+            return value
+        elif (value := self.missing_opt(key, vm)) is not None:
+            return value
+        return None
+
+    def inner_getitem(self, key: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        value = self.inner_getitem_opt(key, vm)
+        if value is None:
+            vm.new_key_error(key)
+        return value
+
+    def inner_setitem(
+        self, key: PyObjectRef, value: PyObjectRef, vm: VirtualMachine
+    ) -> None:
+        self.entries.insert(vm, key, value)
+
+    def inner_delitem(self, key: PyObjectRef, vm: VirtualMachine) -> None:
+        self.entries.delete(vm, key)
+
     def get_item_opt(
         self, key: PyObjectRef, vm: VirtualMachine
     ) -> Optional[PyObjectRef]:
-        self.entries.get(vm, key)
+        # FIXME? impl for PyObjectView<PyDict>
+        return self.inner_getitem_opt(key, vm)
+
+    def get_item(self, key: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        # FIXME? impl for PyObjectView<PyDict>
+        return self.inner_getitem(key, vm)
 
     def contains_key(self, key: PyObjectRef, vm: VirtualMachine) -> bool:
         return self.entries.contains(vm, key)
@@ -47,15 +105,59 @@ class PyDict(po.TryFromObjectMixin, po.PyValueMixin, po.PyClassImpl):
     def set_item(
         self, key: PyObjectRef, value: PyObjectRef, vm: VirtualMachine
     ) -> None:
-        self.entries.insert(vm, key, value)
+        # FIXME? impl for PyObjectView<PyDict>
+        self.inner_setitem(key, value, vm)
 
-    def items(self) -> Iterable[tuple[PyObjectRef, PyObjectRef]]:
-        return self.entries.items()
+    def del_item(self, key: PyObjectRef, vm: VirtualMachine) -> None:
+        # FIXME? impl for PyObjectView<PyDict>
+        self.inner_delitem(key, vm)
 
     def get_chain(
         self, other: PyDict, key: PyObjectRef, vm: VirtualMachine
     ) -> Optional[PyObjectRef]:
+        # FIXME? impl for PyObjectView<PyDict>
         return self.entries.get_chain(vm, other.entries, key)
+
+    def len(self) -> int:
+        return self.entries.len()
+
+    @pymethod()
+    def i__len__(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_int(self.len())
+
+    @pymethod()
+    @staticmethod
+    def items(zelf: PyRef[PyDict], vm: VirtualMachine) -> PyObjectRef:
+        return PyDictItems.new(zelf).into_ref(vm)
+
+    @pymethod()
+    def i__setitem__(
+        self, key: PyObjectRef, value: PyObjectRef, vm: VirtualMachine
+    ) -> None:
+        self.inner_setitem(key, value, vm)
+
+    @pymethod()
+    def i__getitem__(self, key: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        return self.inner_getitem(key, vm)
+
+    @pymethod()
+    def get(
+        self, key: PyObjectRef, default: Optional[PyObjectRef], vm: VirtualMachine
+    ) -> PyObjectRef:
+        value = self.entries.get(vm, key)
+        if value is None:
+            return vm.unwrap_or_none(default)
+        return value
+
+    @pymethod()
+    def setdefault(
+        self, key: PyObjectRef, default: Optional[PyObjectRef], vm: VirtualMachine
+    ) -> PyObjectRef:
+        return self.entries.setdefault(vm, key, lambda: vm.unwrap_or_none(default))
+
+    @classmethod
+    def as_mapping(cls, zelf: PyRef[PyDict], vm: VirtualMachine) -> mapping.PyMapping:
+        return mapping.PyMapping(zelf, cls.MAPPING_METHODS)
 
 
 PyDictRef: TypeAlias = "PyRef[PyDict]"
@@ -72,9 +174,15 @@ PyDictRef: TypeAlias = "PyRef[PyDict]"
 @po.pyclass("dict_keys")
 @dataclass
 class PyDictKeys(po.PyValueMixin, po.PyClassImpl):
+    dict: PyDictRef
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_keys_type
+
+    @staticmethod
+    def new(dict: PyDictRef) -> PyDictKeys:
+        return PyDictKeys(dict)
 
 
 @po.pyimpl(constructor=True, iter_next=True)
@@ -99,9 +207,15 @@ class PyDictReverseKeyIterator(po.PyValueMixin, po.PyClassImpl):
 @po.pyclass("dict_values")
 @dataclass
 class PyDictValues(po.PyValueMixin, po.PyClassImpl):
+    dict: PyDictRef
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_values_type
+
+    @staticmethod
+    def new(dict: PyDictRef) -> PyDictValues:
+        return PyDictValues(dict)
 
 
 @po.pyimpl(constructor=True, iter_next=True)
@@ -133,9 +247,15 @@ class PyDictReverseValueIterator(po.PyValueMixin, po.PyClassImpl):
 @po.pyclass("dict_items")
 @dataclass
 class PyDictItems(po.PyValueMixin, po.PyClassImpl):
+    dict: PyDictRef
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_items_type
+
+    @staticmethod
+    def new(dict: PyDictRef) -> PyDictItems:
+        return PyDictItems(dict)
 
 
 @po.pyimpl(constructor=True, iter_next=True)
