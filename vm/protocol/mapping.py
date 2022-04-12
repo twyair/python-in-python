@@ -8,7 +8,8 @@ if TYPE_CHECKING:
     from vm.vm import VirtualMachine
 
 
-import vm.builtins.dict as dict_
+# FIXME: circular import
+# import vm.builtins.dict as pydict
 
 
 @dataclass
@@ -53,9 +54,7 @@ class PyMapping:
         if self.methods is not None:
             return self.methods
         if (
-            f := self.obj.class_().payload.mro_find_map(
-                lambda cls: cls.slots.as_mapping
-            )
+            f := self.obj.class_()._.mro_find_map(lambda cls: cls.slots.as_mapping)
         ) is not None:
             self.methods = f(self.obj, vm)
         else:
@@ -94,20 +93,20 @@ class PyMapping:
         return f(self, needle, value, vm)
 
     def keys(self, vm: VirtualMachine) -> PyObjectRef:
-        if (dict := self.obj.downcast_ref_if_exact(dict_.PyDict, vm)) is not None:
-            return dict_.PyDictKeys.new(dict).into_pyresult(vm)
+        if (dict := self.obj.downcast_ref_if_exact(pydict.PyDict, vm)) is not None:
+            return pydict.PyDictKeys.new(dict).into_pyresult(vm)
         else:
             return self.method_output_as_list("keys", vm)
 
     def values(self, vm: VirtualMachine) -> PyObjectRef:
-        if (dict := self.obj.downcast_ref_if_exact(dict_.PyDict, vm)) is not None:
-            return dict_.PyDictValues.new(dict).into_pyresult(vm)
+        if (dict := self.obj.downcast_ref_if_exact(pydict.PyDict, vm)) is not None:
+            return pydict.PyDictValues.new(dict).into_pyresult(vm)
         else:
             return self.method_output_as_list("values", vm)
 
     def items(self, vm: VirtualMachine) -> PyObjectRef:
-        if (dict := self.obj.downcast_ref_if_exact(dict_.PyDict, vm)) is not None:
-            return dict_.PyDictItems.new(dict).into_pyresult(vm)
+        if (dict := self.obj.downcast_ref_if_exact(pydict.PyDict, vm)) is not None:
+            return pydict.PyDictItems.new(dict).into_pyresult(vm)
         else:
             return self.method_output_as_list("items", vm)
 

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn, Optional
 
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
@@ -40,3 +40,10 @@ class PyImplException(PyImplBase):
     # def from_python_exception(exc: OverflowError | ZeroDivisionError, vm: VirtualMachine) -> NoReturn:
     #     if isinstance(exc, OverflowError):
     #         vm.new_overflow_error()
+
+    def __repr__(self) -> str:
+        return f"python exception '{self.exception.class_()._.name()}'"
+
+
+def unreachable(msg: Optional[str] = None) -> NoReturn:
+    assert False, f"unreachable: {msg}"

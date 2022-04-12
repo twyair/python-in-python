@@ -1,7 +1,15 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import enum
-from typing import Any, Callable, TypeVar
+import inspect
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+import importlib
+
+
+if TYPE_CHECKING:
+    from vm.function_ import FuncArgs
+    from vm.pyobjectrc import PyObjectRef
+    from vm.vm import VirtualMachine
 
 # from vm.types.slot import SLOTS
 
@@ -145,3 +153,91 @@ def pyslot() -> Callable[[Callable[..., T]], Callable[..., T]]:
         return method
 
     return inner
+
+
+# TODO
+def pymodule(cls):
+    funcs = {}
+    members = inspect.getmembers(cls)
+    for name, mem in members:
+        if name.startswith("__") and name.startswith("__"):
+            continue
+        if not inspect.isfunction(mem):
+            continue
+        fn = getattr(mem, "pyfunction", None)
+        assert fn is not None, f"method {name} isnt a `pyfunction`"
+        funcs[name] = fn
+    cls.pyfunctions = funcs
+    return cls
+
+
+TYPE2MODULE = {
+    "PyStr": "vm.builtins.pystr",
+    "ArgIterable": "vm.function.arguments",
+    "ArgMapping": "vm.function.arguments",
+    "ArgCallable": "vm.function.arguments",
+}
+
+
+@dataclass
+class TypeProxy:
+    name: str
+    module: str
+    typ: Optional[Any]
+    is_optional: bool
+
+    @staticmethod
+    def from_annotation(annotation: str) -> Optional[TypeProxy]:
+        name = annotation
+        is_optional = False
+        if name.startswith("Optional["):
+            name = name[len("Optional[") : -1]
+            is_optional = True
+        name = name.rsplit(".", 1)[-1]
+        if name in ("PyObject", "PyObjectRef", "PyRef"):
+            return TypeProxy("PyRef", module="", typ=None, is_optional=is_optional)
+        elif name.startswith("PyRef["):
+            name = name[len("PyRef[") : -1]
+        elif name.endswith("Ref"):
+            name = name[: -len("Ref")]
+
+        assert "[" not in name and "]" not in name, (annotation, name)
+        module = TYPE2MODULE.get(name)
+        if module is None:
+            return None
+        return TypeProxy(name, module=module, typ=None, is_optional=is_optional)
+
+    def try_from_object(self, vm: VirtualMachine, obj: PyObjectRef):
+        if self.name == "PyRef":
+            return obj
+        if self.typ is None:
+            self.typ = __import__(self.module, fromlist=[self.name])
+        return self.typ.try_from_object(vm, obj)
+
+
+def make_cast(
+    annotation: type | str,
+) -> Callable[[VirtualMachine, PyObjectRef], PyObjectRef]:
+    if isinstance(annotation, str):
+        proxy = TypeProxy.from_annotation(annotation)
+        assert proxy is not None
+        return proxy.try_from_object
+    else:
+        return lambda vm, obj: annotation.try_from_object(vm, obj)
+
+
+def pyfunction(f):
+    sig = inspect.signature(f, eval_str=False)
+    casts = {n: make_cast(p.annotation) for n, p in sig.parameters.items() if n != "vm"}
+
+    def foo(vm: VirtualMachine, fargs: FuncArgs) -> PyObjectRef:
+        bs = sig.bind(*fargs.args, **fargs.kwargs, vm=vm)
+        res = f(
+            *(casts[name](vm, obj) for name, obj in zip(bs.arguments, bs.args)),
+            **{k: casts[k](vm, v) for k, v in bs.kwargs.items() if k != "vm"},
+            vm=vm,
+        )
+        return vm.unwrap_or_none(res)
+
+    f.__func__.pyfunction = foo
+    return f

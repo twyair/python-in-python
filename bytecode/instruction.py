@@ -6,6 +6,7 @@ from typing import Optional, final, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from bytecode.bytecode import CodeFlags
 from common.error import PyImplBase, PyImplError, PyImplException
+from vm.builtins.asyncgenerator import PyAsyncGenWrappedValue
 
 if TYPE_CHECKING:
     from vm.builtins.coroutine import PyCoroutine
@@ -180,7 +181,7 @@ class LoadFast(Instruction):
         if x is None:
             raise PyException(
                 # vm.ctx.exceptions.unbound_local_error.clone(),
-                f"local variable '{frame.code.payload.code.varnames[self.idx]}' referenced before assignment"
+                f"local variable '{frame.code._.code.varnames[self.idx]}' referenced before assignment"
             )
         frame.push_value(x)
 
@@ -201,7 +202,7 @@ class LoadNameAny(Instruction):
         try:
             value = map.subscript_(name, vm)
         except PyImplBase:
-            frame.load_global_or_builtin(name, vm)
+            frame.push_value(frame.load_global_or_builtin(name, vm))
         else:
             frame.push_value(value)
 
@@ -233,7 +234,7 @@ class LoadDeref(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        x = frame.cells_frees[self.idx].payload.contents
+        x = frame.cells_frees[self.idx]._.contents
         if x is None:
             frame.unbound_cell_exception(self.idx, vm)
         frame.push_value(x)
@@ -250,13 +251,11 @@ class LoadClassDeref(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        name = frame.code.payload.code.freevars[
-            self.idx - len(frame.code.payload.code.cellvars)
-        ]
+        name = frame.code._.code.freevars[self.idx - len(frame.code._.code.cellvars)]
         try:
             value = frame.locals.mapping().subscript_(name.as_object(), vm)
         except PyImplBase:
-            value = frame.cells_frees[self.idx].payload.contents
+            value = frame.cells_frees[self.idx]._.contents
             if value is None:
                 frame.unbound_cell_exception(self.idx, vm)
         frame.push_value(value)
@@ -288,7 +287,7 @@ class StoreLocal(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        name = frame.code.payload.code.names[self.idx]
+        name = frame.code._.code.names[self.idx]
         value = frame.pop_value()
         frame.locals.mapping().ass_subscript_(vm.mk_str(name), value, vm)
 
@@ -305,9 +304,7 @@ class StoreGlobal(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
-        frame.globals.set_item(
-            vm.mk_str(frame.code.payload.code.names[self.idx]), value, vm
-        )
+        frame.globals.set_item(vm.mk_str(frame.code._.code.names[self.idx]), value, vm)
 
 
 @final
@@ -322,7 +319,7 @@ class StoreDeref(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
-        frame.cells_frees[self.idx].payload.set(value)
+        frame.cells_frees[self.idx]._.set(value)
 
 
 @final
@@ -372,7 +369,7 @@ class DeleteGlobal(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        name = frame.code.payload.code.names[self.idx]
+        name = frame.code._.code.names[self.idx]
         try:
             frame.globals.del_item(name, vm)
         except PyImplException as e:
@@ -393,7 +390,7 @@ class DeleteDeref(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        frame.cells_frees[self.idx].payload.set(None)
+        frame.cells_frees[self.idx]._.set(None)
 
 
 @final
@@ -486,8 +483,7 @@ class LoadConst(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        # FIXME: value isnt a PyObjectRef
-        frame.push_value(frame.code.payload.code.constants[self.idx])
+        frame.push_value(frame.code._.code.constants[self.idx].value.to_pyobj(vm))
 
 
 @final
@@ -662,8 +658,8 @@ class YieldValue(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
-        if CodeFlags.IS_COROUTINE in frame.code.payload.code.flags:
-            value = PyAsyncGenWrapperValue(value).into_object(vm)
+        if CodeFlags.IS_COROUTINE in frame.code._.code.flags:
+            value = PyAsyncGenWrappedValue(value).into_object(vm)
         return vm_frame.ExecutionResultYield(value)
 
 
@@ -694,7 +690,7 @@ class SetupAnnotation(Instruction):
             needle = vm.mk_str("__annotations__")
             has_annotations = frame._in(vm, needle, e.obj)
         else:
-            has_annotations = d.payload.contains_key(vm.mk_str("__annotations__"), vm)
+            has_annotations = d._.contains_key(vm.mk_str("__annotations__"), vm)
 
         if not has_annotations:
             frame.locals.obj.set_item(
@@ -849,7 +845,7 @@ class GetAwaitable(Instruction):
             await_method = vm.get_method_or_type_error(
                 awaited_obj,
                 vm.mk_str("__await__"),
-                lambda: f"object {awaited_obj.class_().payload.name()} can't be used in 'await' expression",
+                lambda: f"object {awaited_obj.class_()._.name()} can't be used in 'await' expression",
             )
             awaitable = vm.invoke(await_method, FuncArgs.empty())
         frame.push_value(awaitable)
@@ -1183,7 +1179,7 @@ class LoadMethod(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         obj = frame.pop_value()
-        method_name = frame.code.payload.code.names[self.idx]
+        method_name = frame.code._.code.names[self.idx]
         method = PyMethod.get(obj, method_name, vm)
         if isinstance(method, PyMethodFunction):
             target, is_method, func = method.target, True, method.func
@@ -1332,7 +1328,10 @@ class BuildString(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         # FIXME?
-        s = [pyobj.payload_(PyStr).as_str() for pyobj in frame.pop_multiple(self.size)]
+        s = [
+            pyobj.payload_unchecked(PyStr).as_str()
+            for pyobj in frame.pop_multiple(self.size)
+        ]
         str_obj = vm.ctx.new_str("".join(s))
         frame.push_value(str_obj.into_pyobj(vm))
 
@@ -1387,10 +1386,10 @@ class BuildSet(Instruction):
         elements = frame.pop_multiple(self.size)
         if self.unpack:
             for element in elements:
-                vm.map_iterable_object(element, lambda x: set.payload.add(x, vm))
+                vm.map_iterable_object(element, lambda x: set._.add(x, vm))
         else:
             for element in elements:
-                set.payload.add(element, vm)
+                set._.add(element, vm)
         frame.push_value(set)
 
 
@@ -1439,7 +1438,7 @@ class ListAppend(Instruction):
         obj = frame.nth_value(self.i)
         list_ = obj.downcast_unchecked(PyList)
         item = frame.pop_value()
-        list_.payload.append(item)
+        list_._.append(item)
 
 
 @final
@@ -1456,7 +1455,7 @@ class SetAdd(Instruction):
         obj = frame.nth_value(self.i)
         set_ = obj.downcast_unchecked(PySet)
         item = frame.pop_value()
-        set_.payload.add(item, vm)
+        set_._.add(item, vm)
 
 
 @final
@@ -1474,7 +1473,7 @@ class MapAdd(Instruction):
         dict_ = obj.downcast_unchecked(PyDict)
         key = frame.pop_value()
         value = frame.pop_value()
-        dict_.payload.set_item(key, value, vm)
+        dict_._.set_item(key, value, vm)
 
 
 @final
@@ -1494,7 +1493,7 @@ class UnpackSequence(Instruction):
         except PyImplException as e:
             if e.exception.class_().is_(vm.ctx.exceptions.type_error):
                 vm.new_type_error(
-                    f"cannot unpack non-iterable {value.class_().payload.name()} object"
+                    f"cannot unpack non-iterable {value.class_()._.name()} object"
                 )
             raise
 
@@ -1599,4 +1598,4 @@ class MapAddRev(Instruction):
         dict_ = obj.downcast_unchecked(PyDict)
         value = frame.pop_value()
         key = frame.pop_value()
-        dict_.payload.set_item(key, value, vm)
+        dict_._.set_item(key, value, vm)

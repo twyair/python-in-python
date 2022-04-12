@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Optional, TypeAlias
 
-from common.deco import pymethod
-
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
     from vm.pyobject import PyContext
@@ -17,6 +15,8 @@ import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
 from vm.dictdatatype import Dict as DictContentType
+
+from common.deco import pymethod
 
 
 @po.tp_flags(basetype=True)
@@ -31,8 +31,8 @@ class PyDict(
     entries: DictContentType
 
     MAPPING_METHODS: ClassVar = mapping.PyMappingMethods(
-        length=lambda m, vm: PyDict.mapping_downcast(m).payload.len(),
-        subscript=lambda m, k, vm: PyDict.mapping_downcast(m).payload.get_item(k, vm),
+        length=lambda m, vm: PyDict.mapping_downcast(m)._.len(),
+        subscript=lambda m, k, vm: PyDict.mapping_downcast(m)._.get_item(k, vm),
         ass_subscript=lambda m, k, v, vm: PyDict.ass_subscript(m, k, v, vm),
     )
 
@@ -54,9 +54,9 @@ class PyDict(
     ) -> None:
         zelf = cls.mapping_downcast(m)
         if value is not None:
-            zelf.payload.inner_setitem(key, value, vm)
+            zelf._.inner_setitem(key, value, vm)
         else:
-            zelf.payload.del_item(key, vm)
+            zelf._.del_item(key, vm)
 
     def missing_opt(
         self, key: PyObjectRef, vm: VirtualMachine
@@ -156,8 +156,10 @@ class PyDict(
         return self.entries.setdefault(vm, key, lambda: vm.unwrap_or_none(default))
 
     @classmethod
-    def as_mapping(cls, zelf: PyRef[PyDict], vm: VirtualMachine) -> mapping.PyMapping:
-        return mapping.PyMapping(zelf, cls.MAPPING_METHODS)
+    def as_mapping(
+        cls, zelf: PyRef[PyDict], vm: VirtualMachine
+    ) -> mapping.PyMappingMethods:
+        return cls.MAPPING_METHODS
 
 
 PyDictRef: TypeAlias = "PyRef[PyDict]"

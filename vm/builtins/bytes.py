@@ -1,24 +1,18 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Optional, TypeAlias
+from typing import TYPE_CHECKING, Optional, TypeAlias
 from common.deco import pyclassmethod, pymethod, pystaticmethod
 
 if TYPE_CHECKING:
     from vm.builtins.iter import PositionIterInternal
     from vm.builtins.pytype import PyTypeRef
-    from vm.function_ import ArgBytesLike
-    from vm.pyobject import (
-        PyClassImpl,
-        PyContext,
-        PyValueMixin,
-        pyclass,
-        pyimpl,
-        tp_flags,
-    )
+    from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
-    from vm.types.slot import PyTypeFlags
     from vm.vm import VirtualMachine
+
 import vm.pyobject as po
+import vm.pyobjectrc as prc
+import vm.function_ as vm_function_
 
 
 @po.tp_flags(basetype=True)
@@ -33,7 +27,7 @@ import vm.pyobject as po
 )
 @po.pyclass("bytes")
 @dataclass
-class PyBytes(po.PyClassImpl, po.PyValueMixin):
+class PyBytes(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     inner: bytes
 
     @classmethod
@@ -42,7 +36,7 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin):
 
     @staticmethod
     def new_ref(value: bytes, ctx: PyContext) -> PyBytesRef:
-        return PyRef.new_ref(PyBytes(value), ctx.types.tuple_type, None)
+        return prc.PyRef.new_ref(PyBytes(value), ctx.types.tuple_type, None)
 
     @pymethod()
     def i__repr__(self, *, vm: VirtualMachine) -> PyObjectRef:
@@ -61,7 +55,7 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin):
 
     @pymethod()
     def i__add__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
-        arg = ArgBytesLike.try_from_borrowed_object(vm, other)
+        arg = vm_function_.ArgBytesLike.try_from_borrowed_object(vm, other)
         return vm.ctx.new_bytes(self.inner + arg.value.methods.obj_bytes(arg.value))
 
     @pymethod()
@@ -159,6 +153,7 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin):
     # TODO: impl Hashable for PyBytes @ 625
     # TODO: impl Comparable for PyBytes @ 632
     # TODO: impl Iterable for PyBytes @ 657
+
 
 @po.pyimpl()  # TODO
 @po.pyclass("bytes_iterator")

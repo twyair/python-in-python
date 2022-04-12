@@ -11,22 +11,16 @@ from typing import (
     ClassVar,
     Dict,
     Generic,
+    Iterable,
+    Iterator,
     Optional,
     Protocol,
     Type,
     TypeVar,
 )
-from common.deco import (
-    ImplMethodType,
-    ImplSlotData,
-    MethodData,
-    PropertyData,
-    PropertyDescriptorType,
-)
-from common.hash import PyHash
+
 
 if TYPE_CHECKING:
-    from common.error import PyImplError
     from vm.builtins.builtinfunc import (
         PyBuiltinFunction,
         PyBuiltinMethod,
@@ -52,12 +46,48 @@ if TYPE_CHECKING:
     from vm.types.slot import PyTypeFlags, PyTypeSlots
     from vm.types.zoo import TypeZoo
     from vm.vm import VirtualMachine
+    from bytecode.bytecode import CodeObject
+    from vm.builtins.code import PyCode
+    from vm.builtins.complex import PyComplex
 
 import vm.types.slot as slot
 import vm.pyobjectrc as prc
+from common.deco import (
+    ImplMethodType,
+    ImplSlotData,
+    MethodData,
+    PropertyData,
+    PropertyDescriptorType,
+)
+from common.hash import PyHash
+from common.error import PyImplError, unreachable
+
 
 # TODO: class attributes should maintain insertion order (use IndexMap here)
-PyAttributes = Dict[str, "prc.PyObjectRef"]
+@dataclass
+class PyAttributes:
+    inner: dict[str, PyObjectRef] = dataclasses.field(default_factory=dict)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.inner.keys())
+
+    def items(self) -> Iterable[tuple[str, PyObjectRef]]:
+        return self.inner.items()
+
+    def __getitem__(self, key: str) -> PyObjectRef:
+        return self.inner[key]
+
+    def __setitem__(self, key: str, value: PyObjectRef) -> None:
+        self.inner[key] = value
+
+    def get(self, key: str, default: T) -> T | PyObjectRef:
+        return self.inner.get(key, default)
+
+    # def insert(self, key: str, value: PyObjectRef) -> None:
+    #     self.inner[key] = value
+
+    def remove(self, key: str) -> Optional[PyObjectRef]:
+        return self.inner.pop(key, None)
 
 
 R = TypeVar("R")
@@ -99,6 +129,7 @@ class PyContext:
         import vm.builtins.pystr as pystr
         import vm.builtins.set as pyset
         import vm.builtins.builtinfunc as builtinfunc
+        import vm.builtins.pytype as pytype
 
         types = type_zoo.TypeZoo.init()
         exceptions = exception_zoo.ExceptionZoo.init()
@@ -133,7 +164,9 @@ class PyContext:
 
         new_str = prc.PyRef.new_ref(pystr.PyStr("__new__"), types.str_type, None)
         slot_new_wrapper = create_object(
-            builtinfunc.PyNativeFuncDef.new(None, new_str).into_function(),
+            builtinfunc.PyNativeFuncDef.new(
+                pytype.PyType.s__new__, new_str
+            ).into_function(),
             types.builtin_function_or_method_type,
         )
 
@@ -215,6 +248,18 @@ class PyContext:
         return pystr.PyStr.from_str(s, self)
 
     # TODO: move
+    def new_complex(self, c: complex) -> PyRef[PyComplex]:
+        import vm.builtins.complex as pycomplex
+
+        return prc.PyRef.new_ref(pycomplex.PyComplex(c), self.types.complex_type, None)
+
+    # TODO: move
+    def new_code(self, c: CodeObject) -> PyRef[PyCode]:
+        import vm.builtins.code as pycode
+
+        return prc.PyRef.new_ref(pycode.PyCode(c), self.types.code_type, None)
+
+    # TODO: move
     def new_bytes(self, data: bytes) -> PyRef[PyBytes]:
         import vm.builtins.bytes as pybytes
 
@@ -290,13 +335,13 @@ class TypeProtocolMixin:
         return self.class_()
 
     def get_class_attr(self, attr_name: str) -> Optional[PyObjectRef]:
-        return self.class_().payload.get_attr(attr_name)
+        return self.class_()._.get_attr(attr_name)
 
     def has_class_attr(self, attr_name: str) -> bool:
-        return self.class_().payload.has_attr(attr_name)
+        return self.class_()._.has_attr(attr_name)
 
     def isinstance(self, cls: PyTypeRef) -> bool:
-        return self.class_().payload.issubclass(cls)
+        return self.class_()._.issubclass(cls)
 
 
 @dataclass
@@ -313,7 +358,7 @@ class PyValueMixin:
         return None
 
     def _into_ref(self, cls: PyTypeRef, vm: VirtualMachine) -> PyRef:
-        if cls.payload.slots.flags.has_feature(slot.PyTypeFlags.HAS_DICT):
+        if cls._.slots.flags.has_feature(slot.PyTypeFlags.HAS_DICT):
             dict_ = vm.ctx.new_dict()
         else:
             dict_ = None
@@ -325,11 +370,11 @@ class PyValueMixin:
 
     def into_ref_with_type(self, vm: VirtualMachine, cls: PyTypeRef) -> PyRef:
         exact_class = self.__class__.class_(vm)
-        if cls.payload.issubclass(exact_class):
+        if cls._.issubclass(exact_class):
             return self._into_ref(cls, vm)
         else:
             vm.new_type_error(
-                f"'{cls.payload.name()}'is not a subtype of '{exact_class.payload.name()}'"
+                f"'{cls._.name()}'is not a subtype of '{exact_class._.name()}'"
             )
 
     def into_pyresult_with_type(
@@ -377,21 +422,21 @@ IC = TypeVar("IC")
 
 def pyimpl(
     *,
-    py_ref=False,
-    view_set_opts=False,
-    dict_view=False,
-    iter_next=False,
-    iterable=False,
-    callable=False,
-    as_mapping=False,
-    as_sequence=False,
-    as_buffer=False,
-    hashable=False,
-    comparable=False,
-    get_descriptor=False,
-    constructor=False,
-    get_attr=False,
-    set_attr=False,
+    py_ref: Optional[bool] = None,
+    view_set_opts: Optional[bool] = None,
+    dict_view: Optional[bool] = None,
+    iter_next: Optional[bool] = None,
+    iterable: Optional[bool] = None,
+    callable: Optional[bool] = None,
+    as_mapping: Optional[bool] = None,
+    as_sequence: Optional[bool] = None,
+    as_buffer: Optional[bool] = None,
+    hashable: Optional[bool] = None,
+    comparable: Optional[bool] = None,
+    get_descriptor: Optional[bool] = None,
+    constructor: Optional[bool] = None,
+    get_attr: Optional[bool] = None,
+    set_attr: Optional[bool] = None,
 ) -> Callable[[IC], IC]:
     def inner(cls: IC) -> IC:
         impl = cls.pyimpl_at  # type: ignore
@@ -612,7 +657,7 @@ class PyClassImplData:
 def make_getter(getter: MethodData) -> PyGetterFunc:
     def foo(vm: VirtualMachine, obj: PyObjectRef) -> PyObjectRef:
         # TODO: catch & handle exceptions
-        return getter.method(obj.payload, vm=vm)
+        return getter.method(obj._, vm=vm)
         # return res.into_ref(vm)
 
     return foo
@@ -628,16 +673,52 @@ def make_setter(setter: MethodData) -> PySetterFunc:
 
 
 def make_method(method: MethodData) -> PyNativeFunc:
+    sig = inspect.signature(method.method)
+
+    first_arg = list(sig.parameters)[0]
+    if first_arg == "self":
+        get_self_arg = lambda x: x._
+    elif first_arg == "zelf":
+        get_self_arg = lambda x: x
+    else:
+        unreachable(f"first arg is {first_arg}")
+
     def func(vm: VirtualMachine, args: FuncArgs) -> PyObjectRef:
         # TODO: catch & handle exceptions
         return method.method(
-            *args.args,
+            get_self_arg(args.args[0]),
+            *args.args[1:],
             **{k if k != "vm" else "_vm": v for k, v in args.kwargs.items()},
             vm=vm,
         )
         # return res.into_ref(vm)
 
     return func
+
+
+class PyModuleImpl:
+    @classmethod
+    def extend_module(cls, vm: VirtualMachine, module: PyObject) -> None:
+        pyfunctions = getattr(cls, "pyfunctions", None)
+        assert pyfunctions is not None
+        assert isinstance(pyfunctions, dict)
+        for name, func in pyfunctions.items():
+            assert isinstance(name, str)
+            new_func = (
+                vm.ctx.make_funcdef(vm.mk_str(name)._, func)
+                .with_doc("TODO", vm.ctx)  # TODO!
+                .into_function()
+                .with_module(vm.new_pyobj(module))
+                .into_ref(vm.ctx)
+            )
+            vm.module_set_attr(module, vm.mk_str(name), new_func)
+        # TODO: impl other kinds of module attributes
+
+    @classmethod
+    def make_module(cls, vm: VirtualMachine) -> PyObjectRef:
+        module = vm.new_module(cls.__name__, vm.ctx.new_dict(), cls.__doc__)
+        cls.extend_module(vm, module)
+        return module
 
 
 @dataclass
@@ -650,8 +731,8 @@ class PyClassImpl(PyClassDef, StaticTypeMixin):
         for method in cls.pyimpl_at.methods.values():
             assert method.type == ImplMethodType.INSTANCE, method  # FIXME!
             func = make_method(method)
-            new_method = ctx.new_method(ctx.new_str(method.name).payload, class_, func)
-            class_.payload.set_str_attr(method.name, new_method)
+            new_method = ctx.new_method(ctx.new_str(method.name)._, class_, func)
+            class_._.set_str_attr(method.name, new_method)
 
         for prop in cls.pyimpl_at.properties.values():
             assert prop.deleter is None, prop
@@ -667,14 +748,14 @@ class PyClassImpl(PyClassDef, StaticTypeMixin):
             else:
                 assert False, prop
             # FIXME?
-            class_.payload.set_str_attr(prop.name, getset)
+            class_._.set_str_attr(prop.name, getset)
 
     @classmethod
     def extend_class(cls, ctx: PyContext, class_: PyTypeRef) -> None:
         import vm.builtins.function as pyfunction
 
         if cls.TP_FLAGS.has_feature(slot.PyTypeFlags.HAS_DICT):
-            class_.payload.set_str_attr(
+            class_._.set_str_attr(
                 "__dict__",
                 ctx.new_getset(
                     "__dict__",
@@ -685,12 +766,12 @@ class PyClassImpl(PyClassDef, StaticTypeMixin):
             )
         cls.impl_extend_class(ctx, class_)
         if cls.DOC is not None:
-            class_.payload.set_str_attr("__doc__", ctx.new_str(cls.DOC))
+            class_._.set_str_attr("__doc__", ctx.new_str(cls.DOC))
         if cls.MODULE_NAME is not None:
-            class_.payload.set_str_attr("__module__", ctx.new_str(cls.MODULE_NAME))
-        if class_.payload.slots.new is not None:
+            class_._.set_str_attr("__module__", ctx.new_str(cls.MODULE_NAME))
+        if class_._.slots.new is not None:
             bound = pyfunction.PyBoundMethod.new_ref(class_, ctx.slot_new_wrapper, ctx)
-            class_.payload.set_str_attr("__new__", bound)
+            class_._.set_str_attr("__new__", bound)
 
     @classmethod
     def make_class(cls, ctx: PyContext) -> PyTypeRef:
@@ -765,7 +846,7 @@ class PyMethod(ABC):
     @staticmethod
     def get(obj: PyObjectRef, name: PyStrRef, vm: VirtualMachine) -> PyMethod:
         cls = obj.class_()
-        getattro = cls.payload.mro_find_map(lambda cls: cls.slots.getattro)
+        getattro = cls._.mro_find_map(lambda cls: cls.slots.getattro)
         assert getattro is not None
         # TODO:
         # if getattro as usize != object::PyBaseObject::getattro as usize {
@@ -773,18 +854,16 @@ class PyMethod(ABC):
         #     return obj.get_attr(name, vm).map(Self::Attribute);
         # }
         is_method = False
-        if (descr := cls.payload.get_attr(name.payload.as_str())) is not None:
+        if (descr := cls._.get_attr(name._.as_str())) is not None:
             descr_cls = descr.class_()
-            if slot.PyTypeFlags.METHOD_DESCR in descr_cls.payload.slots.flags:
+            if slot.PyTypeFlags.METHOD_DESCR in descr_cls._.slots.flags:
                 is_method = True
                 descr_get = None
             else:
-                descr_get = descr_cls.payload.mro_find_map(
-                    lambda cls: cls.slots.descr_get
-                )
+                descr_get = descr_cls._.mro_find_map(lambda cls: cls.slots.descr_get)
                 if descr_get is not None:
                     if (
-                        descr_cls.payload.mro_find_map(lambda cls: cls.slots.descr_set)
+                        descr_cls._.mro_find_map(lambda cls: cls.slots.descr_set)
                         is not None
                     ):
                         return PyMethodAttribute(
@@ -811,9 +890,7 @@ class PyMethod(ABC):
         elif (getter := cls.get_attr(vm.mk_str("__getattr__"), vm)) is not None:
             return PyMethodAttribute(vm.invoke(getter, FuncArgs([obj, name])))
         else:
-            vm.new_attribute_error(
-                f"'{cls.payload.name()}' object has no attribute '{name}'"
-            )
+            vm.new_attribute_error(f"'{cls._.name()}' object has no attribute '{name}'")
             # TODO: vm.set_attribute_error_context(&exc, obj.clone(), name);
 
     @staticmethod
@@ -822,7 +899,7 @@ class PyMethod(ABC):
         func = obj_cls.get_attr(vm.mk_str(name), vm)
         if func is None:
             raise PyImplError(obj)
-        if func.class_().payload.slots.flags.has_feature(slot.PyTypeFlags.METHOD_DESCR):
+        if func.class_()._.slots.flags.has_feature(slot.PyTypeFlags.METHOD_DESCR):
             return PyMethodFunction(target=obj, func=func)
         else:
             attr = vm.call_get_descriptor_specific(func, obj, obj_cls)
@@ -878,10 +955,10 @@ class TryFromObjectMixin:
     def try_from_object(cls: Type[TT], vm: VirtualMachine, obj: PyObjectRef) -> TT:
         class_ = cls.class_(vm)
         if obj.isinstance(class_):
-            return obj.downcast(cls).payload
+            return obj.downcast(cls)._
             # TODO: .map_err(|obj| pyref_payload_error(vm, class, obj))
         else:
-            return cls.special_retrieve(vm, obj).payload
+            return cls.special_retrieve(vm, obj)._
             # TODO: .unwrap_or_else(|| Err(pyref_type_error(vm, class, obj)))
 
 

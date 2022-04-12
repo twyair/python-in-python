@@ -1,12 +1,22 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl, tp_flags
+    from vm.pyobject import (
+        PyClassImpl,
+        PyContext,
+        PyValueMixin,
+        pyclass,
+        pyimpl,
+        tp_flags,
+    )
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+import vm.pyobjectrc as prc
+
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl(constructor=True, comparable=True)
@@ -19,7 +29,9 @@ class PyNamespace(po.PyClassImpl, po.PyValueMixin):
 
     @staticmethod
     def new_ref(ctx: PyContext) -> PyRef[PyNamespace]:
-        return PyRef.new_ref(PyNamespace(), ctx.types.namespace_type, ctx.new_dict())
+        return prc.PyRef.new_ref(
+            PyNamespace(), ctx.types.namespace_type, ctx.new_dict()
+        )
 
     # TODO: impl Constructor for PyNamespace
     # TODO: impl Comparable for PyNamespace

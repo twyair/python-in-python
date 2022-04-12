@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+import vm.pyobjectrc as prc
 
 
 @po.tp_flags(basetype=True)
@@ -19,7 +20,7 @@ class PySet(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
 
     @staticmethod
     def new_ref(ctx: PyContext) -> PyRef[PySet]:
-        return PyRef.new_ref(PySet.default(), ctx.types.set_type, None)
+        return prc.PyRef.new_ref(PySet.default(), ctx.types.set_type, None)
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:

@@ -31,12 +31,13 @@ if TYPE_CHECKING:
     from vm.vm import VirtualMachine
     from vm.protocol.sequence import PySequence
 
+import vm.function_ as fn
 
 T = TypeVar("T")
 
 
 def bool_get_value(obj: PyObject) -> bool:
-    return obj.payload.as_(PyInt).value != 0
+    return obj._.as_(PyInt).value != 0
 
 
 @dataclass
@@ -47,44 +48,54 @@ class InstanceDict:
         self.d = d
 
     def set_item(self, k: PyStrRef, v: PyObjectRef, vm: VirtualMachine) -> None:
-        self.d.payload.set_item(k, v, vm)
+        self.d._.set_item(k, v, vm)
+
+    def del_item(self, k: PyStrRef, vm: VirtualMachine) -> None:
+        self.d._.del_item(k, vm)
 
     # FIXME: should raise an exception when item is `None`
     def get_item(self, k: PyStrRef, vm: VirtualMachine) -> Optional[PyObjectRef]:
-        return self.d.payload.get_item_opt(k, vm)
+        return self.d._.get_item_opt(k, vm)
 
     def get_item_opt(self, k: PyStrRef, vm: VirtualMachine) -> Optional[PyObjectRef]:
-        return self.d.payload.get_item_opt(k, vm)
+        return self.d._.get_item_opt(k, vm)
 
 
-ContravariantT = TypeVar("ContravariantT", contravariant=True)
+R = TypeVar("R")
+
+
+PyRefT = TypeVar("PyRefT")
 
 
 @final
 @dataclass
-class PyRef(Generic[ContravariantT]):
+class PyRef(Generic[PyRefT]):
     type: PyTypeRef
     dict: Optional[InstanceDict]
-    payload: ContravariantT
+    payload: PyRefT
+
+    @property
+    def _(self) -> PyRefT:
+        return self.payload
 
     @staticmethod
     def new_ref(
-        payload: ContravariantT, type: PyTypeRef, dict: Optional[PyDictRef]
-    ) -> PyRef[ContravariantT]:
-        return PyRef[ContravariantT](
+        payload: PyRefT, type: PyTypeRef, dict: Optional[PyDictRef]
+    ) -> PyRef[PyRefT]:
+        return PyRef[PyRefT](
             type=type,
             dict=InstanceDict(dict) if dict is not None else None,
             payload=payload,
         )
 
     def into_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
-        return self  # .payload.into_ref(vm)
+        return self  # ._.into_ref(vm)
 
     def has_attr(self, attr_name: PyStrRef, vm: VirtualMachine) -> bool:
         return vm.is_none(self.get_attr(attr_name, vm))
 
     def get_attr(self, attr_name: PyStrRef, vm: VirtualMachine) -> PyObjectRef:
-        getattro = self.class_().payload.mro_find_map(lambda cls: cls.slots.getattro)
+        getattro = self.class_()._.mro_find_map(lambda cls: cls.slots.getattro)
         assert getattro is not None
         return getattro(self, attr_name, vm)
 
@@ -97,7 +108,7 @@ class PyRef(Generic[ContravariantT]):
         self, callback: Optional[PyObjectRef], type: PyTypeRef, vm: VirtualMachine
     ) -> PyObjectWeak:
         dic = None
-        if type.payload.slots.flags.has_feature(PyTypeFlags.HAS_DICT):
+        if type._.slots.flags.has_feature(PyTypeFlags.HAS_DICT):
             dict_ = vm.ctx.new_dict()
         cls_is_weakref = type.is_(vm.ctx.types.weakref_type)
         raise NotImplementedError
@@ -114,28 +125,26 @@ class PyRef(Generic[ContravariantT]):
     #         return None
 
     def payload_if_subclass(self, t: Type[PT], vm: VirtualMachine) -> Optional[PT]:
-        if self.class_().payload.issubclass(t.class_(vm)):
+        if self.class_()._.issubclass(t.class_(vm)):
             return self.payload_(t)
         else:
             return None
 
     def payload_is(self, t: Type[PT]) -> bool:
         # TODO: is that correct?
-        return isinstance(self.payload, t)
+        return isinstance(self._, t)
 
     def call_set_attr(
         self, vm: VirtualMachine, attr_name: PyStrRef, attr_value: Optional[PyObjectRef]
     ) -> None:
         cls = self.class_()
-        setattro = cls.payload.mro_find_map(lambda cls: cls.slots.setattro)
+        setattro = cls._.mro_find_map(lambda cls: cls.slots.setattro)
         if setattro is None:
             assign = attr_value is not None
-            has_getattr = (
-                cls.payload.mro_find_map(lambda cls: cls.slots.getattro) is not None
-            )
+            has_getattr = cls._.mro_find_map(lambda cls: cls.slots.getattro) is not None
             vm.new_type_error(
                 "'{}' object has {} attributes ({} {})".format(
-                    cls.payload.name(),
+                    cls._.name(),
                     "only read-only" if has_getattr else "no",
                     "assign to" if assign else "del",
                     attr_name,
@@ -159,11 +168,13 @@ class PyRef(Generic[ContravariantT]):
         def call_cmp(
             obj: PyObject, other: PyObject, op: PyComparisonOp
         ) -> PyArithmeticValue[bool] | PyArithmeticValue[PyObjectRef]:
-            cmp = obj.class_().payload.mro_find_map(lambda cls: cls.slots.richcompare)
+            import vm.pyobject as po
+
+            cmp = obj.class_()._.mro_find_map(lambda cls: cls.slots.richcompare)
             assert cmp is not None
             r = cmp(obj, other, op, vm)
             if isinstance(r, PyRef):
-                return PyArithmeticValue.from_object(vm, r)
+                return po.PyArithmeticValue.from_object(vm, r)
             else:
                 return r
 
@@ -172,7 +183,7 @@ class PyRef(Generic[ContravariantT]):
         other_class = other.class_()
         is_strict_subclass = not self_class.is_(
             other_class
-        ) and other_class.payload.issubclass(self_class)
+        ) and other_class._.issubclass(self_class)
         if is_strict_subclass:
             x = vm.with_recursion(
                 "in comparison", lambda: call_cmp(other, self, swapped)
@@ -214,11 +225,13 @@ class PyRef(Generic[ContravariantT]):
         return obj.try_to_bool(vm)
 
     def repr(self, vm: VirtualMachine) -> PyStrRef:
+        import vm.builtins.pystr as pystr
+
         return vm.with_recursion(
             "while getting the repr of an object",
-            lambda: PyStr.try_from_object(
+            lambda: pystr.PyStr.try_from_object(
                 vm,
-                vm.call_special_method(self, "__repr__", FuncArgs([], OrderedDict())),
+                vm.call_special_method(self, "__repr__", fn.FuncArgs()),
             ).into_ref(vm),
         )
 
@@ -230,7 +243,7 @@ class PyRef(Generic[ContravariantT]):
             return self.downcast(PyStr)
         else:
             return PyStr.try_from_object(
-                vm, vm.call_special_method(self, "__str__", FuncArgs([], OrderedDict()))
+                vm, vm.call_special_method(self, "__str__", fn.FuncArgs())
             ).into_ref(vm)
 
     # TODO?
@@ -255,17 +268,17 @@ class PyRef(Generic[ContravariantT]):
 
             bases = derived.get_attr(vm.mk_str("__bases__"), vm)
             tuple = PyTuple.try_from_object(vm, bases).intro_ref(vm)
-            n = tuple.payload.len()
+            n = tuple._.len()
             if n == 0:
                 return False
             elif n == 1:
-                first_item = tuple.payload.fast_getitem(0)
+                first_item = tuple._.fast_getitem(0)
                 derived = first_item
                 continue
             else:
                 for i in range(n):
                     try:
-                        r = tuple.payload.fast_getitem(i).abstract_issubclass(cls, vm)
+                        r = tuple._.fast_getitem(i).abstract_issubclass(cls, vm)
                     except PyImplBase:
                         pass
                     else:
@@ -278,7 +291,7 @@ class PyRef(Generic[ContravariantT]):
         return self  # FIXME?
 
     @staticmethod
-    def from_obj_unchecked(obj: PyObjectRef) -> PyRef[ContravariantT]:
+    def from_obj_unchecked(obj: PyObjectRef) -> PyRef[PyRefT]:
         return obj
 
     def downcast(self, t: Type[PT]) -> PyRef[PT]:
@@ -326,13 +339,13 @@ class PyRef(Generic[ContravariantT]):
         return self.type
 
     def get_class_attr(self, attr_name: str) -> Optional[PyObjectRef]:
-        return self.class_().payload.get_attr(attr_name)
+        return self.class_()._.get_attr(attr_name)
 
     def has_class_attr(self, attr_name: str) -> bool:
-        return self.class_().payload.has_attr(attr_name)
+        return self.class_()._.has_attr(attr_name)
 
     def isinstance(self, cls: PyTypeRef) -> bool:
-        return self.class_().payload.issubclass(cls)
+        return self.class_()._.issubclass(cls)
 
     def is_instance(self, cls: PyObject, vm: VirtualMachine) -> bool:
         if self.class_().is_(cls):
@@ -358,7 +371,7 @@ class PyRef(Generic[ContravariantT]):
 
     def abstract_isinstance(self, cls: PyObject, vm: VirtualMachine) -> bool:
         if (type := PyType.try_from_object(vm, cls)) is not None:
-            if self.class_().payload.issubclass(type.into_ref(vm)):
+            if self.class_()._.issubclass(type.into_ref(vm)):
                 return True
             elif icls := PyType.try_from_object(
                 vm, self.get_attr(vm.mk_str("__class__"), vm)
@@ -381,6 +394,36 @@ class PyRef(Generic[ContravariantT]):
             else:
                 return icls.abstract_issubclass(cls, vm)
 
+    def try_into_value(self, t: Type[PT], vm: VirtualMachine) -> PT:
+        return t.try_from_object(vm, self)
+
+    def try_bytes_like(self, vm: VirtualMachine, f: Callable[[bytes], R]) -> R:
+        import vm.protocol.buffer as buffer
+
+        buff = buffer.PyBuffer.try_from_borrowed_object(vm, self)
+        if (x := buff.as_contiguous()) is not None:
+            return f(x)
+        else:
+            vm.new_type_error("non-contiguous buffer is not a bytes-like object")
+
+    def try_to_float(self, vm: VirtualMachine) -> Optional[float]:
+        import vm.builtins.int as pyint
+        import vm.builtins.float as pyfloat
+
+        if (f := self.payload_if_exact(pyfloat.PyFloat)) is not None:
+            return f.value
+        if (method := vm.get_method(self, "__float__")) is not None:
+            result = vm.invoke(method, FuncArgs())
+            if (float_obj := result.payload_(pyfloat.PyFloat)) is not None:
+                return float_obj.value
+            else:
+                vm.new_type_error(
+                    f"__float__ returned non-float (type '{result.class_()._.name()}')"
+                )
+        if (r := vm.to_index_opt(self)) is not None:
+            return pyint.try_bigint_to_f64(r._.as_int(), vm)
+        return None
+
     def try_to_bool(self, vm: VirtualMachine) -> bool:
         if self.is_(vm.ctx.true_value):
             return True
@@ -390,13 +433,13 @@ class PyRef(Generic[ContravariantT]):
             bool_obj = vm.invoke(method, FuncArgs([], OrderedDict()))
             if not bool_obj.isinstance(vm.ctx.types.bool_type):
                 vm.new_type_error(
-                    f"__bool__ should return bool, returned type {bool_obj.class_().payload.name()}"
+                    f"__bool__ should return bool, returned type {bool_obj.class_()._.name()}"
                 )
             return bool_get_value(bool_obj)
         else:
             if (method := vm.get_method(self, "__len__")) is not None:
                 bool_obj = vm.invoke(method, FuncArgs([], OrderedDict()))
-                int_obj: PyInt = bool_obj.payload.as_(PyInt)
+                int_obj: PyInt = bool_obj._.as_(PyInt)
                 len_val = int_obj.value
                 if len_val < 0:
                     vm.new_value_error("__len__() should return >= 0")
@@ -436,7 +479,7 @@ class PyRef(Generic[ContravariantT]):
             i = needle.key_as_isize(vm)
             return seq.get_item(i, vm)
 
-        if self.class_().payload.issubclass(vm.ctx.types.type_type):
+        if self.class_()._.issubclass(vm.ctx.types.type_type):
             if self.is_(vm.ctx.types.type_type):
                 return PyGenericAlias.new(self.clone_class(), needle, vm).into_pyresult(
                     vm
@@ -485,13 +528,26 @@ class PyRef(Generic[ContravariantT]):
             vm.new_type_error(f"'{self.class_()}' does not support item deletion")
 
     def get_id(self) -> int:
-        return id(self.payload)
+        return id(self._)
 
     def is_(self, other: Any) -> bool:
         return self.get_id() == other.get_id()
 
-    def payload_(self, t: Type[PT]) -> PT:
-        return self.payload  # type: ignore
+    # TODO: fix all usages that ignore `None`
+    def payload_(self, t: Type[PT]) -> Optional[PT]:
+        if self.payload_is(t):
+            return self._  # type: ignore
+        else:
+            return None
+
+    def payload_if_exact(self, t: Type[PT], vm: VirtualMachine) -> Optional[PT]:
+        if self.class_().is_(t.class_(vm)):
+            return self.payload_(t)
+        else:
+            return None
+
+    def payload_unchecked(self, t: Type[PT]) -> PT:
+        return self._  # type: ignore
 
     @classmethod
     def try_from_object(
@@ -525,8 +581,11 @@ class PyRef(Generic[ContravariantT]):
         return PyIter.try_from_object(vm, self)
 
     def hash(self, vm: VirtualMachine) -> PyHash:
-        hash = self.class_().payload.mro_find_map(lambda cls: cls.slots.hash)
-        assert hash is not None, (self.class_().payload.name(), self.class_().payload.slots.hash)
+        hash = self.class_()._.mro_find_map(lambda cls: cls.slots.hash)
+        assert hash is not None, (
+            self.class_()._.name(),
+            self.class_()._.slots.hash,
+        )
         return hash(self, vm)
 
 
@@ -534,7 +593,7 @@ def pyref_payload_error(
     vm: VirtualMachine, class_: PyTypeRef, obj: PyObjectRef
 ) -> NoReturn:
     vm.new_runtime_error(
-        f"Unexpected payload '{class_.payload.name()}' for type '{obj.class_().payload.name()}'"
+        f"Unexpected payload '{class_._.name()}' for type '{obj.class_()._.name()}'"
     )
 
 
@@ -556,6 +615,8 @@ PyObject = PyRef[Any]
 PT = TypeVar("PT", bound=PTProtocol)
 PyObjectRef = PyObject
 
+# class_or_notimplemented is a macro
+
 
 def init_type_hierarchy() -> tuple[PyTypeRef, PyTypeRef, PyTypeRef]:
     import vm.pyobject as po
@@ -567,7 +628,7 @@ def init_type_hierarchy() -> tuple[PyTypeRef, PyTypeRef, PyTypeRef]:
         bases=[],
         mro_=[],
         subclasses=[],
-        attributes={},
+        attributes=po.PyAttributes(),
         slots=pytype.PyType.make_slots(),
     )
     object_payload = pytype.PyType(
@@ -575,7 +636,7 @@ def init_type_hierarchy() -> tuple[PyTypeRef, PyTypeRef, PyTypeRef]:
         bases=[],
         mro_=[],
         subclasses=[],
-        attributes={},
+        attributes=po.PyAttributes(),
         slots=oo.PyBaseObject.make_slots(),
     )
     type_type = PyRef[pytype.PyType].new_ref(type=None, dict=None, payload=type_payload)
@@ -593,7 +654,7 @@ def init_type_hierarchy() -> tuple[PyTypeRef, PyTypeRef, PyTypeRef]:
             bases=[object_type],
             mro_=[object_type],
             subclasses=[],
-            attributes={},
+            attributes=po.PyAttributes(),
             slots=po.PyWeak.make_slots(),
         ),
         type_type,

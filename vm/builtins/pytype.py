@@ -10,10 +10,12 @@ from typing import (
     Optional,
     TypeAlias,
     TypeVar,
-    Union,
 )
+from common.error import unreachable
 
 if TYPE_CHECKING:
+    from vm.builtins.pystr import PyStrRef
+    from vm.function_ import FuncArgs
     from common.error import PyImplErrorStr
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.types.slot import PyTypeSlots
@@ -51,7 +53,7 @@ def linearise_mro(bases: list[list[PyTypeRef]]) -> list[PyTypeRef]:
         if head is None:
             raise PyImplErrorStr(
                 "Cannot create a consistent method resolution order (MRO) for bases {}".format(
-                    ", ".join(x[0].payload.name() for x in bases)
+                    ", ".join(x[0]._.name() for x in bases)
                 )
             )
         result.append(head)
@@ -67,7 +69,14 @@ R = TypeVar("R")
 @po.pyimpl(get_attr=True, set_attr=True, callable=True)
 @po.pyclass("type")
 @dataclass
-class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
+class PyType(
+    po.TryFromObjectMixin,
+    po.PyClassImpl,
+    po.PyValueMixin,
+    slot.CallableMixin,
+    slot.SetAttrMixin,
+    slot.GetAttrMixin,
+):
     base: Optional[PyTypeRef]
     bases: list[PyTypeRef]
     mro_: list[PyTypeRef]
@@ -77,7 +86,7 @@ class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
     slots: PyTypeSlots
 
     def into_ref(self: PyType, vm: VirtualMachine) -> PyTypeRef:
-        return PyRef.new_ref(self, vm.ctx.types.type_type, None)
+        return prc.PyRef.new_ref(self, vm.ctx.types.type_type, None)
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
@@ -117,13 +126,13 @@ class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
         unique_bases = set()
         for base in bases:
             if base.get_id() in unique_bases:
-                PyImplErrorStr(f"duplicate base class {base.payload.name()}")
+                PyImplErrorStr(f"duplicate base class {base._.name()}")
             unique_bases.add(base.get_id())
 
-        mros = [[x] + [c for c in x.payload.iter_mro_ref()] for x in bases]
+        mros = [[x] + [c for c in x._.iter_mro_ref()] for x in bases]
         mro = linearise_mro(mros)
 
-        if base.payload.slots.flags.has_feature(slot.PyTypeFlags.HAS_DICT):
+        if base._.slots.flags.has_feature(slot.PyTypeFlags.HAS_DICT):
             slots.flags |= slot.PyTypeFlags.HAS_DICT
 
         slots.name = name
@@ -134,11 +143,11 @@ class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
 
         for attr_name in attrs:
             if attr_name.startswith("__") and attr_name.endswith("__"):
-                new_type.payload.update_slot(attr_name, True)
+                new_type._.update_slot(attr_name, True)
 
         # weakref_type = po.PyWeak.static_type()
         for base in bases:
-            base.payload.subclasses.append(new_type)
+            base._.subclasses.append(new_type)
             # FIXME?
             # new_type.as_object().downgrade_with_weakref_typ_opt(
             #     None, weakref_type.clone()
@@ -146,12 +155,19 @@ class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
 
         return new_type
 
+    # original name: "__new__"
+    @staticmethod
+    def s__new__(
+        zelf: PyRef[PyType], args: FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
+        raise NotImplementedError
+
     def slot_name(self) -> str:
         assert self.slots.name is not None
         return self.slots.name
 
     def iter_mro(self) -> Iterable[PyType]:
-        return itertools.chain([self], (cls.payload for cls in self.mro_))
+        return itertools.chain([self], (cls._ for cls in self.mro_))
 
     def iter_mro_ref(self) -> Iterable[PyTypeRef]:
         return (cls for cls in self.mro_)
@@ -160,7 +176,7 @@ class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
         if (r := f(self)) is not None:
             return r
         else:
-            return next((f(cls.payload) for cls in self.mro_), None)
+            return next((f(cls._) for cls in self.mro_), None)
 
     def set_str_attr(self, attr_name: str, value: PyObjectRef) -> None:
         self.attributes[attr_name] = value
@@ -178,9 +194,7 @@ class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
         return next(
             (
                 v
-                for v in (
-                    cls.payload.attributes.get(attr_name, None) for cls in self.mro_
-                )
+                for v in (cls._.attributes.get(attr_name, None) for cls in self.mro_)
                 if v is not None
             ),
             None,
@@ -213,13 +227,137 @@ class PyType(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
         else:
             return name.rsplit(".")[0]
 
+    def update_slot(self, name: str, add: bool) -> None:
+        assert name.startswith("__") and name.endswith("__"), name
+
+        def foo(func):
+            if add:
+                return func
+            else:
+                return None
+
+        if name in ("__len__", "__getitem__", "__setitem__", "__delitem__"):
+            self.slots.as_mapping = foo(slot.as_mapping_wrapper)
+            self.slots.as_sequence = foo(slot.as_sequence_wrapper)
+        elif name == "__hash__":
+            self.slots.hash = foo(slot.hash_wrapper)
+        elif name == "__call__":
+            self.slots.call = foo(slot.call_wrapper)
+        elif name == "__getattribute__":
+            self.slots.getattro = foo(slot.getattro_wrapper)
+        elif name in ("__setattr__", "__delattr__"):
+            self.slots.setattro = foo(slot.setattro_wrapper)
+        elif name in ("__eq__", "__ne__", "__le__", "__lt__", "__ge__", "__gt__"):
+            self.slots.richcompare = foo(slot.richcompare_wrapper)
+        elif name == "__iter__":
+            self.slots.iter = foo(slot.iter_wrapper)
+        elif name == "__next__":
+            self.slots.iternext = foo(slot.iternext_wrapper)
+        elif name == "__get__":
+            self.slots.descr_get = foo(slot.descr_get_wrapper)
+        elif name in ("__set__", "__delete__"):
+            self.slots.descr_set = foo(slot.descr_set_wrapper)
+        elif name == "__new__":
+            self.slots.new = foo(slot.new_wrapper)
+        elif name == "__del__":
+            self.slots.del_ = foo(slot.del_wrapper)
+        else:
+            pass
+
     # TODO: impl PyType @ 216
-    # TODO: impl GetAttr for PyType
-    # TODO: impl SetAttr for PyType
-    # TODO: impl Callable for PyType
+
+    @classmethod
+    def call(
+        cls, zelf: PyRef[PyType], args: FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
+        obj = call_slot_new(zelf, zelf, args, vm)
+
+        if (
+            zelf.is_(vm.ctx.types.type_type)
+            and not args.kwargs
+            or not obj.isinstance(zelf)
+        ):
+            return obj
+
+        init_method = vm.get_method(obj, "__init__")
+        if init_method is not None:
+            res = vm.invoke(init_method, args)
+            if not vm.is_none(res):
+                vm.new_type_error("__init__ must return None")
+
+        return obj
+
+    @classmethod
+    def setattro(
+        cls,
+        zelf: PyRef[PyType],
+        name: PyStrRef,
+        value: Optional[PyObjectRef],
+        vm: VirtualMachine,
+    ) -> None:
+        attr_name = name._.as_str()
+        if (attr := zelf.get_class_attr(name._.as_str())) is not None:
+            descr_set = attr.class_()._.mro_find_map(lambda cls: cls.slots.descr_set)
+            if descr_set is not None:
+                return descr_set(attr, zelf, value, vm)
+
+        assign = value is not None
+
+        attributes = zelf._.attributes
+        if value is not None:
+            attributes[name._.as_str()] = value
+        else:
+            prev_value = attributes.remove(attr_name)
+            if prev_value is None:
+                vm.new_exception(vm.ctx.exceptions.attribute_error, [name])
+
+        if attr_name.startswith("__") and attr_name.endswith("__"):
+            zelf._.update_slot(attr_name, assign)
+
+    @classmethod
+    def getattro(
+        cls, zelf: PyRef[PyType], name: PyStrRef, vm: VirtualMachine
+    ) -> PyObjectRef:
+        mcl = zelf.class_()._
+        mcl_attr = mcl.get_attr(name._.as_str())
+        if mcl_attr is not None:
+            attr_class = mcl_attr.class_()._
+            if attr_class.mro_find_map(lambda cls: cls.slots.descr_set) is not None:
+                if (
+                    descr_get := attr_class.mro_find_map(
+                        lambda cls: cls.slots.descr_get
+                    )
+                ) is not None:
+                    descr_get(mcl_attr, zelf, mcl.into_ref(vm), vm)
+
+        zelf_attr = zelf._.get_attr(name._.as_str())
+
+        if zelf_attr is not None:
+            if descr_get := zelf_attr.class_()._.mro_find_map(
+                lambda cls: cls.slots.descr_get
+            ):
+                return descr_get(zelf_attr, None, zelf, vm)
+
+        if zelf_attr is not None:
+            return zelf_attr
+        elif mcl_attr is not None:
+            return vm.call_if_get_descriptor(mcl_attr, zelf)
+        else:
+            vm.new_attribute_error(
+                f"type object '{zelf._.slot_name()}' has no attribute '{name._.as_str()}'"
+            )
 
 
 PyTypeRef: TypeAlias = "PyRef[PyType]"
+
+
+def call_slot_new(
+    typ: PyTypeRef, subtype: PyTypeRef, args: FuncArgs, vm: VirtualMachine
+) -> PyObjectRef:
+    for cls in typ._.iter_mro():
+        if (slot_new := cls.slots.new) is not None:
+            return slot_new(subtype, args, vm)
+    unreachable("Should be able to find a new slot somewhere in the mro")
 
 
 SIGNATURE_END_MARKER = ")\n--\n\n"

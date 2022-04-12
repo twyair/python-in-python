@@ -8,24 +8,17 @@ from typing import (
     Callable,
     NoReturn,
     Optional,
+    Sequence,
     Type,
     TypeAlias,
     TypeVar,
     TYPE_CHECKING,
 )
 
-from bytecode.bytecode import CodeObject, FrozenModule
-from common.error import PyImplBase, PyImplError, PyImplException
-from common.hash import HashSecret
-from compiler.compile import CompileError, CompileErrorType, CompileOpts
-from compiler.mode import Mode
-from compiler.porcelain import compile as compile_
-
 
 if TYPE_CHECKING:
-    from vm.pyobject import PyArithmeticValue, PyContext, PyMethod
+    from vm.pyobject import PyContext, PyMethod
     from vm.pyobjectrc import PT, PyObject, PyObjectRef, PyRef
-    from vm.types.slot import PyComparisonOp
     from vm.builtins.code import PyCode
     from vm.builtins.dict import PyDictRef
     from vm.builtins.int import PyInt, PyIntRef
@@ -36,7 +29,7 @@ if TYPE_CHECKING:
     from vm.builtins.tuple import PyTuple, PyTupleRef, PyTupleTyped
     from vm.codecs import CodecsRegistry
     from vm.exceptions import PyBaseException, PyBaseExceptionRef
-    from vm.frame import ExecutionResult, ExecutionResultReturn, Frame, FrameRef
+    from vm.frame import ExecutionResult, FrameRef
     from vm.function.arguments import ArgMapping
     from vm.function_ import FuncArgs
     from vm.protocol.iter import PyIterIter, PyIterReturnReturn
@@ -48,10 +41,22 @@ import vm.types.slot as slot
 import vm.frozen as frozen
 import vm.signal as signal
 import vm.stdlib as stdlib
+import vm.stdlib.builtins as std_builtins
+import vm.stdlib.sys as std_sys
 import vm.codecs as codecs
 import vm.builtins.module as pymodule
 import vm.frame as vm_frame
 import vm.exceptions as vm_exceptions
+import vm.function_ as vm_function_
+import vm.builtins.object as pyobject
+import vm.builtins.module as pymodule
+
+from bytecode.bytecode import CodeObject, FrozenModule
+from common.error import PyImplBase, PyImplError, PyImplException
+from common.hash import HashSecret
+from compiler.compile import CompileError, CompileErrorType, CompileOpts
+from compiler.mode import Mode
+from compiler.porcelain import compile as compile_
 
 MAX_LENGTH_HINT = 2 << 32  # FIXME? `isize::max_value()`
 
@@ -135,19 +140,20 @@ class VirtualMachine:
 
         vm.state.frozen = dict(frozen.map_frozen(vm, frozen.get_module_inits()))
 
-        vm.builtins.payload.init_module_dict(
+        vm.builtins._.init_module_dict(
             vm.ctx.new_str("builtins"), vm.ctx.get_none(), vm
         )
-        vm.sys_module.payload.init_module_dict(
-            vm.ctx.new_str("sys"), vm.ctx.get_none(), vm
-        )
+        vm.sys_module._.init_module_dict(vm.ctx.new_str("sys"), vm.ctx.get_none(), vm)
 
         return vm
 
     def initialize(self, initialize_parameter: InitParameter) -> None:
         assert not self.initialized, "Double Initialize Error"
 
-        # TODO!!!!!!
+        std_builtins.make_module(self, self.builtins)
+        std_sys.init_module(self, self.sys_module, self.builtins)
+
+        # TODO:
         # raise NotImplementedError
 
         self.initialized = True
@@ -172,7 +178,7 @@ class VirtualMachine:
     def run_frame_full(self, frame: FrameRef) -> PyResult:
         res = self.run_frame(frame)
         assert isinstance(
-            res, ExecutionResultReturn
+            res, vm_frame.ExecutionResultReturn
         ), "Got unexpected result from function"
         return res.value
 
@@ -196,7 +202,7 @@ class VirtualMachine:
         return self.with_recursion("", do)
 
     def run_frame(self, frame: FrameRef) -> ExecutionResult:
-        return self.with_frame(frame, lambda f: f.payload.run(self))
+        return self.with_frame(frame, lambda f: f._.run(self))
 
     def check_recursive_call(self, where: str) -> None:
         if self.recursion_depth >= self.recursion_limit:
@@ -211,12 +217,12 @@ class VirtualMachine:
     def current_locals(self) -> ArgMapping:
         frame = self.current_frame()
         assert frame is not None, "called current_locals but no frames on the stack"
-        return frame.payload.get_locals(self)
+        return frame._.get_locals(self)
 
     def current_globals(self) -> PyDictRef:
         frame = self.current_frame()
         assert frame is not None, "called current_globals but no frames on the stack"
-        return frame.payload.globals
+        return frame._.globals
 
     def try_class(self, module: str, class_: str) -> PyTypeRef:
         res = (
@@ -238,10 +244,10 @@ class VirtualMachine:
         return scope.Scope.with_builtins(None, self.ctx.new_dict(), self)
 
     def new_pyobj(self, value: Any) -> PyObjectRef:
-        return value.into_pyobject(self)
+        return value.into_pyobj(self)
 
-    def new_tuple(self, value: Any) -> PyTupleRef:
-        return value.into_pytuple()
+    def new_tuple(self, value: Sequence[PyObjectRef]) -> PyTupleRef:
+        return self.ctx.new_tuple(list(value))
 
     def is_none(self, obj: PyObject) -> bool:
         return obj.is_(self.ctx.none)
@@ -257,15 +263,15 @@ class VirtualMachine:
         name_str: PyStrRef,
         dict_: Optional[PyDictRef],
     ) -> Optional[PyObjectRef]:
-        name = name_str.payload.as_str()
+        name = name_str._.as_str()
         obj_cls = obj.class_()
 
         if (descr := obj_cls.get_attr(self.mk_str(name), self)) is not None:
             descr_cls = descr.class_()
-            descr_get = descr_cls.payload.mro_find_map(lambda cls: cls.slots.descr_get)
+            descr_get = descr_cls._.mro_find_map(lambda cls: cls.slots.descr_get)
             if descr_get is not None:
                 if (
-                    descr_cls.payload.mro_find_map(lambda cls: cls.slots.descr_set)
+                    descr_cls._.mro_find_map(lambda cls: cls.slots.descr_set)
                     is not None
                 ):
                     return descr_get(descr, obj, obj_cls, self)
@@ -277,7 +283,7 @@ class VirtualMachine:
             dict_ = obj.dict.d
 
         if dict_ is not None:
-            attr = dict_.payload.get_item_opt(self.mk_str(name), self)
+            attr = dict_._.get_item_opt(self.mk_str(name), self)
             if attr is not None:
                 return attr
 
@@ -288,7 +294,7 @@ class VirtualMachine:
             else:
                 return attr
         elif getter := obj_cls.get_attr(self.mk_str("__getattr__"), self):
-            return self.invoke(getter, FuncArgs([obj, name_str], OrderedDict()))
+            return self.invoke(getter, vm_function_.FuncArgs([obj, name_str]))
         else:
             return None
 
@@ -298,16 +304,16 @@ class VirtualMachine:
             self.new_attribute_error(f"{obj} has no attribute '{name}'")
         return res
 
-    def invoke(self, func, args: FuncArgs) -> PyObjectRef:
+    def invoke(self, func: PyObject, args: FuncArgs) -> PyObjectRef:
         return self._invoke(func, args.into_args(self))
 
     def _invoke(self, callable: PyObject, args: FuncArgs) -> PyObjectRef:
-        slot_call = callable.class_().payload.mro_find_map(lambda cls: cls.slots.call)
+        slot_call = callable.class_()._.mro_find_map(lambda cls: cls.slots.call)
         if slot_call is not None:
             return slot_call(callable, args, self)
         else:
             self.new_type_error(
-                f"'{callable.class_().payload.name()}' object is not callable"
+                f"'{callable.class_()._.name()}' object is not callable"
             )
 
     def invoke_exception(
@@ -316,8 +322,13 @@ class VirtualMachine:
         res = self.invoke(cls.as_object(), FuncArgs(args, OrderedDict()))
         return PyBaseExceptionRef.try_from_object(PyBaseException, self, res)
 
+    def normalize_exception(
+        self, exc_type: PyObjectRef, exc_val: PyObjectRef, exc_tb: PyObjectRef
+    ) -> PyBaseExceptionRef:
+        raise NotImplementedError
+
     def is_callable(self, obj: PyObject) -> bool:
-        return obj.class_().payload.mro_find_map(lambda cls: cls.slots.call) is not None
+        return obj.class_()._.mro_find_map(lambda cls: cls.slots.call) is not None
 
     def extract_elements_as_pyobjects(self, value: PyObject) -> list[PyObjectRef]:
         return self.extract_elements_func(value, lambda obj: obj)
@@ -332,9 +343,9 @@ class VirtualMachine:
     ) -> list[R]:
         cls = value.class_()
         if cls.is_(self.ctx.types.tuple_type):
-            return [func(obj) for obj in value.payload_(PyTuple).as_slice()]
+            return [func(obj) for obj in value.payload_unchecked(PyTuple).as_slice()]
         elif cls.is_(self.ctx.types.list_type):
-            return [func(obj) for obj in value.payload_(PyList).elements]
+            return [func(obj) for obj in value.payload_unchecked(PyList).elements]
         else:
             return self.map_pyiter(value, func)
 
@@ -383,21 +394,22 @@ class VirtualMachine:
 
     def get_method(self, obj: PyObjectRef, method_name: str) -> Optional[PyObjectRef]:
         method = obj.get_class_attr(method_name)
-        assert method is not None
+        if method is None:
+            return None
         return self.call_if_get_descriptor(method, obj)
 
     def get_special_method(self, obj: PyObjectRef, method: str) -> PyMethod:
-        return PyMethod.get_special(obj, method, self)
+        return po.PyMethod.get_special(obj, method, self)
 
     def call_method(
         self, obj: PyObject, method_name: str, args: FuncArgs
     ) -> PyObjectRef:
-        return PyMethod.get(obj, self.mk_str(method_name), self).invoke(args, self)
+        return po.PyMethod.get(obj, self.mk_str(method_name), self).invoke(args, self)
 
     def call_get_descriptor_specific(
         self, descr: PyObjectRef, obj: Optional[PyObjectRef], cls: PyObjectRef
     ) -> PyObjectRef:
-        descr_get = descr.class_().payload.mro_find_map(lambda cls: cls.slots.descr_get)
+        descr_get = descr.class_()._.mro_find_map(lambda cls: cls.slots.descr_get)
         if descr_get is not None:
             return descr_get(descr, obj, cls, self)
         else:
@@ -427,12 +439,12 @@ class VirtualMachine:
             index = self.get_method(e.obj, "__index__")
             if index is None:
                 return None
-            index = self.invoke(index, FuncArgs.empty())
+            index = self.invoke(index, vm_function_.FuncArgs.empty())
             try:
                 return index.downcast(PyInt)
             except PyImplError as e:
                 self.new_type_error(
-                    f"__index__ returned non-int (type {e.obj.class_().payload.name()})"
+                    f"__index__ returned non-int (type {e.obj.class_()._.name()})"
                 )
         return None
 
@@ -441,7 +453,7 @@ class VirtualMachine:
         if index is not None:
             return index
         self.new_type_error(
-            f"'{obj.class_().payload.name()}' object cannot be interpreted as an integer"
+            f"'{obj.class_()._.name()}' object cannot be interpreted as an integer"
         )
 
     def import_(
@@ -453,7 +465,7 @@ class VirtualMachine:
         self, module: PyStrRef, from_list: Optional[PyTupleTyped[PyStrRef]], level: int
     ) -> PyObjectRef:
         weird = (
-            "." in module.payload.as_str()
+            "." in module._.as_str()
             or level != 0
             or from_list is not None
             and not from_list.is_empty()
@@ -475,8 +487,8 @@ class VirtualMachine:
                 self.new_import_error("__import__ not found", module)
             locals, globals = None, None
             if (frame := self.current_frame()) is not None:
-                locals = frame.payload.locals
-                globals = frame.payload.globals
+                locals = frame._.locals
+                globals = frame._.globals
             if from_list is None:
                 from_list_ = self.new_tuple(())
             else:
@@ -484,7 +496,7 @@ class VirtualMachine:
             return self.invoke(
                 # FIXME
                 import_func,
-                FuncArgs(
+                vm_function_.FuncArgs(
                     [
                         module,
                         globals if globals is not None else self.ctx.get_none(),
@@ -504,8 +516,8 @@ class VirtualMachine:
         unsupported: Callable[[VirtualMachine, PyObject, PyObject], PyObjectRef],
     ) -> PyObjectRef:
         if (method_ := self.get_method(obj, method)) is not None:
-            result = PyArithmeticValue.from_object(
-                self, self.invoke(method_, FuncArgs([arg], OrderedDict()))
+            result = po.PyArithmeticValue.from_object(
+                self, self.invoke(method_, vm_function_.FuncArgs([arg]))
             )
             if result.value is not None:
                 return result.value
@@ -569,20 +581,20 @@ class VirtualMachine:
         self.new_exception_msg(self.ctx.exceptions.name_error, msg, {"name": name})
 
     def new_unsupported_unary_error(self, a: PyObject, op: str) -> NoReturn:
-        self.new_type_error(f"bad operand type for {op}: '{a.class_().payload.name()}'")
+        self.new_type_error(f"bad operand type for {op}: '{a.class_()._.name()}'")
 
     def new_unsupported_binop_error(
         self, a: PyObject, b: PyObject, op: str
     ) -> NoReturn:
         self.new_type_error(
-            f"'{op}' not supported between instances of '{a.class_().payload.name()}' and '{b.class_().payload.name()}'"
+            f"'{op}' not supported between instances of '{a.class_()._.name()}' and '{b.class_()._.name()}'"
         )
 
     def new_unsupported_ternop_error(
         self, a: PyObject, b: PyObject, c: PyObject, op: str
     ) -> NoReturn:
         self.new_type_error(
-            f"Unsupported operand types for '{op}': '{a.class_().payload.name()}', '{b.class_().payload.name()}' and '{c.class_().payload.name()}'"
+            f"Unsupported operand types for '{op}': '{a.class_()._.name()}', '{b.class_()._.name()}' and '{c.class_()._.name()}'"
         )
 
     def new_os_error(self, msg: str) -> NoReturn:
@@ -761,16 +773,24 @@ class VirtualMachine:
 
     def _abs(self, a: PyObject) -> PyObjectRef:
         # TODO: .map_err(|_| self.new_unsupported_unary_error(a, "abs()"))?
-        return self.get_special_method(a, "__abs__").invoke(FuncArgs.empty(), self)
+        return self.get_special_method(a, "__abs__").invoke(
+            vm_function_.FuncArgs.empty(), self
+        )
 
     def _pos(self, a: PyObject) -> PyObjectRef:
-        return self.get_special_method(a, "__pos__").invoke(FuncArgs.empty(), self)
+        return self.get_special_method(a, "__pos__").invoke(
+            vm_function_.FuncArgs.empty(), self
+        )
 
     def _neg(self, a: PyObject) -> PyObjectRef:
-        return self.get_special_method(a, "__neg__").invoke(FuncArgs.empty(), self)
+        return self.get_special_method(a, "__neg__").invoke(
+            vm_function_.FuncArgs.empty(), self
+        )
 
     def _invert(self, a: PyObject) -> PyObjectRef:
-        return self.get_special_method(a, "__invert__").invoke(FuncArgs.empty(), self)
+        return self.get_special_method(a, "__invert__").invoke(
+            vm_function_.FuncArgs.empty(), self
+        )
 
     def _membership_iter_search(
         self, haystack: PyObjectRef, needle: PyObjectRef
@@ -789,7 +809,7 @@ class VirtualMachine:
         except PyImplError as err:
             return self._membership_iter_search(err.obj, needle)
         else:
-            return method.invoke(FuncArgs([needle], OrderedDict()), self)
+            return method.invoke(vm_function_.FuncArgs([needle], OrderedDict()), self)
 
     def push_exception(self, exc: Optional[PyBaseExceptionRef]) -> None:
         self.exceptions.prev = self.exceptions
@@ -819,12 +839,12 @@ class VirtualMachine:
         if context_exc is not None:
             if not context_exc.is_(exception):
                 o = context_exc  # FIXME: `.clone()`
-                while (context := o.payload.context) is not None:
+                while (context := o._.context) is not None:
                     if context.is_(exception):
                         # o.set_context(None)  # TODO: ???
                         break
                     o = context
-                exception.payload.context = context_exc
+                exception._.context = context_exc
 
     def topmost_exception(self) -> Optional[PyBaseExceptionRef]:
         cur = self.exceptions
@@ -835,13 +855,13 @@ class VirtualMachine:
         return None
 
     def bool_eq(self, a: PyObject, b: PyObject) -> bool:
-        return a.rich_compare_bool(b, PyComparisonOp.Eq, self)
+        return a.rich_compare_bool(b, slot.PyComparisonOp.Eq, self)
 
     def identical_or_equal(self, a: PyObject, b: PyObject) -> bool:
         return a.is_(b) or self.bool_eq(a, b)
 
     def bool_seq_lt(self, a: PyObject, b: PyObject) -> Optional[bool]:
-        if a.rich_compare_bool(b, PyComparisonOp.Lt, self):
+        if a.rich_compare_bool(b, slot.PyComparisonOp.Lt, self):
             return True
         elif not self.bool_eq(a, b):
             return False
@@ -849,7 +869,7 @@ class VirtualMachine:
             return None
 
     def bool_seq_gt(self, a: PyObject, b: PyObject) -> Optional[bool]:
-        if a.rich_compare_bool(b, PyComparisonOp.Gt, self):
+        if a.rich_compare_bool(b, slot.PyComparisonOp.Gt, self):
             return True
         elif not self.bool_eq(a, b):
             return False
@@ -859,6 +879,23 @@ class VirtualMachine:
     def map_codeobj(self, code: CodeObject) -> CodeObject:
         # FIXME
         return code
+
+    # original name: `__module_set_attr`
+    def module_set_attr(
+        self, module: PyObject, attr_name: PyStrRef, attr_value: PyObjectRef
+    ) -> None:
+        pyobject.generic_setattr(module, attr_name, attr_value, self)
+
+    def new_module(self, name: str, dict: PyDictRef, doc: Optional[str]) -> PyObjectRef:
+        module = prc.PyRef.new_ref(
+            pymodule.PyModule(), self.ctx.types.module_type, dict
+        )
+        module._.init_module_dict(
+            self.mk_str(name),
+            self.mk_str(doc) if doc is not None else self.ctx.get_none(),
+            self,
+        )
+        return module
 
     def length_hint_opt(self, iter: PyObjectRef) -> Optional[int]:
         try:
@@ -872,7 +909,7 @@ class VirtualMachine:
             return None
 
         try:
-            result = self.invoke(hint_method, FuncArgs())
+            result = self.invoke(hint_method, vm_function_.FuncArgs())
         except PyImplException as e:
             if e.exception.isinstance(self.ctx.exceptions.type_error):
                 return None
@@ -885,7 +922,7 @@ class VirtualMachine:
         hint = result.payload_if_subclass(PyInt, self)
         if hint is None:
             self.new_type_error(
-                f"'{result.class_().payload.name()}' object cannot be interpreted as an integer"
+                f"'{result.class_()._.name()}' object cannot be interpreted as an integer"
             )
 
         hint_i = hint.as_int()
@@ -902,7 +939,7 @@ class VirtualMachine:
             except PyImplBase as _:
                 return PyStr.from_str("<element repr() failed>", self.ctx)
 
-        args = varargs.payload.as_slice()
+        args = varargs._.as_slice()
         if len(args) == 0:
             return []
         elif len(args) == 1:

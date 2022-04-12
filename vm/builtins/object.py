@@ -1,15 +1,24 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
-from common.error import PyImplBase
+from common.error import PyImplBase, PyImplException
+
 if TYPE_CHECKING:
     from vm.builtins.dict import PyDictRef
     from vm.builtins.pystr import PyStrRef
     from vm.builtins.pytype import PyTypeRef
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl, tp_flags
+    from vm.pyobject import (
+        PyClassImpl,
+        PyContext,
+        PyValueMixin,
+        pyclass,
+        pyimpl,
+        tp_flags,
+    )
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+
 
 @po.tp_flags(basetype=True)
 @po.pyimpl()
@@ -43,10 +52,33 @@ def generic_getattr(
     return vm.generic_getattribute(obj, attr_name)
 
 
-# TODO:
-# def generic_setattr(
-#     obj: PyObject, attr_name: PyStrRef, value: Optional[PyObjectRef], vm: VirtualMachine
-# ) -> None:
+def generic_setattr(
+    obj: PyObject, attr_name: PyStrRef, value: Optional[PyObjectRef], vm: VirtualMachine
+) -> None:
+    if (attr := obj.get_class_attr(attr_name._.as_str())) is not None:
+        descr_set = attr.class_()._.mro_find_map(lambda cls: cls.slots.descr_set)
+        if descr_set is not None:
+            return descr_set(attr, obj, value, vm)
+
+    if (dict := obj.dict) is not None:
+        if value is not None:
+            dict.set_item(attr_name, value, vm)
+        else:
+            try:
+                dict.del_item(attr_name, vm)
+            except PyImplException as e:
+                if e.exception.isinstance(vm.ctx.exceptions.key_error):
+                    vm.new_attribute_error(
+                        f"'{obj.class_()._.name()}' object has no attribute '{attr_name}'"
+                    )
+                else:
+                    raise e
+            else:
+                return
+    else:
+        vm.new_attribute_error(
+            f"'{obj.class_()._.name()}' object has no attribute '{attr_name}'"
+        )
 
 
 # TODO:

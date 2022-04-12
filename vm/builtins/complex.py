@@ -7,15 +7,19 @@ from common.error import PyImplBase
 from common.hash import PyHash
 
 if TYPE_CHECKING:
-    from vm.builtins.float import PyFloat, to_op_float
+    from vm.builtins.float import PyFloat
     from vm.builtins.pystr import PyStr
     from vm.builtins.pytype import PyTypeRef
     from vm.pyobject import PyComparisonValue, PyContext
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.types.slot import PyComparisonOp
     from vm.vm import VirtualMachine
+
 import vm.pyobject as po
+import vm.pyobjectrc as prc
 import vm.types.slot as slot
+import vm.builtins.float as pyfloat
+import vm.builtins.pystr as pystr
 
 
 @po.tp_flags(basetype=True)
@@ -37,7 +41,7 @@ class PyComplex(
 
     @staticmethod
     def new_ref(value: complex, ctx: PyContext) -> PyRef[PyComplex]:
-        return PyRef.new_ref(PyComplex(value), ctx.types.complex_type, None)
+        return prc.PyRef.new_ref(PyComplex(value), ctx.types.complex_type, None)
 
     def to_complex(self) -> complex:
         return self.value
@@ -49,15 +53,15 @@ class PyComplex(
 
     @pyproperty()
     def get_real(self, *, vm: VirtualMachine) -> PyObjectRef:
-        return PyFloat.from_(self.value.real).into_ref(vm)
+        return pyfloat.PyFloat.from_(self.value.real).into_ref(vm)
 
     @pyproperty()
     def get_imag(self, *, vm: VirtualMachine) -> PyObjectRef:
-        return PyFloat.from_(self.value.imag).into_ref(vm)
+        return pyfloat.PyFloat.from_(self.value.imag).into_ref(vm)
 
     @pymethod()
     def i__abs__(self, *, vm: VirtualMachine) -> PyObjectRef:
-        return PyFloat.from_(abs(self.value)).into_ref(vm)
+        return pyfloat.PyFloat.from_(abs(self.value)).into_ref(vm)
 
     def op(
         self,
@@ -116,7 +120,7 @@ class PyComplex(
 
     @pymethod()
     def i__repr__(self, *, vm: VirtualMachine) -> PyObjectRef:
-        return PyStr(repr(self.value)).into_ref(vm)
+        return pystr.PyStr(repr(self.value)).into_ref(vm)
 
     @pymethod()
     def i__bool__(self, *, vm: VirtualMachine) -> PyObjectRef:
@@ -157,15 +161,15 @@ class PyComplex(
     ) -> PyComparisonValue:
         def do() -> PyComparisonValue:
             if (value := other.payload_if_subclass(PyComplex, vm)) is not None:
-                return PyComparisonValue(zelf.payload.value == value.value)
+                return PyComparisonValue(zelf._.value == value.value)
             else:
                 try:
-                    value = to_op_float(other, vm)
+                    value = pyfloat.to_op_float(other, vm)
                 except PyImplBase:
                     return PyComparisonValue(False)
                 else:
                     if value is not None:
-                        return PyComparisonValue(zelf.payload.value == value)
+                        return PyComparisonValue(zelf._.value == value)
                     else:
                         return PyComparisonValue(None)
 
@@ -173,7 +177,7 @@ class PyComplex(
 
     @classmethod
     def hash(cls, zelf: PyRef[PyComplex], vm: VirtualMachine) -> PyHash:
-        return hash(zelf.payload.value)
+        return hash(zelf._.value)
 
 
 # TODO: impl PyObjectRef @ 41 : `try_complex(self, vm)`
@@ -183,7 +187,7 @@ def to_op_complex(value: PyObjectRef, vm: VirtualMachine) -> Optional[complex]:
     if (complex_ := value.payload_if_subclass(PyComplex, vm)) is not None:
         return complex_.value
     else:
-        r = to_op_float(value, vm)
+        r = pyfloat.to_op_float(value, vm)
         if r is None:
             return None
         return complex(r)

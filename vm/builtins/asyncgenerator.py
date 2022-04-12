@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, TypeAlias
+from typing import TYPE_CHECKING, Callable, Optional, TypeAlias
 
-from common.deco import pyclassmethod, pymethod, pyproperty
+from common.error import PyImplBase, PyImplException, unreachable
+from vm.protocol.iter import PyIterReturnStopIteration
 
 if TYPE_CHECKING:
     from vm.builtins.code import PyCode
@@ -14,18 +15,18 @@ if TYPE_CHECKING:
     from vm.coroutine import Coro
     from vm.frame import FrameRef
     from vm.protocol.iter import PyIterReturn
-    from vm.pyobject import (
-        # PyClassImpl,
-        PyContext,
-        # TryFromObjectMixin,
-    )
-    from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
+    from vm.pyobject import PyContext
+    from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 
+from common.deco import pyclassmethod, pymethod, pyproperty
 import vm.pyobject as po
+import vm.coroutine as coroutine
+import vm.builtins.genericalias as pygenericalias
+import vm.types.slot as slot
 
 
-@po.pyimpl(constructor=True)
+@po.pyimpl(constructor=False)
 @po.pyclass("async_generator")
 @dataclass
 class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
@@ -41,11 +42,11 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
 
     @staticmethod
     def new(frame: FrameRef, name: PyStrRef) -> PyAsyncGen:
-        return PyAsyncGen(inner=Coro.new(frame, name), running_async=False)
+        return PyAsyncGen(inner=coroutine.Coro.new(frame, name), running_async=False)
 
     @pyproperty()
     def get_name(self) -> PyStrRef:
-        return self.inner.name()
+        return self.inner.name
 
     @pyproperty()
     def set_name(self, name: PyStrRef) -> None:
@@ -54,7 +55,7 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
     @pymethod()
     @staticmethod
     def i__repr__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> str:
-        return zelf.payload.inner.repr(zelf.as_object(), zelf.get_id(), vm)
+        return zelf._.inner.repr(zelf.as_object(), zelf.get_id(), vm)
 
     @pymethod()
     @staticmethod
@@ -64,34 +65,34 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
     @pymethod()
     @staticmethod
     def i__anext__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyAsyncGenASend:
-        return PyAsyncGen.i__asend__(zelf, vm.ctx.get_none(), vm)
+        return PyAsyncGen.asend(zelf, vm.ctx.get_none(), vm)
 
     @pymethod()
     @staticmethod
-    def i__asend__(
+    def asend(
         zelf: PyRef[PyAsyncGen], value: PyObjectRef, vm: VirtualMachine
     ) -> PyAsyncGenASend:
         return PyAsyncGenASend(ag=zelf, state=AwaitableState.Init, value=value)
 
     @pymethod()
     @staticmethod
-    def i__athrow__(
+    def athrow(
         zelf: PyRef[PyAsyncGen],
         exc_type: PyObjectRef,
-        exc_val: OptionalArg,
-        exc_tb: OptionalArg,
+        exc_val: Optional[PyObjectRef],
+        exc_tb: Optional[PyObjectRef],
         vm: VirtualMachine,
     ) -> PyAsyncGenAThrow:
         return PyAsyncGenAThrow(
             ag=zelf,
             aclose=False,
             state=AwaitableState.Init,
-            value=(exc_type, exc_val.unwrap_or_none(vm), exc_tb.unwrap_or_none(vm)),
+            value=(exc_type, vm.unwrap_or_none(exc_val), vm.unwrap_or_none(exc_tb)),
         )
 
     @pymethod()
     @staticmethod
-    def i__aclose__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyAsyncGenAThrow:
+    def aclose(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyAsyncGenAThrow:
         return PyAsyncGenAThrow(
             ag=zelf,
             aclose=True,
@@ -105,26 +106,26 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
 
     @pyproperty()
     def get_ag_await(self, vm: VirtualMachine) -> Optional[PyObjectRef]:
-        return self.inner.frame().yield_from_target()
+        return self.inner.frame._.yield_from_target()
 
     @pyproperty()
-    def get_ag_frame(self, vm: VirtualMachine) -> FrameRef:
-        return self.inner.frame()
+    def get_ag_frame(self, vm: VirtualMachine) -> PyObjectRef:
+        return self.inner.frame
 
     @pyproperty()
-    def get_ag_running(self, vm: VirtualMachine) -> bool:
-        return self.inner.running()
+    def get_ag_running(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_bool(self.inner.running)
 
     @pyproperty()
-    def get_ag_code(self, vm: VirtualMachine) -> PyRef[PyCode]:
-        return self.inner.frame().code
+    def get_ag_code(self, vm: VirtualMachine) -> PyObjectRef:
+        return self.inner.frame._.code
 
     @pyclassmethod()
     @staticmethod
     def i__getitem__(
         class_: PyTypeRef, args: PyObjectRef, vm: VirtualMachine
     ) -> PyGenericAlias:
-        return PyGenericAlias.new(class_, args, vm)
+        return pygenericalias.PyGenericAlias.new(class_, args, vm)
 
 
 PyAsyncGenRef: TypeAlias = "PyRef[PyAsyncGen]"
@@ -141,11 +142,38 @@ class PyAsyncGenWrappedValue(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMi
         return vm.ctx.types.async_generator_wrapped_value
 
     @staticmethod
-    def unbox(ag: PyAsyncGen, val: PyIterReturn, vm: VirtualMachine) -> PyObjectRef:
-        raise NotImplementedError
+    def unbox(
+        ag: PyAsyncGen, get_val: Callable[[], PyIterReturn], vm: VirtualMachine
+    ) -> PyObjectRef:
 
+        try:
+            val = get_val()
+        except PyImplException as e:
+            ag.running_async = True
+            if e.exception.isinstance(vm.ctx.exceptions.generator_exit):
+                ag.inner.closed = True
+            else:
+                ag.inner.closed = False
+            raise
+        except PyImplBase as _:
+            ag.inner.closed = False
+            ag.running_async = True
+            raise
+        if isinstance(val, PyIterReturnStopIteration):
+            ag.inner.closed = ag.running_async = True
+        else:
+            ag.inner.closed = ag.running_async = False
 
-# TODO @po.pyimpl PyAsyncGenWrappedvalue
+        val = val.into_async_pyresult(vm)
+
+        # FIXME: match_class!
+        try:
+            wr = val.downcast(PyAsyncGenWrappedValue)  # match_class!(val @ Self)
+        except PyImplBase as _:
+            return val
+        else:
+            ag.running_async = False
+            vm.new_stop_iteration(wr._.value)
 
 
 class AwaitableState(enum.Enum):
@@ -157,7 +185,13 @@ class AwaitableState(enum.Enum):
 @po.pyimpl(iter_next=True)
 @po.pyclass("async_generator_asend")
 @dataclass
-class PyAsyncGenASend(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
+class PyAsyncGenASend(
+    po.TryFromObjectMixin,
+    po.PyClassImpl,
+    po.PyValueMixin,
+    slot.IterNextMixin,
+    slot.IterNextIterableMixin,
+):
     ag: PyAsyncGenRef
     state: AwaitableState
     value: PyObjectRef
@@ -166,15 +200,122 @@ class PyAsyncGenASend(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.async_generator_asend
 
+    @pymethod()
+    @staticmethod
+    def i__await__(
+        zelf: PyRef[PyAsyncGenASend], vm: VirtualMachine
+    ) -> PyRef[PyAsyncGenASend]:
+        return zelf
+
+    @pymethod()
+    def send(self, val: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        if self.state == AwaitableState.Closed:
+            vm.new_runtime_error("cannot reuse already awaited __anext__()/asend()")
+        elif self.state == AwaitableState.Iter:
+            pass
+        elif self.state == AwaitableState.Init:
+            if self.ag._.running_async:
+                vm.new_runtime_error(
+                    "anext(): asynchronous generator is already running"
+                )
+            self.ag._.running_async = True
+            self.state = AwaitableState.Iter
+            if vm.is_none(val):
+                val = self.value
+        else:
+            assert False, self.state
+
+        try:
+            return PyAsyncGenWrappedValue.unbox(
+                self.ag._,
+                lambda: self.ag._.inner.send(self.ag, val, vm),
+                vm,
+            )
+        except PyImplBase as _:
+            self.close()
+            raise
+        unreachable()
+
+    @pymethod()
+    def throw(
+        self,
+        exc_type: PyObjectRef,
+        exc_val: Optional[PyObjectRef],
+        exc_tb: Optional[PyObjectRef],
+        vm: VirtualMachine,
+    ) -> PyObjectRef:
+        if self.state == AwaitableState.Closed:
+            vm.new_runtime_error("cannot reuse already awaited __anext__()/asend()")
+
+        try:
+            return PyAsyncGenWrappedValue.unbox(
+                self.ag._,
+                lambda: self.ag._.inner.throw(
+                    self.ag,
+                    exc_type,
+                    vm.unwrap_or_none(exc_val),
+                    vm.unwrap_or_none(exc_tb),
+                    vm,
+                ),
+                vm,
+            )
+        except PyImplException as _:
+            self.close()
+            raise
+
+    @pymethod()
+    def close(self, vm: VirtualMachine) -> None:
+        self.state = AwaitableState.Closed
+
+    @classmethod
+    def next(cls, zelf: PyRef[PyAsyncGenASend], vm: VirtualMachine) -> PyIterReturn:
+        return PyIterReturn.from_pyresult(
+            lambda: zelf._.send(vm.ctx.get_none(), vm), vm
+        )
+
 
 @po.pyimpl(iter_next=True)
 @po.pyclass("async_generator_athrow")
 @dataclass
-class PyAsyncGenAThrow(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
+class PyAsyncGenAThrow(
+    po.TryFromObjectMixin,
+    po.PyClassImpl,
+    po.PyValueMixin,
+    slot.IterNextMixin,
+    slot.IterNextIterableMixin,
+):
     ag: PyAsyncGenRef
     aclose: bool
     state: AwaitableState
     value: tuple[PyObjectRef, PyObjectRef, PyObjectRef]
+
+    @classmethod
+    def class_(cls, vm: VirtualMachine) -> PyTypeRef:
+        return vm.ctx.types.async_generator_athrow
+
+    @pymethod()
+    def send(self, val: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        raise NotImplementedError
+
+    @pymethod()
+    def throw(
+        self,
+        exc_type: PyObjectRef,
+        exc_val: Optional[PyObjectRef],
+        exc_tb: Optional[PyObjectRef],
+        vm: VirtualMachine,
+    ) -> PyObjectRef:
+        raise NotImplementedError
+
+    @pymethod()
+    def close(self, vm: VirtualMachine) -> None:
+        self.state = AwaitableState.Closed
+
+    @classmethod
+    def next(cls, zelf: PyRef[PyAsyncGenAThrow], vm: VirtualMachine) -> PyIterReturn:
+        return PyIterReturn.from_pyresult(
+            lambda: zelf._.send(vm.ctx.get_none(), vm), vm
+        )
 
 
 def init(ctx: PyContext) -> None:

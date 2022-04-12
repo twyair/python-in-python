@@ -12,6 +12,16 @@ from bytecode.bytecode import (
     CodeFlags,
     CodeObject,
     ConstantData,
+    ConstantDataBoolean,
+    ConstantDataBytes,
+    ConstantDataCode,
+    ConstantDataComplex,
+    ConstantDataEllipsis,
+    ConstantDataFloat,
+    ConstantDataInteger,
+    ConstantDataNone,
+    ConstantDataStr,
+    ConstantDataTuple,
     ConversionFlag,
     RaiseKind,
 )
@@ -33,6 +43,7 @@ from compiler.symboltable import (
     mangle_name,
 )
 from indexset import IndexSet
+from vm.builtins.code import PyConstant
 
 
 class NameUsage(enum.Enum):
@@ -343,7 +354,7 @@ class Compiler:
 
         statements, doc = get_doc(body)
         if doc is not None:
-            self.emit_constant(ConstantData[str](doc))
+            self.emit_constant(ConstantDataStr(doc))
             self.emit(instruction.StoreGlobal(self.name("__doc__")))
 
         if self.find_ann(statements):
@@ -500,7 +511,7 @@ class Compiler:
 
         if isinstance(statement, ast.Import):
             for name in statement.names:
-                self.emit_constant(ConstantData[int](0))
+                self.emit_constant(ConstantDataInteger(0))
                 self.emit_none()
                 idx = self.name(name.name)
                 self.emit(instruction.ImportName(idx))
@@ -522,16 +533,16 @@ class Compiler:
                         (),
                         Location.from_ast(statement),
                     )
-                from_list = (ConstantData[str]("*"),)
+                from_list = (ConstantDataStr("*"),)
             else:
-                from_list = tuple(ConstantData[str](n.name) for n in statement.names)
+                from_list = tuple(ConstantDataStr(n.name) for n in statement.names)
 
             module_idx = None
             if statement.module is not None:
                 module_idx = self.name(statement.module)
 
-            self.emit_constant(ConstantData[int](statement.level))
-            self.emit_constant(ConstantData[tuple](from_list))
+            self.emit_constant(ConstantDataInteger(statement.level))
+            self.emit_constant(ConstantDataTuple(from_list))
             if module_idx is not None:
                 self.emit(instruction.ImportName(module_idx))
             else:
@@ -717,7 +728,7 @@ class Compiler:
         num_kw_only_defaults = 0
         for kw, default in zip(args.kwonlyargs, args.kw_defaults):
             if default is not None:
-                self.emit_constant(ConstantData[str](kw.arg))
+                self.emit_constant(ConstantDataStr(kw.arg))
                 self.compile_expression(default)
                 num_kw_only_defaults += 1
         if num_kw_only_defaults > 0:
@@ -874,7 +885,7 @@ class Compiler:
         num_annotations = 0
 
         if returns is not None:
-            self.emit_constant(ConstantData[str]("return"))
+            self.emit_constant(ConstantDataStr("return"))
             self.compile_annotation(returns)
             num_annotations += 1
 
@@ -885,7 +896,7 @@ class Compiler:
             args_iter.append(args.kwarg)
         for arg in args_iter:
             if arg.annotation is not None:
-                self.emit_constant(ConstantData[str](self.mangle(arg.arg)))
+                self.emit_constant(ConstantDataStr(self.mangle(arg.arg)))
                 self.compile_annotation(arg.annotation)
                 num_annotations += 1
 
@@ -898,8 +909,8 @@ class Compiler:
         if self.build_closure(code):
             funcflags |= MakeFunctionFlags.CLOSURE
 
-        self.emit_constant(ConstantData[CodeObject](code))
-        self.emit_constant(ConstantData[str](qualified_name))
+        self.emit_constant(ConstantDataCode(code))
+        self.emit_constant(ConstantDataStr(qualified_name))
 
         self.emit(instruction.MakeFunction(funcflags))
 
@@ -992,7 +1003,7 @@ class Compiler:
         self.emit(instruction.LoadGlobal(dunder_name))
         dunder_module = self.name("__module__")
         self.emit(instruction.StoreLocal(dunder_module))
-        self.emit_constant(ConstantData[str](qualified_name))
+        self.emit_constant(ConstantDataStr(qualified_name))
         qualname = self.name("__qualname__")
         self.emit(instruction.StoreLocal(qualname))
         self.load_docstring(doc_str)
@@ -1027,12 +1038,12 @@ class Compiler:
         if self.build_closure(code):
             funcflags |= MakeFunctionFlags.CLOSURE
 
-        self.emit_constant(ConstantData[CodeObject](code))
-        self.emit_constant(ConstantData[str](name))
+        self.emit_constant(ConstantDataCode(code))
+        self.emit_constant(ConstantDataStr(name))
 
         self.emit(instruction.MakeFunction(funcflags))
 
-        self.emit_constant(ConstantData[str](qualified_name))
+        self.emit_constant(ConstantDataStr(qualified_name))
 
         call = self.compile_call_inner(2, bases, keywords)
         self.emit(call.normal_call())
@@ -1043,9 +1054,7 @@ class Compiler:
 
     def load_docstring(self, doc_str: Optional[str]) -> None:
         self.emit_constant(
-            ConstantData[str](doc_str)
-            if doc_str is not None
-            else ConstantData[None](None)
+            ConstantDataStr(doc_str) if doc_str is not None else ConstantDataNone()
         )
 
     def compile_while(
@@ -1220,7 +1229,7 @@ class Compiler:
 
     def compile_annotation(self, annotation: ast.expr) -> None:
         if self.future_annotations:
-            self.emit_constant(ConstantData[str](ast2str(annotation)))
+            self.emit_constant(ConstantDataStr(ast2str(annotation)))
         else:
             self.compile_expression(annotation)
 
@@ -1239,7 +1248,7 @@ class Compiler:
         if isinstance(target, ast.Name):
             annotations = self.name("__annotations__")
             self.emit(instruction.LoadNameAny(annotations))
-            self.emit_constant(ConstantData[str](self.mangle(target.id)))
+            self.emit_constant(ConstantDataStr(self.mangle(target.id)))
             self.emit(instruction.StoreSubscript())
         else:
             self.emit(instruction.Pop())
@@ -1521,7 +1530,7 @@ class Compiler:
             self.emit(instruction.YieldFrom())
         elif isinstance(expr, ast.JoinedStr):
             if (value := try_get_constant_string(expr.values)) is not None:
-                self.emit_constant(ConstantData[str](value))
+                self.emit_constant(ConstantDataStr(value))
             else:
                 for value in expr.values:
                     self.compile_expression(value)
@@ -1530,7 +1539,7 @@ class Compiler:
             if expr.format_spec is not None:
                 self.compile_expression(expr.format_spec)
             else:
-                self.emit_constant(ConstantData[str](""))
+                self.emit_constant(ConstantDataStr(""))
             self.compile_expression(expr.value)
             self.emit(instruction.FormatValue(compile_conversion_flag(expr.conversion)))
         elif isinstance(expr, ast.Name):
@@ -1550,8 +1559,8 @@ class Compiler:
             code = self.pop_code_object()
             if self.build_closure(code):
                 funcflags |= MakeFunctionFlags.CLOSURE
-            self.emit_constant(ConstantData[CodeObject](code))
-            self.emit_constant(ConstantData[str](name))
+            self.emit_constant(ConstantDataCode(code))
+            self.emit_constant(ConstantDataStr(name))
             self.emit(instruction.MakeFunction(funcflags))
 
             self.ctx = prev_ctx
@@ -1630,7 +1639,7 @@ class Compiler:
             subsize = len(group_1)
             for keyword in group_1:
                 assert keyword.arg is not None
-                self.emit_constant(ConstantData[str](keyword.arg))
+                self.emit_constant(ConstantDataStr(keyword.arg))
                 self.compile_expression(keyword.value)
             self.emit(instruction.BuildMap(size=subsize, unpack=False, for_call=False))
             size += 1
@@ -1681,11 +1690,11 @@ class Compiler:
             kwarg_names = []
             for keyword in keywords:
                 if keyword.arg is not None:
-                    kwarg_names.append(ConstantData[str](keyword.arg))
+                    kwarg_names.append(ConstantDataStr(keyword.arg))
                 else:
                     assert False, "name must be set"
                 self.compile_expression(keyword.value)
-            self.emit_constant(ConstantData[tuple](tuple(kwarg_names)))
+            self.emit_constant(ConstantDataTuple(tuple(kwarg_names)))
             call = CallTypeKeyword(count)
         else:
             call = CallTypePositional(count)
@@ -1807,9 +1816,9 @@ class Compiler:
         if self.build_closure(code):
             funcflags |= MakeFunctionFlags.CLOSURE
 
-        self.emit_constant(ConstantData[CodeObject](code))
+        self.emit_constant(ConstantDataCode(code))
 
-        self.emit_constant(ConstantData[str](name))
+        self.emit_constant(ConstantDataStr(name))
 
         self.emit(instruction.MakeFunction(funcflags))
 
@@ -1842,11 +1851,11 @@ class Compiler:
 
     def emit_constant(self, constant: ConstantData) -> None:
         info = self.current_codeinfo()
-        idx = info.constants.insert_full(constant)[0]
+        idx = info.constants.insert_full(PyConstant(constant))[0]
         self.emit(instruction.LoadConst(idx))
 
     def emit_none(self) -> None:
-        self.emit_constant(ConstantData[None](None))
+        self.emit_constant(ConstantDataNone())
 
     def current_codeinfo(self) -> CodeInfo:
         return self.code_stack[-1]
@@ -1956,23 +1965,23 @@ def compile_conversion_flag(c: Optional[int]) -> ConversionFlag:
 def compile_constant(value: ast.Constant) -> ConstantData:
     value = value.value
     if value is None:
-        return ConstantData[None](None)
+        return ConstantDataNone()
     if value is ...:
-        return ConstantData(...)
+        return ConstantDataEllipsis()
     elif isinstance(value, bool):
-        return ConstantData[bool](value)
+        return ConstantDataBoolean(value)
     elif isinstance(value, int):
-        return ConstantData[int](value)
+        return ConstantDataInteger(value)
     elif isinstance(value, float):
-        return ConstantData[float](value)
+        return ConstantDataFloat(value)
     elif isinstance(value, complex):
-        return ConstantData[complex](value)
+        return ConstantDataComplex(value)
     elif isinstance(value, str):
-        return ConstantData[str](value)
+        return ConstantDataStr(value)
     elif isinstance(value, bytes):
-        return ConstantData[bytes](value)
+        return ConstantDataBytes(value)
     elif isinstance(value, tuple):
-        return ConstantData[tuple](tuple(compile_constant(c) for c in value))
+        return ConstantDataTuple(tuple(compile_constant(c) for c in value))
     else:
         assert False, value
 

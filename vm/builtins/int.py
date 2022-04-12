@@ -1,29 +1,33 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, TypeAlias
+from common.hash import PyHash
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
-    from vm.pyobject import (
-        PyContext
-    )
+    from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObject, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+import vm.types.slot as slot
+
 
 @po.tp_flags(basetype=True)
 @po.pyimpl(constructor=True, comparable=True, hashable=True)
 @po.pyclass("int")
 @dataclass
-class PyInt(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
+class PyInt(
+    po.PyClassImpl,
+    po.PyValueMixin,
+    po.TryFromObjectMixin,
+    slot.HashableMixin,
+    slot.ComparableMixin,
+):
     value: int
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.int_type
-
-    # def into_object(self, vm: VirtualMachine) -> PyObjectRef:
-    #     return vm.ctx.new_int(self.value)
 
     @staticmethod
     def special_retrieve(vm: VirtualMachine, obj: PyObject) -> Optional[PyRef[PyInt]]:
@@ -32,12 +36,6 @@ class PyInt(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     @staticmethod
     def from_(value: int) -> PyInt:
         return PyInt(value)
-
-    # def into_ref(self, vm: VirtualMachine) -> PyIntRef:
-    #     return PyRef[PyInt](vm.ctx.types.int_type, None, self)
-
-    # def into_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
-    #     return self.into_ref(vm)
 
     @staticmethod
     def with_value(class_: PyTypeRef, value, vm: VirtualMachine) -> PyIntRef:
@@ -53,15 +51,32 @@ class PyInt(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
 
     # TODO: impl Constructor for PyInt
     # TODO: impl PyInt @ 320
-    # TODO: impl Comparable for PyInt
-    # TODO: impl Hashable for PyInt
+
+    @classmethod
+    def cmp(
+        cls,
+        zelf: PyRef[PyInt],
+        other: PyObject,
+        op: slot.PyComparisonOp,
+        vm: VirtualMachine,
+    ) -> slot.PyComparisonValue:
+        if (r := other.payload_if_subclass(PyInt, vm)) is not None:
+            return slot.PyComparisonValue(op.eval_(zelf._.value, r.value))
+        else:
+            return slot.PyComparisonValue(None)
+
+    @classmethod
+    def hash(cls, zelf: PyRef[PyInt], vm: VirtualMachine) -> PyHash:
+        return hash(zelf._.as_int())
 
 
 PyIntRef: TypeAlias = "PyRef[PyInt]"
 
 
 def get_value(obj: PyObject) -> int:
-    return obj.payload_(PyInt).value
+    r = obj.payload_(PyInt)
+    assert r is not None
+    return r.value
 
 
 # TODO:

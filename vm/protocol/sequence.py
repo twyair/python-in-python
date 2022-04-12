@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional
+
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObject, PyObjectRef
     from vm.vm import VirtualMachine
@@ -38,7 +39,7 @@ class PySequence:
     def methods_(self, vm: VirtualMachine) -> PySequenceMethods:
         cls = self.obj.class_()
         if not cls.is_(vm.ctx.types.dict_type):
-            f = cls.payload.mro_find_map(lambda x: x.slots.as_sequence)
+            f = cls._.mro_find_map(lambda x: x.slots.as_sequence)
             if f is not None:
                 self.methods = f(self.obj, vm)
                 return self.methods

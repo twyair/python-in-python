@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from vm.vm import VirtualMachine
     from vm.builtins.iter import PySequenceIterator
 
+
 @dataclass
 class PyIter:
     value: PyObjectRef
@@ -22,13 +23,13 @@ class PyIter:
 
     @staticmethod
     def check(obj: PyObjectRef) -> bool:
-        return obj.class_().payload.mro_find_map(lambda x: x.slots.iternext) is not None
+        return obj.class_()._.mro_find_map(lambda x: x.slots.iternext) is not None
 
     def next(self, vm: VirtualMachine) -> PyIterReturn:
-        iternext = self.value.class_().payload.mro_find_map(lambda x: x.slots.iternext)
+        iternext = self.value.class_()._.mro_find_map(lambda x: x.slots.iternext)
         if iternext is None:
             vm.new_type_error(
-                f"'{self.value.class_().payload.name()}' object is not an iterator"
+                f"'{self.value.class_()._.name()}' object is not an iterator"
             )
         return iternext(self.value, vm)
 
@@ -50,23 +51,21 @@ class PyIter:
 
     @staticmethod
     def try_from_object(vm: VirtualMachine, obj: PyObjectRef) -> PyIter:
-        getiter = obj.class_().payload.mro_find_map(lambda x: x.slots.iter)
+        getiter = obj.class_()._.mro_find_map(lambda x: x.slots.iter)
         if getiter is not None:
             iter = getiter(obj, vm)
             if PyIter.check(iter):
                 return PyIter(obj)
             else:
                 vm.new_type_error(
-                    f"iter() returned non-iterator of type '{iter.class_().payload.name()}'"
+                    f"iter() returned non-iterator of type '{iter.class_()._.name()}'"
                 )
         else:
             try:
                 seq_iter = PySequenceIterator.new(obj, vm)
                 return PyIter(seq_iter.into_object(vm))
             except PyImplError as _:
-                vm.new_type_error(
-                    f"'{obj.class_().payload.name()}' object is not iterable"
-                )
+                vm.new_type_error(f"'{obj.class_()._.name()}' object is not iterable")
 
 
 T = TypeVar("T")
@@ -82,7 +81,7 @@ class PyIterReturn(Generic[T]):
             return PyIterReturnReturn(result())
         except PyImplException as err:
             if err.exception.isinstance(vm.ctx.exceptions.stop_iteration):
-                return PyIterReturnStopIteration(err.exception.payload.get_arg(0))
+                return PyIterReturnStopIteration(err.exception._.get_arg(0))
             raise
 
     @staticmethod

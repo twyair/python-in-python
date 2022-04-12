@@ -1,11 +1,24 @@
 from __future__ import annotations
+from abc import abstractmethod, ABC
 
 import enum
 from dataclasses import dataclass
-from typing import ClassVar, Generic, Optional, Protocol, Type, TypeVar, TYPE_CHECKING
+from typing import (
+    ClassVar,
+    Generic,
+    Optional,
+    Protocol,
+    Type,
+    TypeVar,
+    TYPE_CHECKING,
+    Union,
+)
+
 
 if TYPE_CHECKING:
     from bytecode.instruction import Instruction, Label
+    from vm.vm import VirtualMachine
+    from vm.pyobjectrc import PyObjectRef
 
 
 @dataclass
@@ -14,17 +27,112 @@ class Location:
     column: int
 
 
-CT = TypeVar(
-    "CT", int, tuple, float, complex, bool, str, bytes, None, type(...), "CodeObject"
-)
-
-
-@dataclass(unsafe_hash=True)
-class ConstantData(Generic[CT]):
-    value: CT
-
+@dataclass
+class ConstantData(ABC):
     def __eq__(self, rhs: ConstantData) -> bool:
-        return type(self.value) == type(rhs.value) and self.value == rhs.value
+        assert (
+            isinstance(self, UnionConstantData)
+            and not isinstance(self, (ConstantDataNone, ConstantDataEllipsis))
+            and isinstance(rhs, UnionConstantData)
+            and not isinstance(rhs, (ConstantDataNone, ConstantDataEllipsis))
+        )
+        if type(self) != type(rhs):
+            return False
+        return self.value == rhs.value
+
+    @abstractmethod
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        ...
+
+
+@dataclass
+class ConstantDataTuple(ConstantData):
+    value: tuple[ConstantData]
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_tuple([x.to_pyobj(vm) for x in self.value])
+
+
+@dataclass
+class ConstantDataInteger(ConstantData):
+    value: int
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_int(self.value)
+
+
+@dataclass
+class ConstantDataFloat(ConstantData):
+    value: float
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_float(self.value)
+
+
+@dataclass
+class ConstantDataComplex(ConstantData):
+    value: complex
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_complex(self.value)
+
+
+@dataclass
+class ConstantDataBoolean(ConstantData):
+    value: bool
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_bool(self.value)
+
+
+@dataclass
+class ConstantDataStr(ConstantData):
+    value: str
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_str(self.value)
+
+
+@dataclass
+class ConstantDataBytes(ConstantData):
+    value: bytes
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_bytes(self.value)
+
+
+@dataclass
+class ConstantDataCode(ConstantData):
+    value: CodeObject
+
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.new_code(self.value)
+
+
+@dataclass
+class ConstantDataNone(ConstantData):
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.get_none()
+
+
+@dataclass
+class ConstantDataEllipsis(ConstantData):
+    def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.get_ellipsis()
+
+
+UnionConstantData = Union[
+    ConstantDataBytes,
+    ConstantDataBoolean,
+    ConstantDataCode,
+    ConstantDataComplex,
+    ConstantDataEllipsis,
+    ConstantDataFloat,
+    ConstantDataInteger,
+    ConstantDataNone,
+    ConstantDataStr,
+    ConstantDataTuple,
+]
 
 
 @dataclass

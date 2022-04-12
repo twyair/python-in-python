@@ -1,12 +1,111 @@
 from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Sequence, TypeAlias
+import inspect
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Optional,
+    Sequence,
+    TypeAlias,
+)
+import typing
 
 if TYPE_CHECKING:
     from vm.protocol.buffer import PyBuffer
     from vm.pyobjectrc import PyObject, PyObjectRef
     from vm.vm import VirtualMachine
+
+
+@dataclass
+# class BoundArgs:
+#     spec: ArgsSpec
+#     signature_name: str
+#     args: dict[str, PyObjectRef]
+#     # args_obj: inspect.BoundArguments
+
+#     # def get(self, signature_name: str) -> Optional[inspect.BoundArguments]:
+#     #     assert signature_name in self.spec.signatures, (
+#     #         signature_name,
+#     #         self.spec.signatures,
+#     #     )
+#     #     if signature_name == self.signature_name:
+#     #         return self.args
+#     #     else:
+#     #         return None
+
+#     def is_(self, name: str) -> bool:
+#         assert name in self.spec.signatures, (name, self.spec.signatures.keys())
+#         return self.signature_name == name
+
+#     def __getattr__(self, name: str) -> PyObjectRef:
+#         return self.args[name]
+
+
+# @dataclass
+# class signature:
+#     value: inspect.Signature
+
+#     def __init__(self, func: Callable[..., None]) -> None:
+#         self.value = inspect.signature(func)
+
+#     def bind(self, fargs: FuncArgs, apply_defaults=True) -> inspect.BoundArguments:
+#         return fargs.bind(self, apply_defaults=apply_defaults)
+
+
+# @dataclass
+# class ArgsSpec:
+#     signatures: dict[str, Signature]
+
+#     def bind_or_none(self, args: FuncArgs, /) -> Optional[BoundArgs]:
+#         for name, sig in self.signatures.items():
+#             try:
+#                 bs = sig.value.bind(*args.args, **args.kwargs)
+#             except TypeError as _:
+#                 pass
+#             else:
+#                 return BoundArgs(self, name, bs.arguments)
+#         return None
+
+#     def bind(self, args: FuncArgs, /, vm: VirtualMachine) -> BoundArgs:
+#         r = self.bind_or_none(args)
+#         if r is None:
+#             # TODO: improve error message
+#             vm.new_type_error("wrong arguments")
+#         return r
+
+
+# def args_spec(cls) -> ArgsSpec:
+#     signatures = {}
+
+#     for name, mem in inspect.getmembers(cls):
+#         if inspect.isfunction(mem) and not name.startswith("__"):
+#             sig = inspect.signature(mem)
+#             for n, p in sig.parameters.items():
+#                 assert (
+#                     p.default is inspect._empty
+#                 ), f"parameter {n} of method {name} has a default value"
+#             signatures[name] = sig
+
+#     return ArgsSpec(signatures)
+
+
+# @args_spec
+# class args_spec_single_optional_positional_only:
+#     @staticmethod
+#     def none():
+#         ...
+
+#     @staticmethod
+#     def one(x, /):
+#         ...
+
+
+# @args_spec
+# class args_spec_none:
+#     @staticmethod
+#     def none():
+#         ...
 
 
 @dataclass
@@ -49,6 +148,29 @@ class FuncArgs:
 
     def take_positional_arg(self) -> PyObjectRef:
         return self.take_positional(1)[0]
+
+    def take_positional_range(
+        self, start: int, stop: int
+    ) -> Optional[list[PyObjectRef]]:
+        if self.kwargs or not (start <= len(self.args) <= stop):
+            return None
+        return self.args
+
+    def take_positional_optional(
+        self, on_error: Callable[[], PyObjectRef]
+    ) -> Optional[PyObjectRef]:
+        args = self.take_positional_range(0, 1)
+        if args is None:
+            return on_error()
+        return args[0]
+
+    # def bind(
+    #     self, sig: signature, apply_defaults: bool = True
+    # ) -> inspect.BoundArguments:
+    #     args = sig.value.bind(*self.args, **self.kwargs)
+    #     if apply_defaults:
+    #         args.apply_defaults()
+    #     return args
 
 
 PyNativeFunc: TypeAlias = Callable[["VirtualMachine", FuncArgs], "PyObjectRef"]

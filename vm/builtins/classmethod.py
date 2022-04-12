@@ -9,16 +9,20 @@ if TYPE_CHECKING:
     from vm.function_ import FuncArgs
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObjectRef, PyRef
-    # from vm.types.slot import ConstructorMixin, GetDescriptorMixin
     from vm.vm import VirtualMachine
+
 from common.deco import pyproperty
 import vm.pyobject as po
+import vm.pyobjectrc as prc
 import vm.types.slot as slot
+
 
 @po.pyimpl(get_descriptor=True, constructor=True)
 @po.pyclass("classmethod")
 @dataclass
-class PyClassMethod(po.PyClassImpl, po.PyValueMixin, slot.GetDescriptorMixin, slot.ConstructorMixin):
+class PyClassMethod(
+    po.PyClassImpl, po.PyValueMixin, slot.GetDescriptorMixin, slot.ConstructorMixin
+):
     callable: PyObjectRef
 
     @classmethod
@@ -27,7 +31,9 @@ class PyClassMethod(po.PyClassImpl, po.PyValueMixin, slot.GetDescriptorMixin, sl
 
     @staticmethod
     def new_ref(callable: PyObjectRef, ctx: PyContext) -> PyRef[PyClassMethod]:
-        return PyRef.new_ref(PyClassMethod(callable), ctx.types.classmethod_type, None)
+        return prc.PyRef.new_ref(
+            PyClassMethod(callable), ctx.types.classmethod_type, None
+        )
 
     @staticmethod
     def descr_get(
@@ -39,7 +45,7 @@ class PyClassMethod(po.PyClassImpl, po.PyValueMixin, slot.GetDescriptorMixin, sl
         zelf_, obj_ = PyClassMethod._unwrap(zelf, PyClassMethod, obj, vm)
         if cls is None:
             cls = obj_.clone_class().into_pyobj(vm)
-        return PyBoundMethod.new_ref(cls, zelf_.payload.callable, vm.ctx)
+        return PyBoundMethod.new_ref(cls, zelf_._.callable, vm.ctx)
 
     @classmethod
     def py_new(

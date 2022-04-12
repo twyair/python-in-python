@@ -47,7 +47,7 @@ class PyBaseException(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
         self.cause = cause
 
     def get_arg(self, idx: int) -> PyObjectRef:
-        return self.args.payload.as_slice()[idx]
+        return self.args._.as_slice()[idx]
 
     def as_str(self, vm: VirtualMachine) -> PyStrRef:
         str_args = vm.exception_args_as_string(self.args, True)
@@ -57,7 +57,7 @@ class PyBaseException(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
             return str_args[0]
         else:
             return vm.ctx.new_str(
-                "({})".format(", ".join(s.payload.as_str() for s in str_args))
+                "({})".format(", ".join(s._.as_str() for s in str_args))
             )
 
     @pymethod()
@@ -75,20 +75,20 @@ def none_getter(vm: VirtualMachine, obj: PyObjectRef) -> PyObjectRef:
 def make_arg_getter(
     idx: int,
 ) -> Callable[[VirtualMachine, PyBaseExceptionRef], PyObjectRef]:
-    return lambda vm, exc: exc.payload.get_arg(idx)
+    return lambda vm, exc: exc._.get_arg(idx)
 
 
 def key_error_str(vm: VirtualMachine, args: FuncArgs) -> PyStrRef:
     exc = args.take_positional_arg().downcast(PyBaseException)
-    args_ = exc.payload.args
-    if args_.payload.len() == 1:
+    args_ = exc._.args
+    if args_._.len() == 1:
         return vm.exception_args_as_string(args_, False)[0]
     else:
-        return exc.payload.as_str(vm)
+        return exc._.as_str(vm)
 
 
 def system_exit_code(vm: VirtualMachine, exc: PyBaseExceptionRef) -> PyObjectRef:
-    l = exc.payload.args.payload.as_slice()
+    l = exc._.args._.as_slice()
     if not l:
         return vm.ctx.get_none()
     code = l[0]
@@ -101,7 +101,7 @@ def extend_exception(
     exc_struct.extend_class(ctx, class_)
     if d is not None:
         for name, value in d.items():
-            class_.payload.set_str_attr(name, value)
+            class_._.set_str_attr(name, value)
 
 
 @dataclass
@@ -400,7 +400,7 @@ class ExceptionZoo:
             excs.key_error,
             {
                 "__str__": ctx.new_method(
-                    ctx.new_str("__str__").payload,
+                    ctx.new_str("__str__")._,
                     excs.key_error.clone(),
                     key_error_str,
                 ),
@@ -583,13 +583,13 @@ class ExceptionCtor(ABC):
         except PyImplError as err:
             pass
         else:
-            if cls.payload.issubclass(vm.ctx.exceptions.base_exception_type):
+            if cls._.issubclass(vm.ctx.exceptions.base_exception_type):
                 return ExceptionCtorClass(cls)
         try:
             base = obj.downcast(PyBaseException)
         except PyImplError as err:
             vm.new_type_error(
-                f"exceptions must be classes or instances deriving from BaseException, not {err.obj.class_().payload.name()}"
+                f"exceptions must be classes or instances deriving from BaseException, not {err.obj.class_()._.name()}"
             )
         else:
             return ExceptionCtorInstance(base)
@@ -641,8 +641,6 @@ class ExceptionCtorInstance(ExceptionCtor):
             return self.value
 
 
-
-
 # @po.tp_flags(basetype=True, has_dict=True)
 # @po.pyimpl()
 # @po.pyexception("PySystemExit", "PyBaseException", "Request to exit from the interpreter.")
@@ -653,7 +651,9 @@ class ExceptionCtorInstance(ExceptionCtor):
 #         return vm.ctx.exceptions.system_exit
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("PySystemExit", "PyBaseException", "Request to exit from the interpreter.")
+@po.pyexception(
+    "PySystemExit", "PyBaseException", "Request to exit from the interpreter."
+)
 @dataclass
 class PySystemExit(po.PyValueMixin, po.PyClassImpl):
     @classmethod
@@ -673,7 +673,9 @@ class PyGeneratorExit(po.PyValueMixin, po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("PyKeyboardInterrupt", "PyBaseException", "Program interrupted by user.")
+@po.pyexception(
+    "PyKeyboardInterrupt", "PyBaseException", "Program interrupted by user."
+)
 @dataclass
 class PyKeyboardInterrupt(po.PyValueMixin, po.PyClassImpl):
     @classmethod
@@ -1199,7 +1201,9 @@ class PyIndentationError(po.PyValueMixin, po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("PyTabError", "PyIndentationError", "Improper mixture of spaces and tabs.")
+@po.pyexception(
+    "PyTabError", "PyIndentationError", "Improper mixture of spaces and tabs."
+)
 @dataclass
 class PyTabError(po.PyValueMixin, po.PyClassImpl):
     @classmethod
@@ -1275,7 +1279,9 @@ class PyUnicodeEncodeError(po.PyValueMixin, po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("PyUnicodeTranslateError", "PyUnicodeError", "Unicode translation error.")
+@po.pyexception(
+    "PyUnicodeTranslateError", "PyUnicodeError", "Unicode translation error."
+)
 @dataclass
 class PyUnicodeTranslateError(po.PyValueMixin, po.PyClassImpl):
     @classmethod

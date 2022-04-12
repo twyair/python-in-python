@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     # from vm.builtins.pystr import PyStrRef
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyRef
-    from bytecode.bytecode import ConstantData, CT, CodeObject
+    from bytecode.bytecode import ConstantData, CodeObject
     from vm.builtins.pytype import PyTypeRef
     from vm.vm import VirtualMachine
 from common.deco import pymethod
@@ -21,8 +21,8 @@ FrozenModule = bytecode.FrozenModule["PyConstant"]
 
 
 @dataclass
-class PyConstant(Generic[bytecode.CT]):
-    value: ConstantData[bytecode.CT]
+class PyConstant:
+    value: ConstantData
 
     Name: ClassVar = pystr.PyStrRef
 

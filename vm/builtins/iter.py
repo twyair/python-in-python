@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Generic, TypeVar
+
 if TYPE_CHECKING:
     from vm.builtins.int import PyInt
     from vm.builtins.pytype import PyTypeRef
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObject, PyObjectRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+
 T = TypeVar("T")
 
 

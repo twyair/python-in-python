@@ -1,7 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Optional
-from common.deco import pymethod, pyproperty
+from typing import TYPE_CHECKING, Optional
+
+from common.error import PyImplError
+from vm.builtins.function import PyBoundMethod
 
 if TYPE_CHECKING:
     from vm.builtins.staticmethod import PyStaticMethod
@@ -9,12 +11,17 @@ if TYPE_CHECKING:
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.builtins.pystr import PyStr, PyStrRef
-    from vm.builtins.pytype import PyTypeRef, get_text_signature_from_internal_doc
+    from vm.builtins.pytype import PyTypeRef
     from vm.vm import VirtualMachine
     from vm.function_ import PyNativeFunc
+
+from common.deco import pymethod, pyproperty
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.builtins.pystr as pystr
+import vm.builtins.pytype as pytype
+import vm.types.slot as slot
+
 
 @dataclass
 class PyNativeFuncDef:
@@ -52,10 +59,12 @@ class PyNativeFuncDef:
 
 
 @po.tp_flags(has_dict=True)
-@po.pyimpl()  # TODO
+@po.pyimpl(callable=True, constructor=False)
 @po.pyclass(name="builtin_function_or_method")
 @dataclass
-class PyBuiltinFunction(po.PyClassImpl):
+class PyBuiltinFunction(
+    po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin, slot.CallableMixin
+):
     value: PyNativeFuncDef
     module_: Optional[PyObjectRef]
 
@@ -72,12 +81,6 @@ class PyBuiltinFunction(po.PyClassImpl):
 
     def as_func(self) -> PyNativeFunc:
         return self.value.func
-
-    @staticmethod
-    def call(
-        zelf: PyRef[PyBuiltinFunction], args: FuncArgs, vm: VirtualMachine
-    ) -> PyObjectRef:
-        return zelf.payload.value.func(vm, args)
 
     @pyproperty()
     def get___module__(self, vm: VirtualMachine) -> PyObjectRef:
@@ -116,17 +119,28 @@ class PyBuiltinFunction(po.PyClassImpl):
         doc = self.value.doc
         if doc is None:
             return None
-        return get_text_signature_from_internal_doc(
-            self.value.name.payload.as_str(), doc.payload.as_str()
+        return pytype.get_text_signature_from_internal_doc(
+            self.value.name._.as_str(), doc._.as_str()
         )
 
+    @classmethod
+    def call(
+        cls, zelf: PyRef[PyBuiltinFunction], args: FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
+        return zelf._.value.func(vm, args)
 
-# TODO: GetDescriptorMixin
 
-@po.pyimpl()  # TODO
+@po.tp_flags(method_descr=True)
+@po.pyimpl(get_descriptor=True, callable=True, constructor=False)
 @po.pyclass(name="method_descriptor")
 @dataclass
-class PyBuiltinMethod(po.PyClassImpl):
+class PyBuiltinMethod(
+    po.PyClassImpl,
+    po.PyValueMixin,
+    po.TryFromObjectMixin,
+    slot.CallableMixin,
+    slot.GetDescriptorMixin,
+):
     value: PyNativeFuncDef
     klass: PyTypeRef
 
@@ -134,14 +148,22 @@ class PyBuiltinMethod(po.PyClassImpl):
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.method_descriptor_type
 
-    @staticmethod
+    @classmethod
     def descr_get(
+        cls,
         zelf: PyObjectRef,
         obj: Optional[PyObjectRef],
-        cls: Optional[PyObjectRef],
+        class_: Optional[PyObjectRef],
         vm: VirtualMachine,
     ) -> PyObjectRef:
-        raise NotImplementedError
+        try:
+            zelf_, robj = cls._check(zelf, obj, vm)
+        except PyImplError as e:
+            return e.obj
+        if vm.is_none(robj) and not cls._cls_is(class_, robj.class_()):
+            return zelf
+        else:
+            return PyBoundMethod.new_ref(robj, zelf_, vm.ctx)
 
     @staticmethod
     def new_ref(
@@ -155,7 +177,7 @@ class PyBuiltinMethod(po.PyClassImpl):
 
     @pyproperty()
     def get___qualname__(self) -> str:
-        return f"{self.klass.payload.name()}.{self.value.name}"
+        return f"{self.klass._.name()}.{self.value.name}"
 
     @pyproperty()
     def get___doc__(self) -> Optional[PyStrRef]:
@@ -166,13 +188,19 @@ class PyBuiltinMethod(po.PyClassImpl):
         doc = self.value.doc
         if doc is None:
             return None
-        return get_text_signature_from_internal_doc(
-            self.value.name.payload.as_str(), doc.payload.as_str()
+        return pytype.get_text_signature_from_internal_doc(
+            self.value.name._.as_str(), doc._.as_str()
         )
 
-    @pymethod(True)
+    @pymethod()
     def i__repr__(self) -> str:
-        return f"<method '{self.value.name}' of '{self.klass.payload.name()}' objects"
+        return f"<method '{self.value.name}' of '{self.klass._.name()}' objects"
+
+    @classmethod
+    def call(
+        cls, zelf: PyRef[PyBuiltinMethod], args: FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
+        return zelf._.value.func(vm, args)
 
 
 def init(context: PyContext) -> None:

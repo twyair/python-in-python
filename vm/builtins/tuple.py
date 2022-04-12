@@ -104,13 +104,13 @@ class PyTupleTyped(Generic[T]):
         raise NotImplementedError
 
     def __len__(self) -> int:
-        return len(self.tuple.payload.elements)
+        return len(self.tuple._.elements)
 
     def is_empty(self) -> bool:
-        return self.tuple.payload.is_empty()
+        return self.tuple._.is_empty()
 
     def as_slice(self) -> list[T]:
-        return self.tuple.payload.elements  # type: ignore
+        return self.tuple._.elements  # type: ignore
 
     def into_pyobject(self, vm: VirtualMachine) -> PyObjectRef:
         return self.tuple

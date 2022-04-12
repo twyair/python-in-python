@@ -2,12 +2,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Union
 from common.error import PyImplBase
+
 if TYPE_CHECKING:
     from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.builtins.pytype import PyType, PyTypeRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+
 
 @po.pyimpl(constructor=True, get_descriptor=True, get_attr=True)
 @po.pyclass("super")
@@ -32,7 +34,7 @@ def supercheck(ty: PyTypeRef, obj: PyObjectRef, vm: VirtualMachine) -> PyTypeRef
     except PyImplBase as _:
         pass
     else:
-        if cls.payload.issubclass(ty):
+        if cls._.issubclass(ty):
             return cls
 
     if obj.isinstance(ty):
@@ -44,7 +46,7 @@ def supercheck(ty: PyTypeRef, obj: PyObjectRef, vm: VirtualMachine) -> PyTypeRef
     except PyImplBase as _:
         pass
     else:
-        if not cls.is_(ty) and cls.payload.issubclass(ty):
+        if not cls.is_(ty) and cls._.issubclass(ty):
             return cls
 
     vm.new_type_error("super(type, obj): obj must be an instance or subtype of type")

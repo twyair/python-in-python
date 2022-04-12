@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
@@ -24,11 +24,17 @@ class PyBuffer:
     @staticmethod
     def try_from_borrowed_object(vm: VirtualMachine, obj: PyObjectRef) -> PyBuffer:
         cls = obj.class_()
-        if (f := cls.payload.mro_find_map(lambda c: c.slots.as_buffer)) is not None:
+        if (f := cls._.mro_find_map(lambda c: c.slots.as_buffer)) is not None:
             return f(obj, vm)
-        vm.new_type_error(
-            f"a bytes-like object is required, not '{cls.payload.name()}'"
-        )
+        vm.new_type_error(f"a bytes-like object is required, not '{cls._.name()}'")
+
+    def as_contiguous(self) -> Optional[bytes]:
+        if self.desc.is_contiguous():
+            return self.contiguous_unchecked()
+        return None
+
+    def contiguous_unchecked(self) -> bytes:
+        return self.methods.obj_bytes(self)
 
 
 @dataclass

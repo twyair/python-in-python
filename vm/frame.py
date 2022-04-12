@@ -27,7 +27,6 @@ if TYPE_CHECKING:
         NameIdx,
         UnaryOperator,
     )
-    from common.error import PyImplBase, PyImplError, PyImplErrorStr, PyImplException
 
     from vm.builtins.code import PyCode
     from vm.builtins.dict import PyDict, PyDictRef
@@ -53,9 +52,12 @@ if TYPE_CHECKING:
     from vm.scope import Scope
     from vm.types.slot import PyComparisonOp
     from vm.vm import VirtualMachine
+from common.error import PyImplBase, PyImplError, PyImplErrorStr, PyImplException
 
 import vm.pyobject as po
 import vm.pyobjectrc as prc
+import vm.function_ as fn
+import bytecode.instruction as instruction
 
 
 @dataclass
@@ -168,12 +170,11 @@ class Frame(po.PyClassImpl, po.PyValueMixin):
         vm: VirtualMachine,
     ) -> Frame:
         cells_frees = [
-            PyCell.default().into_ref(vm)
-            for _ in range(len(code.payload.code.cellvars))
+            PyCell.default().into_ref(vm) for _ in range(len(code._.code.cellvars))
         ] + closure
         state = FrameState(stack=[], blocks=[])
         return Frame(
-            fastlocals=[None] * len(code.payload.code.varnames),
+            fastlocals=[None] * len(code._.code.varnames),
             code=code,
             cells_frees=cells_frees,
             locals=scope.locals,
@@ -206,7 +207,7 @@ class Frame(po.PyClassImpl, po.PyValueMixin):
 
     def get_locals(self, vm: VirtualMachine) -> ArgMapping:
         # `fn locals() ...`
-        code = self.code.payload.code
+        code = self.code._.code
         map = code.varnames
         j = len(map)  # FIXME?
         # j = min(len(map), len(code.))
@@ -222,7 +223,7 @@ class Frame(po.PyClassImpl, po.PyValueMixin):
 
             def map_to_dict(keys: list[PyStrRef], values: list[PyCellRef]):
                 for k, v in zip(keys, values):
-                    value = v.payload.contents
+                    value = v._.contents
                     if value is not None:
                         self.locals.mapping().ass_subscript_(k.as_object(), value, vm)
                     else:
@@ -264,7 +265,7 @@ class Frame(po.PyClassImpl, po.PyValueMixin):
         )
 
     def current_location(self) -> Location:
-        return self.code.payload.code.locations[self.lasti - 1]
+        return self.code._.code.locations[self.lasti - 1]
 
     def yield_from_target(self) -> Optional[PyObjectRef]:
         raise NotADirectoryError
@@ -311,16 +312,14 @@ class ExecutingFrame:
     state: FrameState
 
     def unbound_cell_exception(self, i: NameIdx, vm: VirtualMachine) -> NoReturn:
-        if i < len(self.code.payload.code.cellvars):
-            name = self.code.payload.code.cellvars[i]
+        if i < len(self.code._.code.cellvars):
+            name = self.code._.code.cellvars[i]
             vm.new_exception_msg(
                 vm.ctx.exceptions.unbound_local_error,
                 f"local variable '{name}' referenced before assignment",
             )
         else:
-            name = self.code.payload.code.freevars[
-                i - len(self.code.payload.code.cellvars)
-            ]
+            name = self.code._.code.freevars[i - len(self.code._.code.cellvars)]
             vm.new_name_error(
                 f"free variable '{name}' referenced before assignment in enclosing scope",
                 vm.mk_str(name),
@@ -333,25 +332,31 @@ class ExecutingFrame:
         return self.lasti
 
     def run(self, vm: VirtualMachine) -> ExecutionResult:
-        instrs = self.code.payload.code.instructions
+        instrs = self.code._.code.instructions
+        print(instrs)
         while 1:
             idx = self.get_lasti()
             self.update_lasti(lambda i: i + 1)
             assert idx < len(instrs), (idx, instrs)
             instr = instrs[idx]
             try:
+                print([v.class_()._.name() for v in self.state.stack])
+                print(instr)
                 result = self.execute_instruction(instr, vm)
                 if result is None:
                     continue
                 return result
-            except:
-                # TODO: handle exception
+            except PyImplException as e:
+                print("abc", repr(e))
                 raise
+            # except:
+            #     # TODO: handle exceptions
+            #     raise
         assert False
 
     def yield_from_target(self) -> Optional[PyObject]:
         if isinstance(
-            self.code.payload.code.instructions[self.get_lasti()], instruction.YieldFrom
+            self.code._.code.instructions[self.get_lasti()], instruction.YieldFrom
         ):
             return self.last_value_ref()
         return None
@@ -370,13 +375,13 @@ class ExecutingFrame:
 
     def execute_instruction(
         self, instruction: instruction.Instruction, vm: VirtualMachine
-    ) -> None:
+    ) -> Optional[ExecutionResult]:
         vm.check_signals()
 
-        instruction.execute(self, vm)
+        return instruction.execute(self, vm)
 
     def load_global_or_builtin(self, name: PyStrRef, vm: VirtualMachine) -> PyObjectRef:
-        r = self.globals.payload.get_chain(self.builtins.payload, name, vm)
+        r = self.globals._.get_chain(self.builtins._, name, vm)
         if r is None:
             vm.new_name_error(f"name '{name}' is not defined", name)
         return r
@@ -390,7 +395,7 @@ class ExecutingFrame:
 
     def import_from(self, vm: VirtualMachine, idx: NameIdx) -> PyObjectRef:
         module = self.last_value()
-        name = self.code.payload.code.names[idx]
+        name = self.code._.code.names[idx]
         if (
             obj := vm.get_attribute_opt(
                 module,
@@ -414,7 +419,7 @@ class ExecutingFrame:
                 filter_pred = lambda name: name in all_
             else:
                 filter_pred = lambda name: name.startswith("_")
-            for k, v in module.dict.d.payload.items():
+            for k, v in module.dict.d._.items():
                 k = PyStr.try_from_object(vm, k)
                 if filter_pred(k.as_str()):
                     self.locals.mapping().ass_subscript_(k.into_ref(vm), v, vm)
@@ -466,7 +471,7 @@ class ExecutingFrame:
     # TODO: get_elements
 
     def _get_name(self, idx: NameIdx) -> str:
-        return self.code.payload.code.names[idx]
+        return self.code._.code.names[idx]
 
     def load_attr(self, vm: VirtualMachine, attr: NameIdx) -> FrameResult:
         attr_name = self._get_name(attr)
@@ -553,16 +558,16 @@ class ExecutingFrame:
                     dict_ = obj.downcast(PyDict)
                 except PyImplBase:
                     vm.new_type_error(
-                        f"'{obj.class_().payload.name()}' object is not a mapping"
+                        f"'{obj.class_()._.name()}' object is not a mapping"
                     )
-                for key, value in dict_.payload.items():
+                for key, value in dict_._.items():
                     if for_call:
-                        if map_obj.payload.contains_key(key, vm):
+                        if map_obj._.contains_key(key, vm):
                             key_repr = key.repr(vm)
                             vm.new_type_error(
-                                f"got multiple values for keyword argument {key_repr.payload.as_str()}"
+                                f"got multiple values for keyword argument {key_repr._.as_str()}"
                             )
-                    map_obj.payload.set_item(key, value, vm)
+                    map_obj._.set_item(key, value, vm)
         else:
             objs = self.pop_multiple(2 * size)
             for key, value in zip(objs[::2], objs[1::2]):
@@ -574,21 +579,19 @@ class ExecutingFrame:
         stop = self.pop_value()
         start = self.pop_value()
 
-        obj = PyRef.new_ref(
+        obj = prc.PyRef.new_ref(
             PySlice(start=start, stop=stop, step=step_), vm.ctx.types.slice_type, None
         )
         self.push_value(obj)
 
     def collect_positional_args(self, nargs: int) -> FuncArgs:
-        return FuncArgs(args=self.pop_multiple(nargs), kwargs=OrderedDict())
+        return fn.FuncArgs(args=self.pop_multiple(nargs), kwargs=OrderedDict())
 
     def collect_keyword_args(self, nargs: int) -> FuncArgs:
         kwarg_names = self.pop_value().downcast(PyTuple)
         args = self.pop_multiple(nargs)
-        kwarg_names = [
-            pyobj.payload.as_(PyStr) for pyobj in kwarg_names.payload.elements
-        ]
-        return FuncArgs.with_kwargs_names(args, kwarg_names)
+        kwarg_names = [pyobj._.as_(PyStr) for pyobj in kwarg_names._.elements]
+        return fn.FuncArgs.with_kwargs_names(args, kwarg_names)
 
     def collect_ex_args(self, vm: VirtualMachine, has_kwargs: bool) -> FuncArgs:
         kwargs = OrderedDict()
@@ -598,7 +601,7 @@ class ExecutingFrame:
             except PyImplBase:
                 vm.new_type_error("Kwargs must be a dict.")
             # // TODO: check collections.abc.Mapping
-            for key, value in kw_dict.payload.items():
+            for key, value in kw_dict._.items():
                 key = key.payload_if_subclass(PyStr, vm)
                 if key is None:
                     vm.new_type_error("keywords must be strings")
@@ -641,7 +644,7 @@ class ExecutingFrame:
                 vm
             )
         if kind == RaiseKind.RAISE_CAUSE:
-            exception.payload.set_cause(cause)
+            exception._.set_cause(cause)
         raise PyImplException(exception)
 
     def builtin_coro(self, coro: PyObject) -> Optional[Coro]:
@@ -748,11 +751,11 @@ class ExecutingFrame:
 
         func_obj.set_attr(vm.mk_str("__doc__"), vm.ctx.get_none(), vm)
 
-        name = qualified_name.payload.as_str().split(".")[-1]
+        name = qualified_name._.as_str().split(".")[-1]
         func_obj.set_attr(vm.mk_str("__name__"), vm.new_pyobj(name), vm)
         func_obj.set_attr(vm.mk_str("__qualname__"), qualified_name, vm)
         module = vm.unwrap_or_none(
-            self.globals.payload.get_item_opt(vm.mk_str("__name__"), vm)
+            self.globals._.get_item_opt(vm.mk_str("__name__"), vm)
         )
         func_obj.set_attr(vm.mk_str("__module__"), module, vm)
         func_obj.set_attr(vm.mk_str("__annotations__"), annotations, vm)
@@ -763,31 +766,31 @@ class ExecutingFrame:
         b_ref = self.pop_value()
         a_ref = self.pop_value()
 
-        if op == BinaryOperator.Subtract:
+        if op == instruction.BinaryOperator.Subtract:
             value = vm._sub(a_ref, b_ref)
-        elif op == BinaryOperator.Add:
+        elif op == instruction.BinaryOperator.Add:
             value = vm._add(a_ref, b_ref)
-        elif op == BinaryOperator.Multiply:
+        elif op == instruction.BinaryOperator.Multiply:
             value = vm._mul(a_ref, b_ref)
-        elif op == BinaryOperator.MatrixMultiply:
+        elif op == instruction.BinaryOperator.MatrixMultiply:
             value = vm._matmul(a_ref, b_ref)
-        elif op == BinaryOperator.Power:
+        elif op == instruction.BinaryOperator.Power:
             value = vm._pow(a_ref, b_ref)
-        elif op == BinaryOperator.Divide:
+        elif op == instruction.BinaryOperator.Divide:
             value = vm._truediv(a_ref, b_ref)
-        elif op == BinaryOperator.FloorDivide:
+        elif op == instruction.BinaryOperator.FloorDivide:
             value = vm._floordiv(a_ref, b_ref)
-        elif op == BinaryOperator.Modulo:
+        elif op == instruction.BinaryOperator.Modulo:
             value = vm._mod(a_ref, b_ref)
-        elif op == BinaryOperator.Lshift:
+        elif op == instruction.BinaryOperator.Lshift:
             value = vm._lshift(a_ref, b_ref)
-        elif op == BinaryOperator.Rshift:
+        elif op == instruction.BinaryOperator.Rshift:
             value = vm._rshift(a_ref, b_ref)
-        elif op == BinaryOperator.Xor:
+        elif op == instruction.BinaryOperator.Xor:
             value = vm._xor(a_ref, b_ref)
-        elif op == BinaryOperator.Or:
+        elif op == instruction.BinaryOperator.Or:
             value = vm._or(a_ref, b_ref)
-        elif op == BinaryOperator.And:
+        elif op == instruction.BinaryOperator.And:
             value = vm._and(a_ref, b_ref)
 
         self.push_value(value)
@@ -799,31 +802,31 @@ class ExecutingFrame:
         b_ref = self.pop_value()
         a_ref = self.pop_value()
 
-        if op == BinaryOperator.Subtract:
+        if op == instruction.BinaryOperator.Subtract:
             value = vm._isub(a_ref, b_ref)
-        elif op == BinaryOperator.Add:
+        elif op == instruction.BinaryOperator.Add:
             value = vm._iadd(a_ref, b_ref)
-        elif op == BinaryOperator.Multiply:
+        elif op == instruction.BinaryOperator.Multiply:
             value = vm._imul(a_ref, b_ref)
-        elif op == BinaryOperator.MatrixMultiply:
+        elif op == instruction.BinaryOperator.MatrixMultiply:
             value = vm._imatmul(a_ref, b_ref)
-        elif op == BinaryOperator.Power:
+        elif op == instruction.BinaryOperator.Power:
             value = vm._ipow(a_ref, b_ref)
-        elif op == BinaryOperator.Divide:
+        elif op == instruction.BinaryOperator.Divide:
             value = vm._itruediv(a_ref, b_ref)
-        elif op == BinaryOperator.FloorDivide:
+        elif op == instruction.BinaryOperator.FloorDivide:
             value = vm._ifloordiv(a_ref, b_ref)
-        elif op == BinaryOperator.Modulo:
+        elif op == instruction.BinaryOperator.Modulo:
             value = vm._imod(a_ref, b_ref)
-        elif op == BinaryOperator.Lshift:
+        elif op == instruction.BinaryOperator.Lshift:
             value = vm._ilshift(a_ref, b_ref)
-        elif op == BinaryOperator.Rshift:
+        elif op == instruction.BinaryOperator.Rshift:
             value = vm._irshift(a_ref, b_ref)
-        elif op == BinaryOperator.Xor:
+        elif op == instruction.BinaryOperator.Xor:
             value = vm._ixor(a_ref, b_ref)
-        elif op == BinaryOperator.Or:
+        elif op == instruction.BinaryOperator.Or:
             value = vm._ior(a_ref, b_ref)
-        elif op == BinaryOperator.And:
+        elif op == instruction.BinaryOperator.And:
             value = vm._iand(a_ref, b_ref)
 
         self.push_value(value)
@@ -831,13 +834,13 @@ class ExecutingFrame:
 
     def execute_unop(self, vm: VirtualMachine, op: UnaryOperator) -> FrameResult:
         a = self.pop_value()
-        if op == UnaryOperator.Minus:
+        if op == instruction.UnaryOperator.Minus:
             value = vm._neg(a)
-        elif op == UnaryOperator.Plus:
+        elif op == instruction.UnaryOperator.Plus:
             value = vm._pos(a)
-        elif op == UnaryOperator.Invert:
+        elif op == instruction.UnaryOperator.Invert:
             value = vm._invert(a)
-        elif op == UnaryOperator.Not:
+        elif op == instruction.UnaryOperator.Not:
             value = vm.ctx.new_bool(a.try_to_bool(vm)).into_pyobj(vm)
         self.push_value(value)
         return None
@@ -868,25 +871,25 @@ class ExecutingFrame:
         a = self.pop_value()
 
         d = {
-            ComparisonOperator.Equal: PyComparisonOp.Eq,
-            ComparisonOperator.NotEqual: PyComparisonOp.Ne,
-            ComparisonOperator.Less: PyComparisonOp.Lt,
-            ComparisonOperator.LessOrEqual: PyComparisonOp.Le,
-            ComparisonOperator.Greater: PyComparisonOp.Gt,
-            ComparisonOperator.GreaterOrEqual: PyComparisonOp.Ge,
+            instruction.ComparisonOperator.Equal: PyComparisonOp.Eq,
+            instruction.ComparisonOperator.NotEqual: PyComparisonOp.Ne,
+            instruction.ComparisonOperator.Less: PyComparisonOp.Lt,
+            instruction.ComparisonOperator.LessOrEqual: PyComparisonOp.Le,
+            instruction.ComparisonOperator.Greater: PyComparisonOp.Gt,
+            instruction.ComparisonOperator.GreaterOrEqual: PyComparisonOp.Ge,
         }
 
         if op in d:
             value = a.rich_compare(b, d[op], vm)
-        elif op == ComparisonOperator.Is:
+        elif op == instruction.ComparisonOperator.Is:
             value = vm.ctx.new_bool(self._is(a, b)).into_pyobj(vm)
-        elif op == ComparisonOperator.IsNot:
+        elif op == instruction.ComparisonOperator.IsNot:
             value = vm.ctx.new_bool(self._is_not(a, b)).into_pyobj(vm)
-        elif op == ComparisonOperator.In:
+        elif op == instruction.ComparisonOperator.In:
             value = vm.ctx.new_bool(self._in(vm, a, b)).into_pyobj(vm)
-        elif op == ComparisonOperator.NotIn:
+        elif op == instruction.ComparisonOperator.NotIn:
             value = vm.ctx.new_bool(self._not_in(vm, a, b)).into_pyobj(vm)
-        elif op == ComparisonOperator.ExceptionMatch:
+        elif op == instruction.ComparisonOperator.ExceptionMatch:
             value = vm.ctx.new_bool(a.is_instance(b, vm)).into_pyobj(vm)
         else:
             assert False
