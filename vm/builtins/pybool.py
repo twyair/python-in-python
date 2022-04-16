@@ -9,8 +9,10 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObject, PyObjectRef
     from vm.vm import VirtualMachine
     from vm.function_ import FuncArgs
+    from vm.builtins.pystr import PyStrRef
 import vm.pyobject as po
 import vm.types.slot as slot
+from common.deco import pymethod
 
 # import vm.function_ as fn
 
@@ -29,6 +31,21 @@ class PyBool(
         return vm.ctx.types.bool_type
 
     # TODO: impl PyBool @ 114
+
+    # TODO:
+    # @pymethod(True)
+    # @classmethod
+    # def i__repr__(cls, zelf)
+
+    @pymethod(True)
+    @staticmethod
+    def format(
+        obj: PyObjectRef, format_spec: PyStrRef, *, vm: VirtualMachine
+    ) -> PyStrRef:
+        if not format_spec._.as_str():
+            return obj.str(vm)
+        else:
+            vm.new_type_error("unsupported format string passed to bool.__format__")
 
     @classmethod
     def py_new(

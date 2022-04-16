@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Optional, TypeAlias
+from typing import TYPE_CHECKING, ClassVar, Iterator, Optional, TypeAlias
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
@@ -57,6 +57,16 @@ class PyDict(
             zelf._.inner_setitem(key, value, vm)
         else:
             zelf._.del_item(key, vm)
+
+    @staticmethod
+    def from_attributes(attrs: po.PyAttributes, vm: VirtualMachine) -> PyDict:
+        d = DictContentType()
+        for key, value in attrs.items():
+            d.insert(vm, vm.new_pyobj(key), value)
+        return PyDict(d)
+
+    def get_keys(self) -> Iterator[PyObjectRef]:
+        return iter(self.entries.keys())
 
     def missing_opt(
         self, key: PyObjectRef, vm: VirtualMachine

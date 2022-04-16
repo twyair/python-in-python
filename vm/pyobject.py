@@ -703,25 +703,44 @@ def make_method(method: MethodData) -> PyNativeFunc:
         if isinstance(res, prc.PyRef):
             return res
         # TODO: move to decorator
-        elif res is None:
-            return vm.ctx.get_none()
-        elif isinstance(res, bool):
-            return vm.ctx.new_bool(res)
-        elif isinstance(res, int):
-            return vm.ctx.new_int(res)
-        elif isinstance(res, float):
-            return vm.ctx.new_float(res)
-        elif isinstance(res, complex):
-            return vm.ctx.new_complex(res)
-        elif isinstance(res, str):
-            return vm.ctx.new_str(res)
-        elif isinstance(res, bytes):
-            return vm.ctx.new_bytes(res)
         else:
-            assert False, type(res)
-        # return res.into_ref(vm)
+            return primitive_to_pyobject(res, vm)
 
     return func
+
+
+def primitive_to_pyobject(
+    value: bool
+    | int
+    | float
+    | complex
+    | str
+    | bytes
+    | PyArithmeticValue[bool | int | float | complex | str | bytes]
+    | None,
+    vm: VirtualMachine,
+) -> PyObjectRef:
+    if value is None:
+        return vm.ctx.get_none()
+    elif isinstance(value, bool):
+        return vm.ctx.new_bool(value)
+    elif isinstance(value, int):
+        return vm.ctx.new_int(value)
+    elif isinstance(value, float):
+        return vm.ctx.new_float(value)
+    elif isinstance(value, complex):
+        return vm.ctx.new_complex(value)
+    elif isinstance(value, str):
+        return vm.ctx.new_str(value)
+    elif isinstance(value, bytes):
+        return vm.ctx.new_bytes(value)
+    elif isinstance(value, PyArithmeticValue):
+        if value.value is not None:
+            return primitive_to_pyobject(value.value, vm)
+        else:
+            return vm.ctx.get_not_implemented()
+    else:
+        assert False, type(value)
 
 
 class PyModuleImpl:

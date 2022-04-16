@@ -11,6 +11,7 @@ from typing import (
     TypeAlias,
     TypeVar,
 )
+from common.deco import pyproperty
 from common.error import unreachable
 
 if TYPE_CHECKING:
@@ -265,6 +266,22 @@ class PyType(
             pass
 
     # TODO: impl PyType @ 216
+
+    @pyproperty()
+    def get___qualname__(self, *, vm: VirtualMachine) -> PyObjectRef:
+        v = self.attributes.get("__qualname__", None)
+        if v is not None:
+            if not v.isinstance(vm.ctx.types.getset_type):
+                return v
+        return vm.ctx.new_str(self.name())
+
+    @pyproperty()
+    def get___module__(self, *, vm: VirtualMachine) -> PyObjectRef:
+        mod = self.attributes.get("__module__", None)
+        if mod is not None:
+            if not mod.isinstance(vm.ctx.types.getset_type):
+                return mod
+        return vm.ctx.new_str("builtins")
 
     @classmethod
     def call(

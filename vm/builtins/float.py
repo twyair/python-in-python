@@ -250,11 +250,11 @@ class PyFloat(
 
     @pyproperty()
     @classmethod
-    def real(cls, zelf: PyRef[PyFloat], *, vm: VirtualMachine) -> PyRef[PyFloat]:
+    def get_real(cls, zelf: PyRef[PyFloat], *, vm: VirtualMachine) -> PyRef[PyFloat]:
         return zelf
 
     @pymethod(True)
-    def imag(self, *, vm: VirtualMachine) -> float:
+    def get_imag(self, *, vm: VirtualMachine) -> float:
         return 0
 
     @pymethod(True)

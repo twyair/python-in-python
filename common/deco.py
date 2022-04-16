@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from vm.function_ import FuncArgs
     from vm.pyobjectrc import PyObjectRef
     from vm.vm import VirtualMachine
+    from vm.types.slot import PyComparisonValue
 
 # from vm.types.slot import SLOTS
 
@@ -151,7 +152,10 @@ def method_set_data(method, data) -> None:
         method.pyimpl_at = data
 
 
-def pyslot(method: CT) -> CT:
+RT = TypeVar("RT", bound=Callable)
+
+
+def pyslot(method: RT) -> RT:
     prefix = "slot_"
     name = method.__name__
     assert name.startswith(prefix)
@@ -186,6 +190,7 @@ def pymodule(cls):
 TYPE2MODULE = {
     "PyStr": "vm.builtins.pystr",
     "PyType": "vm.builtins.pytype",
+    "PyInt": "vm.builtins.int",
     "ArgIterable": "vm.function.arguments",
     "ArgMapping": "vm.function.arguments",
     "ArgCallable": "vm.function.arguments",
@@ -250,7 +255,8 @@ def pyfunction(f: CT) -> CT:
 
 
 CT = TypeVar(
-    "CT", bound="Callable[..., PyObjectRef | str | bool | int | float | complex | None]"
+    "CT",
+    bound="Callable[..., PyObjectRef | str | bool | int | float | complex | PyComparisonValue | None]",
 )
 
 
