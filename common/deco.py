@@ -10,21 +10,15 @@ if TYPE_CHECKING:
     from vm.function_ import FuncArgs
     from vm.pyobjectrc import PyObjectRef
     from vm.vm import VirtualMachine
-    from vm.types.slot import PyComparisonValue
+    from vm.pyobject import PyArithmeticValue
 
 # from vm.types.slot import SLOTS
 
 T = TypeVar("T")
 
 
-def pyproperty(
-    # *,
-    # magic: bool = False,
-    # setter: Optional[bool] = None,
-    # getter: Optional[bool] = None,
-    # name: Optional[str] = None
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    def inner(method: Callable[..., T]) -> Callable[..., T]:
+def pyproperty() -> Callable[[CT], CT]:
+    def inner(method: CT) -> CT:
         name = method.__name__
         type = None
         if name.startswith("get_"):
@@ -256,7 +250,7 @@ def pyfunction(f: CT) -> CT:
 
 CT = TypeVar(
     "CT",
-    bound="Callable[..., PyObjectRef | str | bool | int | float | complex | PyComparisonValue | None]",
+    bound="Callable[..., PyObjectRef | str | bool | int | float | complex | PyArithmeticValue | None]",
 )
 
 

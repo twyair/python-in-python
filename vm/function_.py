@@ -9,7 +9,6 @@ from typing import (
     Sequence,
     TypeAlias,
 )
-import typing
 
 if TYPE_CHECKING:
     from vm.protocol.buffer import PyBuffer
@@ -163,6 +162,11 @@ class FuncArgs:
         if args is None:
             return on_error()
         return args[0]
+
+    def bind(self, func: Callable) -> inspect.BoundArguments:
+        args = inspect.signature(func).bind(*self.args, **self.kwargs)
+        args.apply_defaults()
+        return args
 
     # def bind(
     #     self, sig: signature, apply_defaults: bool = True

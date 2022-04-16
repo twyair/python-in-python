@@ -18,7 +18,6 @@ import vm.builtins.bytearray as pybytearray
 import vm.builtins.bytes as pybytes
 import vm.builtins.int as pyint
 import vm.builtins.pystr as pystr
-import vm.builtins.tuple as pytuple
 import vm.function_ as fn
 import vm.pyobject as po
 import vm.types.slot as slot
