@@ -103,7 +103,7 @@ class PyStr(
     def _getitem(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__add__(
         cls, zelf: PyObjectRef, other: PyObjectRef, vm: VirtualMachine

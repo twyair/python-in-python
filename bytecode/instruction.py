@@ -29,12 +29,12 @@ if TYPE_CHECKING:
     #     UnwindReturning,
     # )
     from vm.function_ import FuncArgs
-    from vm.pyobject import PyMethod, PyMethodAttribute, PyMethodFunction
     from bytecode.bytecode import ConversionFlag, RaiseKind
     from vm.frame import ExecutingFrame, ExecutionResult
     from vm.vm import VirtualMachine
 
 import vm.frame as vm_frame
+import vm.pyobject as po
 
 
 class PyException(Exception):
@@ -1180,10 +1180,10 @@ class LoadMethod(Instruction):
     ) -> Optional[ExecutionResult]:
         obj = frame.pop_value()
         method_name = frame.code._.code.names[self.idx]
-        method = PyMethod.get(obj, method_name, vm)
-        if isinstance(method, PyMethodFunction):
+        method = po.PyMethod.get(obj, method_name, vm)
+        if isinstance(method, po.PyMethodFunction):
             target, is_method, func = method.target, True, method.func
-        elif isinstance(method, PyMethodAttribute):
+        elif isinstance(method, po.PyMethodAttribute):
             target, is_method, func = vm.ctx.get_none(), False, method.func
         else:
             assert False, method

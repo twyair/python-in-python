@@ -47,7 +47,7 @@ class PyComplex(
         return self.value
 
     # TODO?
-    # @pymethod()
+    # @pymethod(True)
     # @staticmethod
     # def complex(zelf: PyRef[PyComplex], vm: VirtualMachine) -> PyRef[PyComplex]:
 
@@ -59,7 +59,7 @@ class PyComplex(
     def get_imag(self, *, vm: VirtualMachine) -> PyObjectRef:
         return pyfloat.PyFloat.from_(self.value.imag).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__abs__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return pyfloat.PyFloat.from_(abs(self.value)).into_ref(vm)
 
@@ -74,59 +74,59 @@ class PyComplex(
         else:
             return PyComplex(op(self.value, value)).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__add__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, operator.add, vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__radd__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, operator.add, vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__sub__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, operator.sub, vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__rsub__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, lambda a, b: b - a, vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__mul__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, operator.mul, vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__rmul__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, operator.mul, vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__truediv__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, lambda a, b: inner_div(a, b, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__rtruediv__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, lambda a, b: inner_div(b, a, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     def conjugate(self, *, vm: VirtualMachine) -> PyObjectRef:
         return PyComplex(self.value.conjugate()).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__pos__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return PyComplex(self.value).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__neg__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return PyComplex(-self.value).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__repr__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return pystr.PyStr(repr(self.value)).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__bool__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(bool(self.value))
 
-    @pymethod()
+    @pymethod(True)
     def i__pow__(
         self,
         other: PyObjectRef,
@@ -138,12 +138,12 @@ class PyComplex(
             vm.new_value_error("complex modulo not allowed")
         return self.op(other, lambda a, b: inner_pow(a, b, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__rpow__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, lambda a, b: inner_pow(b, a, vm), vm)
 
     # TODO?
-    # @pymethod()
+    # @pymethod(True)
     # def getnewargs(self, vm: VirtualMachine) -> tuple[float, float]:
     #     return (self.value.real, self.value.imag)
 

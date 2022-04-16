@@ -35,7 +35,11 @@ def pyproperty(
         else:
             assert False, name
         name = name[4:]
-        method.pyimpl_at = PropertyData(MethodData.from_method(method), name, type)
+        method.pyimpl_at = PropertyData(
+            MethodData.from_method(method, ImplMethodType.INSTANCE, cast=False),
+            name,
+            type,
+        )
 
         return method
 
@@ -53,13 +57,17 @@ class MethodData:
     name: str
     method: Callable[..., Any]
     type: ImplMethodType
+    # cast: bool
+    # casts: Callable[[VirtualMachine, FuncArgs], PyObjectRef]
+    casts: Optional[dict[str, Callable[[VirtualMachine, PyObjectRef], PyObjectRef]]]
 
     @staticmethod
-    def from_method(
-        method: Callable, type: ImplMethodType = ImplMethodType.INSTANCE
-    ) -> MethodData:
-        # type = ImplMethodType.STATIC
-        # sig = inspect.signature(method)
+    def from_method(method: Callable, type: ImplMethodType, cast: bool) -> MethodData:
+        func = method_get_function(method)
+        # if cast:
+        #     foo = cast_args(method)
+        # else:
+        #     foo = method
 
         name = method.__name__
         assert not name.startswith("__"), name
@@ -68,7 +76,9 @@ class MethodData:
         elif name.startswith("r__"):
             name = name[3:]
 
-        return MethodData(name=name, method=method, type=type)
+        return MethodData(
+            name=name, method=method, type=type, casts=get_casts(func) if cast else None
+        )
 
 
 class PropertyDescriptorType(enum.Enum):
@@ -90,21 +100,24 @@ class ImplSlotData:
     name: str
 
 
-def pymethod(magic: bool = False) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    def inner(method: Callable[..., T]) -> Callable[..., T]:
-        method_set_data(method, MethodData.from_method(method_get_function(method)))
+def pymethod(cast: bool) -> Callable[[CT], CT]:
+    def inner(method: CT) -> CT:
+        method_set_data(
+            method,
+            MethodData.from_method(method, type=ImplMethodType.INSTANCE, cast=cast),
+        )
         return method
 
     return inner
 
 
 def pystaticmethod(
-    magic: bool = False,
+    cast: bool,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     def inner(method: Callable[..., T]) -> Callable[..., T]:
         method_set_data(
             method,
-            MethodData.from_method(method_get_function(method), ImplMethodType.STATIC),
+            MethodData.from_method(method, ImplMethodType.STATIC, cast=cast),
         )
         return method
 
@@ -112,12 +125,12 @@ def pystaticmethod(
 
 
 def pyclassmethod(
-    magic: bool = False,
+    cast: bool,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     def inner(method: Callable[..., T]) -> Callable[..., T]:
         method_set_data(
             method,
-            MethodData.from_method(method_get_function(method), ImplMethodType.CLASS),
+            MethodData.from_method(method, ImplMethodType.CLASS, cast=cast),
         )
         return method
 
@@ -138,24 +151,23 @@ def method_set_data(method, data) -> None:
         method.pyimpl_at = data
 
 
-def pyslot() -> Callable[[Callable[..., T]], Callable[..., T]]:
-    def inner(method: Callable[..., T]) -> Callable[..., T]:
-        prefix = "slot_"
-        name = method.__name__
-        assert name.startswith(prefix)
-        name = name[len(prefix) :]
-        # assert name in SLOTS
-        method_set_data(
-            method,
-            ImplSlotData(MethodData.from_method(method_get_function(method)), name),
-        )
+def pyslot(method: CT) -> CT:
+    prefix = "slot_"
+    name = method.__name__
+    assert name.startswith(prefix)
+    name = name[len(prefix) :]
+    # assert name in SLOTS
+    method_set_data(
+        method,
+        ImplSlotData(
+            MethodData.from_method(method, ImplMethodType.INSTANCE, cast=False),
+            name,
+        ),
+    )
 
-        return method
-
-    return inner
+    return method
 
 
-# TODO
 def pymodule(cls):
     funcs = {}
     members = inspect.getmembers(cls)
@@ -173,9 +185,11 @@ def pymodule(cls):
 
 TYPE2MODULE = {
     "PyStr": "vm.builtins.pystr",
+    "PyType": "vm.builtins.pytype",
     "ArgIterable": "vm.function.arguments",
     "ArgMapping": "vm.function.arguments",
     "ArgCallable": "vm.function.arguments",
+    "ArgBytesLike": "vm.function.arguments",
 }
 
 
@@ -216,19 +230,44 @@ class TypeProxy:
 
 
 def make_cast(
+    name: str,
     annotation: type | str,
 ) -> Callable[[VirtualMachine, PyObjectRef], PyObjectRef]:
     if isinstance(annotation, str):
         proxy = TypeProxy.from_annotation(annotation)
-        assert proxy is not None
+        if proxy is None and name == "zelf":  # TODO: del
+            return lambda vm, obj: obj
+        assert proxy is not None, annotation
         return proxy.try_from_object
     else:
-        return lambda vm, obj: annotation.try_from_object(vm, obj)
+        return lambda vm, obj: annotation.try_from_object(vm, obj)  # type: ignore
 
 
-def pyfunction(f):
+def pyfunction(f: CT) -> CT:
+    foo = cast_args(f)
+    f.__func__.pyfunction = foo
+    return f
+
+
+CT = TypeVar(
+    "CT", bound="Callable[..., PyObjectRef | str | bool | int | float | complex | None]"
+)
+
+
+def get_casts(
+    f: Callable,
+) -> dict[str, Callable[[VirtualMachine, PyObjectRef], PyObjectRef]]:
     sig = inspect.signature(f, eval_str=False)
-    casts = {n: make_cast(p.annotation) for n, p in sig.parameters.items() if n != "vm"}
+    return {
+        n: make_cast(n, p.annotation)
+        for n, p in sig.parameters.items()
+        if n not in ("vm", "cls")
+    }
+
+
+def cast_args(f: Callable) -> Callable[[VirtualMachine, FuncArgs], PyObjectRef]:
+    sig = inspect.signature(f, eval_str=False)
+    casts = get_casts(f)
 
     def foo(vm: VirtualMachine, fargs: FuncArgs) -> PyObjectRef:
         bs = sig.bind(*fargs.args, **fargs.kwargs, vm=vm)
@@ -239,5 +278,4 @@ def pyfunction(f):
         )
         return vm.unwrap_or_none(res)
 
-    f.__func__.pyfunction = foo
-    return f
+    return foo

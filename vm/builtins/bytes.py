@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.vm import VirtualMachine
+    from vm.sliceable import SequenceIndex
 
 import vm.pyobject as po
 import vm.pyobjectrc as prc
@@ -38,31 +39,31 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     def new_ref(value: bytes, ctx: PyContext) -> PyBytesRef:
         return prc.PyRef.new_ref(PyBytes(value), ctx.types.tuple_type, None)
 
-    @pymethod()
+    @pymethod(True)
     def i__repr__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.mk_str(repr(self.inner))
 
-    @pymethod()
+    @pymethod(True)
     def i__len__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_int(len(self.inner))
 
-    # @pymethod()
+    # @pymethod(True)
     # def bytes()
 
-    @pymethod()
+    @pymethod(True)
     def i__sizeof__(self, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_int(self.__sizeof__())
 
-    @pymethod()
+    @pymethod(True)
     def i__add__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         arg = vm_function_.ArgBytesLike.try_from_borrowed_object(vm, other)
         return vm.ctx.new_bytes(self.inner + arg.value.methods.obj_bytes(arg.value))
 
-    @pymethod()
+    @pymethod(True)
     def i__contains__(self, needle: PyObjectRef, vm) -> PyObjectRef:
         raise NotImplementedError
 
-    @pystaticmethod()
+    @pystaticmethod(True)
     @staticmethod
     def maketrans(frm: PyObjectRef, to: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         raise NotImplementedError
@@ -70,59 +71,60 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     def _getitem(self, needle: PyObject, vm: VirtualMachine) -> SequenceIndex:
         raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     def i__getitem__(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        # FIXME
         return self._getitem(needle, vm)
 
-    @pymethod()
+    @pymethod(True)
     def isalnum(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.isalnum())
 
-    @pymethod()
+    @pymethod(True)
     def isalpha(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.isalpha())
 
-    @pymethod()
+    @pymethod(True)
     def isascii(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.isascii())
 
-    @pymethod()
+    @pymethod(True)
     def isdigit(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.isdigit())
 
-    @pymethod()
+    @pymethod(True)
     def islower(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.islower())
 
-    @pymethod()
+    @pymethod(True)
     def isspace(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.isspace())
 
-    @pymethod()
+    @pymethod(True)
     def isupper(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.isupper())
 
-    @pymethod()
+    @pymethod(True)
     def istitle(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.istitle())
 
-    @pymethod()
+    @pymethod(True)
     def lower(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bytes(self.inner.lower())
 
-    @pymethod()
+    @pymethod(True)
     def upper(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bytes(self.inner.upper())
 
-    @pymethod()
+    @pymethod(True)
     def capitalize(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bytes(self.inner.capitalize())
 
-    @pymethod()
+    @pymethod(True)
     def swapcase(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bytes(self.inner.swapcase())
 
-    @pymethod()
+    @pymethod(True)
     def hex(
         self,
         sep: Optional[PyObjectRef] = None,
@@ -132,7 +134,7 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     ) -> PyObjectRef:
         raise NotImplementedError
 
-    @pyclassmethod()
+    @pyclassmethod(True)
     @staticmethod
     def fromhex(
         class_: PyTypeRef, string: PyObjectRef, *, vm: VirtualMachine
@@ -142,7 +144,7 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     # TODO: impl PyBytes @ 115
 
     # TODO:
-    # @pymethod()
+    # @pymethod(True)
     # def center(self, options: ByteInnerPaddingOptions, *, vm: VirtualMachine)
 
     # TODO: impl PyBytes @ 554

@@ -20,6 +20,7 @@ def do(vm: VirtualMachine) -> None:
         code_obj = vm.compile(
             # "callable(abs)",
             "repr(3j * 3 + 5j - 3.0)",
+            # "bool(5.0)",
             # "'sss' + 'abcd'",
             Mode.Eval,
             "<embedded>",

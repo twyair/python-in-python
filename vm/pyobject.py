@@ -685,12 +685,40 @@ def make_method(method: MethodData) -> PyNativeFunc:
 
     def func(vm: VirtualMachine, args: FuncArgs) -> PyObjectRef:
         # TODO: catch & handle exceptions
-        return method.method(
+        assert "vm" not in args.kwargs
+        bs = sig.bind(*args.args, **args.kwargs, vm=vm)
+
+        res = method.method(
             get_self_arg(args.args[0]),
-            *args.args[1:],
-            **{k if k != "vm" else "_vm": v for k, v in args.kwargs.items()},
+            *[
+                method.casts[n](vm, v) if method.casts is not None else v
+                for n, v in list(zip(bs.arguments, args.args))[1:]
+            ],
+            **{
+                k: method.casts[k](vm, v) if method.casts is not None else v
+                for k, v in args.kwargs.items()
+            },
             vm=vm,
         )
+        if isinstance(res, prc.PyRef):
+            return res
+        # TODO: move to decorator
+        elif res is None:
+            return vm.ctx.get_none()
+        elif isinstance(res, bool):
+            return vm.ctx.new_bool(res)
+        elif isinstance(res, int):
+            return vm.ctx.new_int(res)
+        elif isinstance(res, float):
+            return vm.ctx.new_float(res)
+        elif isinstance(res, complex):
+            return vm.ctx.new_complex(res)
+        elif isinstance(res, str):
+            return vm.ctx.new_str(res)
+        elif isinstance(res, bytes):
+            return vm.ctx.new_bytes(res)
+        else:
+            assert False, type(res)
         # return res.into_ref(vm)
 
     return func
@@ -847,7 +875,7 @@ class PyMethod(ABC):
     def get(obj: PyObjectRef, name: PyStrRef, vm: VirtualMachine) -> PyMethod:
         cls = obj.class_()
         getattro = cls._.mro_find_map(lambda cls: cls.slots.getattro)
-        assert getattro is not None
+        assert getattro is not None, cls._.name()
         # TODO:
         # if getattro as usize != object::PyBaseObject::getattro as usize {
         #     drop(cls);

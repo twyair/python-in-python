@@ -49,8 +49,8 @@ class PyCode(po.PyClassImpl, po.TryFromObjectMixin, po.PyValueMixin):
 
     # TODO: impl PyRef<PyCode> @ 199
 
-    @pymethod()
-    def i__repr__(self) -> str:
+    @pymethod(True)
+    def i__repr__(self, vm: VirtualMachine) -> str:
         code = self.code
         # FIXME: self should be PyRef[PyCode]
         return f"<code object {code.obj_name} at {self.get_id()} file {code.source_path.as_str()}, line {code.first_line_number}>"

@@ -215,7 +215,7 @@ class GetAttrMixin(ABC):
     ) -> PyObjectRef:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_getattro(
         cls, obj: PyObjectRef, name: PyStrRef, vm: VirtualMachine
@@ -227,7 +227,7 @@ class GetAttrMixin(ABC):
         else:
             return cls.getattro(zelf, name, vm)  # type: ignore FIXME
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__getattribute__(
         cls, zelf: PyRef[GetAttrT], name: PyStrRef, vm: VirtualMachine
@@ -252,7 +252,7 @@ class SetAttrMixin(ABC):
     ) -> None:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_setattro(
         cls,
@@ -266,14 +266,14 @@ class SetAttrMixin(ABC):
         else:
             vm.new_type_error("unexpected payload for __setattr__")
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__setattr__(
         cls, zelf: PyRef, name: PyStrRef, value: PyObjectRef, vm: VirtualMachine
     ) -> None:
         cls.setattro(zelf, name, value, vm)
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__delattr__(cls, zelf: PyRef, name: PyStrRef, vm: VirtualMachine) -> None:
         cls.setattro(zelf, name, None, vm)
@@ -292,7 +292,7 @@ class AsSequenceMixin(ABC):
     ) -> PySequenceMethods:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_as_sequence(cls, zelf: PyObject, vm: VirtualMachine) -> PySequenceMethods:
         return cls.as_sequence(zelf.downcast_unchecked_ref(cls), vm)  # type: ignore
@@ -317,7 +317,7 @@ class IterableMixin(ABC):
     ) -> PyObjectRef:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_iter(cls, zelf: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         try:
@@ -341,7 +341,7 @@ class CallableMixin(ABC):
     ) -> PyObjectRef:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_call(
         cls, zelf: PyObject, args: FuncArgs, vm: VirtualMachine
@@ -351,7 +351,7 @@ class CallableMixin(ABC):
             vm.new_type_error("unexpected payload for __call__")
         return cls.call(r, args, vm)  # type: ignore FIXME?
 
-    @pymethod()
+    @pymethod(False)
     @classmethod
     def i__call__(
         cls, zelf: PyObjectRef, args: FuncArgs, vm: VirtualMachine
@@ -391,7 +391,7 @@ class AsMappingMixin(ABC):
     ) -> PyMappingMethods:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_as_mapping(
         cls: Any, zelf: PyObject, vm: VirtualMachine
@@ -410,7 +410,7 @@ HashableT = TypeVar("HashableT", contravariant=True, bound="HashableMixin")
 
 @dataclass
 class HashableMixin(ABC):
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_hash(cls: Any, zelf: PyObject, vm: VirtualMachine) -> PyHash:
         if (zelf_ := zelf.downcast_ref(cls)) is not None:
@@ -418,7 +418,7 @@ class HashableMixin(ABC):
         else:
             vm.new_type_error("unexpected payload for __hash__")
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__hash__(cls, zelf: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_int(cls.slot_hash(zelf, vm))
@@ -454,7 +454,7 @@ class ComparableMixin(ABC):
     ) -> PyComparisonValue:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_richcompare(
         cls: Any,  # FIXME
@@ -468,7 +468,7 @@ class ComparableMixin(ABC):
         else:
             vm.new_type_error(f"unexpected payload for {op.method_name()}")
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__eq__(
         cls: Type[ContravariantT],
@@ -478,7 +478,7 @@ class ComparableMixin(ABC):
     ) -> PyObjectRef:
         return cmp_to_pyobject(cls.cmp(zelf, other, PyComparisonOp.Eq, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__ne__(
         cls: Type[ContravariantT],
@@ -488,7 +488,7 @@ class ComparableMixin(ABC):
     ) -> PyObjectRef:
         return cmp_to_pyobject(cls.cmp(zelf, other, PyComparisonOp.Ne, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__lt__(
         cls: Type[ContravariantT],
@@ -498,7 +498,7 @@ class ComparableMixin(ABC):
     ) -> PyObjectRef:
         return cmp_to_pyobject(cls.cmp(zelf, other, PyComparisonOp.Lt, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__le__(
         cls: Type[ContravariantT],
@@ -508,7 +508,7 @@ class ComparableMixin(ABC):
     ) -> PyObjectRef:
         return cmp_to_pyobject(cls.cmp(zelf, other, PyComparisonOp.Le, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__ge__(
         cls: Type[ContravariantT],
@@ -518,7 +518,7 @@ class ComparableMixin(ABC):
     ) -> PyObjectRef:
         return cmp_to_pyobject(cls.cmp(zelf, other, PyComparisonOp.Ge, vm), vm)
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__gt__(
         cls: Type[ContravariantT],
@@ -538,7 +538,7 @@ class ConstructorMixin(ABC):
     ) -> PyObjectRef:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_new(
         cls, class_: PyTypeRef, args: FuncArgs, *, vm: VirtualMachine
@@ -559,7 +559,7 @@ class GetDescriptorMixin(ABC):
     ) -> PyObjectRef:
         ...
 
-    @pyslot()
+    @pyslot
     @classmethod
     def slot_descr_get(
         cls,
@@ -570,7 +570,7 @@ class GetDescriptorMixin(ABC):
     ) -> PyObjectRef:
         return cls.descr_get(zelf, obj, class_, vm)
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__get__(
         cls,

@@ -19,7 +19,8 @@ import vm.pyobject as po
 import vm.builtins.tuple as pytuple
 
 
-@po.pyimpl()  # TODO
+@po.tp_flags(basetype=True, has_dict=True)
+@po.pyimpl()
 @po.pyclass("BaseException")
 @dataclass
 class PyBaseException(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
@@ -60,7 +61,7 @@ class PyBaseException(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
                 "({})".format(", ".join(s._.as_str() for s in str_args))
             )
 
-    @pymethod()
+    @pymethod(True)
     def i__str__(self, vm: VirtualMachine) -> PyObjectRef:
         return self.as_str(vm)
 

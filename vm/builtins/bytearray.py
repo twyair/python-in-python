@@ -112,43 +112,44 @@ class PyByteArray(
     def default() -> PyByteArray:
         return PyByteArray(bytearray())
 
-    @pyslot()
+    @pyslot
     @staticmethod
     def slot_new(
         class_: PyTypeRef, args: FuncArgs, vm: VirtualMachine
     ) -> PyByteArrayRef:
         return PyByteArray.default().into_pyresult_with_type(vm, class_)
 
-    @pymethod()
-    def i__init__(self, options: ByteInnerNewOptions, vm: VirtualMachine) -> None:
-        raise NotImplementedError
+    # TODO
+    # @pymethod(True)
+    # def i__init__(self, options: ByteInnerNewOptions, vm: VirtualMachine) -> None:
+    #     raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def i__repr__(zelf: PyRef[PyByteArray], vm: VirtualMachine) -> PyStrRef:
         return vm.mk_str(repr(zelf._.inner))
 
-    @pymethod()
+    @pymethod(True)
     def i__alloc__(self, vm: VirtualMachine) -> PyIntRef:
         return vm.ctx.new_int(self.inner.__alloc__())
 
     def _len(self) -> int:
         return len(self.inner)
 
-    @pymethod()
+    @pymethod(True)
     def i__len__(self, vm: VirtualMachine) -> PyIntRef:
         return vm.ctx.new_int(self._len())
 
-    @pymethod()
+    @pymethod(True)
     def i__sizeof__(self, vm: VirtualMachine) -> PyIntRef:
         raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     def i__add__(self, other: ArgBytesLike, vm: VirtualMachine) -> PyRef[PyByteArray]:
         v = other.value.methods.obj_bytes(other.value)
         return PyByteArray(self.inner + v).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__contains__(self, needle: PyObjectRef, vm: VirtualMachine) -> PyIntRef:
         raise NotImplementedError
 
@@ -161,7 +162,7 @@ class PyByteArray(
     ) -> None:
         raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     @classmethod
     def i__setitem__(
         cls,
@@ -195,14 +196,14 @@ class PyByteArray(
             return PyByteArray.new_ref(self.get_item_by_slice(vm, s.value), vm.ctx)
         unreachable()
 
-    @pymethod()
+    @pymethod(True)
     def i__getitem__(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         return self._getitem(needle, vm)
 
     def _delitem(self, needle: PyObject, vm: VirtualMachine) -> None:
         raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     def i__delitem__(self, needle: PyObjectRef, vm: VirtualMachine) -> None:
         self._delitem(needle, vm)
 

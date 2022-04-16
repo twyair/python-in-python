@@ -213,7 +213,7 @@ class PyRange(
     def get_step(self, vm: VirtualMachine) -> PyIntRef:
         return self.step
 
-    @pymethod()
+    @pymethod(True)
     def i__reversed__(self, vm: VirtualMachine) -> PyObjectRef:
         start = self.start._.as_int()
         step = self.step._.as_int()
@@ -232,24 +232,24 @@ class PyRange(
                 index=0, start=start, step=step, length=length
             ).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__len__(self, vm: VirtualMachine) -> PyObjectRef:
         return pyint.PyInt.from_(self.len()).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__bool__(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(not self.is_empty())
 
-    @pymethod()
+    @pymethod(True)
     def i__contains__(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self._contains(needle, vm))
 
-    @pymethod()
+    @pymethod(True)
     def i__reduce__(self, vm: VirtualMachine) -> PyObjectRef:
         range_parameters = vm.ctx.new_tuple([self.start, self.stop, self.step])
         return vm.ctx.new_tuple([vm.ctx.types.range_type, range_parameters])
 
-    @pymethod()
+    @pymethod(True)
     def index(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         try:
             i = needle.downcast(pyint.PyInt)
@@ -265,7 +265,7 @@ class PyRange(
             iter_search(self.into_ref(vm), needle, SearchType.Index, vm)
         )
 
-    @pymethod()
+    @pymethod(True)
     def count(self, item: PyObjectRef, vm: VirtualMachine) -> PyIntRef:
         try:
             i = item.downcast(pyint.PyInt)
@@ -281,11 +281,11 @@ class PyRange(
             iter_search(self.into_ref(vm), item, SearchType.Count, vm)
         )
 
-    @pymethod()
+    @pymethod(True)
     def i__getitem__(self, subscript: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         return self._getitem(subscript, vm)
 
-    @pyslot()
+    @pyslot
     @staticmethod
     def slot_new(class_: PyTypeRef, args: FuncArgs, vm: VirtualMachine) -> PyObjectRef:
         raise NotImplementedError

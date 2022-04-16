@@ -103,19 +103,19 @@ class PyBuiltinFunction(
         return vm.ctx.get_none()
 
     @pymethod(True)
-    def i__reduce__(self) -> PyStrRef:
+    def i__reduce__(self, vm: VirtualMachine) -> PyStrRef:
         return self.get___name__()
 
-    @pymethod()
-    def i__reduce_ex__(self, ver: PyObjectRef) -> PyStrRef:
+    @pymethod(True)
+    def i__reduce_ex__(self, ver: PyObjectRef, vm: VirtualMachine) -> PyStrRef:
         return self.get___name__()
 
-    @pymethod()
-    def i__repr__(self) -> str:
+    @pymethod(True)
+    def i__repr__(self, vm: VirtualMachine) -> str:
         return f"<built-in function {self.value.name}>"
 
     @pyproperty()
-    def get_text_signature(self) -> Optional[str]:
+    def get_text_signature(self, vm: VirtualMachine) -> Optional[str]:
         doc = self.value.doc
         if doc is None:
             return None
@@ -192,8 +192,8 @@ class PyBuiltinMethod(
             self.value.name._.as_str(), doc._.as_str()
         )
 
-    @pymethod()
-    def i__repr__(self) -> str:
+    @pymethod(True)
+    def i__repr__(self, vm: VirtualMachine) -> str:
         return f"<method '{self.value.name}' of '{self.klass._.name()}' objects"
 
     @classmethod

@@ -52,29 +52,29 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
     def set_name(self, name: PyStrRef) -> None:
         self.inner.set_name(name)
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def i__repr__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> str:
         return zelf._.inner.repr(zelf.as_object(), zelf.get_id(), vm)
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def i__aiter__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyRef[PyAsyncGen]:
         return zelf
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def i__anext__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyAsyncGenASend:
         return PyAsyncGen.asend(zelf, vm.ctx.get_none(), vm)
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def asend(
         zelf: PyRef[PyAsyncGen], value: PyObjectRef, vm: VirtualMachine
     ) -> PyAsyncGenASend:
         return PyAsyncGenASend(ag=zelf, state=AwaitableState.Init, value=value)
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def athrow(
         zelf: PyRef[PyAsyncGen],
@@ -90,7 +90,7 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
             value=(exc_type, vm.unwrap_or_none(exc_val), vm.unwrap_or_none(exc_tb)),
         )
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def aclose(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyAsyncGenAThrow:
         return PyAsyncGenAThrow(
@@ -120,7 +120,7 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
     def get_ag_code(self, vm: VirtualMachine) -> PyObjectRef:
         return self.inner.frame._.code
 
-    @pyclassmethod()
+    @pyclassmethod(True)
     @staticmethod
     def i__getitem__(
         class_: PyTypeRef, args: PyObjectRef, vm: VirtualMachine
@@ -200,14 +200,14 @@ class PyAsyncGenASend(
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.async_generator_asend
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def i__await__(
         zelf: PyRef[PyAsyncGenASend], vm: VirtualMachine
     ) -> PyRef[PyAsyncGenASend]:
         return zelf
 
-    @pymethod()
+    @pymethod(True)
     def send(self, val: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         if self.state == AwaitableState.Closed:
             vm.new_runtime_error("cannot reuse already awaited __anext__()/asend()")
@@ -232,11 +232,11 @@ class PyAsyncGenASend(
                 vm,
             )
         except PyImplBase as _:
-            self.close()
+            self.close(vm)
             raise
         unreachable()
 
-    @pymethod()
+    @pymethod(True)
     def throw(
         self,
         exc_type: PyObjectRef,
@@ -260,10 +260,10 @@ class PyAsyncGenASend(
                 vm,
             )
         except PyImplException as _:
-            self.close()
+            self.close(vm)
             raise
 
-    @pymethod()
+    @pymethod(True)
     def close(self, vm: VirtualMachine) -> None:
         self.state = AwaitableState.Closed
 
@@ -293,11 +293,11 @@ class PyAsyncGenAThrow(
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.async_generator_athrow
 
-    @pymethod()
+    @pymethod(True)
     def send(self, val: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     def throw(
         self,
         exc_type: PyObjectRef,
@@ -307,7 +307,7 @@ class PyAsyncGenAThrow(
     ) -> PyObjectRef:
         raise NotImplementedError
 
-    @pymethod()
+    @pymethod(True)
     def close(self, vm: VirtualMachine) -> None:
         self.state = AwaitableState.Closed
 

@@ -121,26 +121,26 @@ class PyDict(
     def len(self) -> int:
         return self.entries.len()
 
-    @pymethod()
+    @pymethod(True)
     def i__len__(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_int(self.len())
 
-    @pymethod()
+    @pymethod(True)
     @staticmethod
     def items(zelf: PyRef[PyDict], vm: VirtualMachine) -> PyObjectRef:
         return PyDictItems.new(zelf).into_ref(vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__setitem__(
         self, key: PyObjectRef, value: PyObjectRef, vm: VirtualMachine
     ) -> None:
         self.inner_setitem(key, value, vm)
 
-    @pymethod()
+    @pymethod(True)
     def i__getitem__(self, key: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         return self.inner_getitem(key, vm)
 
-    @pymethod()
+    @pymethod(True)
     def get(
         self, key: PyObjectRef, default: Optional[PyObjectRef], vm: VirtualMachine
     ) -> PyObjectRef:
@@ -149,7 +149,7 @@ class PyDict(
             return vm.unwrap_or_none(default)
         return value
 
-    @pymethod()
+    @pymethod(True)
     def setdefault(
         self, key: PyObjectRef, default: Optional[PyObjectRef], vm: VirtualMachine
     ) -> PyObjectRef:
