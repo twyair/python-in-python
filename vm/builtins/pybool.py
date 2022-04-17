@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from vm.builtins.pystr import PyStrRef
 import vm.pyobject as po
 import vm.types.slot as slot
+import vm.builtins.int as pyint
 from common.deco import pymethod
 
 # import vm.function_ as fn
@@ -30,12 +31,14 @@ class PyBool(
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.bool_type
 
-    # TODO: impl PyBool @ 114
+    @classmethod
+    def static_baseclass(cls) -> PyTypeRef:
+        return pyint.PyInt.static_type()
 
-    # TODO:
-    # @pymethod(True)
-    # @classmethod
-    # def i__repr__(cls, zelf)
+    @pymethod(True)
+    @staticmethod
+    def i__repr__(zelf: PyObjectRef, *, vm: VirtualMachine) -> str:
+        return repr(try_from_borrowed_object(vm, zelf))
 
     @pymethod(True)
     @staticmethod
@@ -46,6 +49,63 @@ class PyBool(
             return zelf.str(vm)
         else:
             vm.new_type_error("unsupported format string passed to bool.__format__")
+
+    @pymethod(True)
+    @staticmethod
+    def i__or__(
+        zelf: PyObjectRef, rhs: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[int]:
+        if zelf.isinstance(vm.ctx.types.bool_type) and rhs.isinstance(
+            vm.ctx.types.bool_type
+        ):
+            return po.PyArithmeticValue(int(get_value(zelf) or get_value(rhs)))
+        else:
+            return get_py_int(zelf).i__or__(rhs, vm=vm)
+
+    @pymethod(True)
+    @staticmethod
+    def i__ror__(
+        zelf: PyObjectRef, rhs: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[int]:
+        return PyBool.i__or__(zelf, rhs, vm=vm)
+
+    @pymethod(True)
+    @staticmethod
+    def i__and__(
+        zelf: PyObjectRef, rhs: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[int]:
+        if zelf.isinstance(vm.ctx.types.bool_type) and rhs.isinstance(
+            vm.ctx.types.bool_type
+        ):
+            return po.PyArithmeticValue(int(get_value(zelf) and get_value(rhs)))
+        else:
+            return get_py_int(zelf).i__and__(rhs, vm=vm)
+
+    @pymethod(True)
+    @staticmethod
+    def i__rand__(
+        zelf: PyObjectRef, rhs: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[int]:
+        return PyBool.i__and__(zelf, rhs, vm=vm)
+
+    @pymethod(True)
+    @staticmethod
+    def i__xor__(
+        zelf: PyObjectRef, rhs: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[int]:
+        if zelf.isinstance(vm.ctx.types.bool_type) and rhs.isinstance(
+            vm.ctx.types.bool_type
+        ):
+            return po.PyArithmeticValue(int(get_value(zelf) ^ get_value(rhs)))
+        else:
+            return get_py_int(zelf).i__xor__(rhs, vm=vm)
+
+    @pymethod(True)
+    @staticmethod
+    def i__rxor__(
+        zelf: PyObjectRef, rhs: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[int]:
+        return PyBool.i__xor__(zelf, rhs, vm=vm)
 
     @classmethod
     def py_new(
@@ -74,9 +134,20 @@ def get_value(obj: PyObject) -> bool:
 
 
 def get_py_int(obj: PyObject) -> PyInt:
-    r = obj.payload_(PyInt)
+    r = obj.payload_(pyint.PyInt)
     assert r is not None
     return r
+
+
+def bool_to_pyobject(v: bool) -> PyObjectRef:
+    raise NotImplementedError
+
+
+def try_from_borrowed_object(vm: VirtualMachine, obj: PyObjectRef) -> bool:
+    if obj.isinstance(vm.ctx.types.int_type):
+        return get_value(obj)
+    else:
+        vm.new_type_error(f"Expected type bool, not {obj.class_()._.name()}")
 
 
 def init(context: PyContext) -> None:

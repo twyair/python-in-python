@@ -147,6 +147,7 @@ class TypeZoo:
             bytes_iterator_type=vm.builtins.bytes.PyBytesIterator.init_bare_type(),
             bytearray_type=vm.builtins.bytearray.PyByteArray.init_bare_type(),
             bytearray_iterator_type=vm.builtins.bytearray.PyByteArrayIterator.init_bare_type(),
+            int_type=vm.builtins.int.PyInt.init_bare_type(),  # NOTE: must be initialized before `bool_type`
             bool_type=vm.builtins.pybool.PyBool.init_bare_type(),
             callable_iterator=vm.builtins.iter.PyCallableIterator.init_bare_type(),
             cell_type=vm.builtins.function.PyCell.init_bare_type(),
@@ -161,7 +162,6 @@ class TypeZoo:
             frame_type=vm.frame.Frame.init_bare_type(),
             frozenset_type=vm.builtins.set.PyFrozenSet.init_bare_type(),
             generator_type=vm.builtins.generator.PyGenerator.init_bare_type(),
-            int_type=vm.builtins.int.PyInt.init_bare_type(),
             iter_type=vm.builtins.iter.PySequenceIterator.init_bare_type(),
             reverse_iter_type=vm.builtins.enumerate.PyReverseSequenceIterator.init_bare_type(),
             complex_type=vm.builtins.complex.PyComplex.init_bare_type(),

@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import itertools
 from abc import ABC
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
-    Dict,
-    Generic,
     NoReturn,
     Optional,
     TypeAlias,
@@ -50,13 +46,15 @@ if TYPE_CHECKING:
     )
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.scope import Scope
-    from vm.types.slot import PyComparisonOp
+    from vm.coroutine import Coro
     from vm.vm import VirtualMachine
+
 from common.error import PyImplBase, PyImplError, PyImplErrorStr, PyImplException
 
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.function_ as fn
+import vm.types.slot as slot
 import bytecode.instruction as instruction
 
 
@@ -431,7 +429,7 @@ class ExecutingFrame:
                 filter_pred = lambda name: name in all_
             else:
                 filter_pred = lambda name: name.startswith("_")
-            for k, v in module.dict.d._.items():
+            for k, v in module.dict.d._.entries.items():
                 k = PyStr.try_from_object(vm, k)
                 if filter_pred(k.as_str()):
                     self.locals.mapping().ass_subscript_(k.into_ref(vm), v, vm)
@@ -572,7 +570,7 @@ class ExecutingFrame:
                     vm.new_type_error(
                         f"'{obj.class_()._.name()}' object is not a mapping"
                     )
-                for key, value in dict_._.items():
+                for key, value in dict_._.entries.items():
                     if for_call:
                         if map_obj._.contains_key(key, vm):
                             key_repr = key.repr(vm)
@@ -613,7 +611,7 @@ class ExecutingFrame:
             except PyImplBase:
                 vm.new_type_error("Kwargs must be a dict.")
             # // TODO: check collections.abc.Mapping
-            for key, value in kw_dict._.items():
+            for key, value in kw_dict._.entries.items():
                 key = key.payload_if_subclass(PyStr, vm)
                 if key is None:
                     vm.new_type_error("keywords must be strings")
@@ -883,12 +881,12 @@ class ExecutingFrame:
         a = self.pop_value()
 
         d = {
-            instruction.ComparisonOperator.Equal: PyComparisonOp.Eq,
-            instruction.ComparisonOperator.NotEqual: PyComparisonOp.Ne,
-            instruction.ComparisonOperator.Less: PyComparisonOp.Lt,
-            instruction.ComparisonOperator.LessOrEqual: PyComparisonOp.Le,
-            instruction.ComparisonOperator.Greater: PyComparisonOp.Gt,
-            instruction.ComparisonOperator.GreaterOrEqual: PyComparisonOp.Ge,
+            instruction.ComparisonOperator.Equal: slot.PyComparisonOp.Eq,
+            instruction.ComparisonOperator.NotEqual: slot.PyComparisonOp.Ne,
+            instruction.ComparisonOperator.Less: slot.PyComparisonOp.Lt,
+            instruction.ComparisonOperator.LessOrEqual: slot.PyComparisonOp.Le,
+            instruction.ComparisonOperator.Greater: slot.PyComparisonOp.Gt,
+            instruction.ComparisonOperator.GreaterOrEqual: slot.PyComparisonOp.Ge,
         }
 
         if op in d:

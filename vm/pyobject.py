@@ -573,14 +573,14 @@ class StaticTypeMixin:
     def set_static_cell(cls, type: PyTypeRef) -> None:
         cls.STATIC_CELL = type
 
-    @staticmethod
-    def static_metaclass() -> PyTypeRef:
+    @classmethod
+    def static_metaclass(cls) -> PyTypeRef:
         import vm.builtins.pytype as pytype
 
         return pytype.PyType.static_type()
 
-    @staticmethod
-    def static_baseclass() -> PyTypeRef:
+    @classmethod
+    def static_baseclass(cls) -> PyTypeRef:
         import vm.builtins.object as oo
 
         return oo.PyBaseObject.static_type()
