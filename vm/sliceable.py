@@ -3,11 +3,11 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from vm.vm import VirtualMachine
 
 if TYPE_CHECKING:
     from vm.builtins.slice import SaturatedSlice
     from vm.pyobjectrc import PyObject
+    from vm.vm import VirtualMachine
 
 import vm.builtins.slice as pyslice
 import vm.builtins.int as pyint
