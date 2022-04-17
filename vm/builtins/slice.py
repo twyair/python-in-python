@@ -36,6 +36,9 @@ class SaturatedSlice:
     stop: int
     step: int
 
+    def to_primitive(self) -> slice:
+        return slice(self.start, self.stop, self.step)
+
     @staticmethod
     def with_slice(slice: PySlice, vm: VirtualMachine) -> SaturatedSlice:
         step = to_isize_index(vm, vm.unwrap_or_none(slice.step))

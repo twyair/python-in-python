@@ -386,6 +386,18 @@ class ExecutingFrame:
             vm.new_name_error(f"name '{name}' is not defined", name)
         return r
 
+    def get_elements(
+        self, vm: VirtualMachine, size: int, unpack: bool
+    ) -> list[PyObjectRef]:
+        elements = self.pop_multiple(size)
+        if unpack:
+            result = []
+            for element in elements:
+                result.extend(vm.extract_elements_as_pyobjects(element))
+            return result
+        else:
+            return elements
+
     def import_(self, vm: VirtualMachine, module: Optional[PyStrRef]) -> FrameResult:
         module = module if module is not None else PyStr.from_str("", vm.ctx)
         from_list = PyTupleTyped[PyStrRef].from_object(self.pop_value())

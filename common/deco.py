@@ -142,6 +142,8 @@ def method_get_function(method):
 def method_set_data(method, data) -> None:
     if isinstance(method, classmethod):
         method.__func__.pyimpl_at = data
+    elif isinstance(method, staticmethod):
+        method.__func__.pyimpl_at = data
     else:
         method.pyimpl_at = data
 
@@ -229,18 +231,25 @@ class TypeProxy:
         return self.typ.try_from_object(vm, obj)
 
 
+def cast_to_int(vm: VirtualMachine, obj: PyObjectRef, /) -> int:
+    return vm.to_index(obj)._.as_int()
+
+
 def make_cast(
     name: str,
-    annotation: type | str,
-) -> Callable[[VirtualMachine, PyObjectRef], PyObjectRef]:
+    annotation: str,
+) -> Callable[[VirtualMachine, PyObjectRef], Any]:
     if isinstance(annotation, str):
+        if annotation in ("int", "Optional[int]"):
+            return cast_to_int
         proxy = TypeProxy.from_annotation(annotation)
         if proxy is None and name == "zelf":  # TODO: del
             return lambda vm, obj: obj
         assert proxy is not None, annotation
         return proxy.try_from_object
     else:
-        return lambda vm, obj: annotation.try_from_object(vm, obj)  # type: ignore
+        raise NotImplementedError(f"got: {annotation}")
+        # return lambda vm, obj: annotation.try_from_object(vm, obj)  # type: ignore
 
 
 def pyfunction(f: CT) -> CT:
@@ -262,7 +271,7 @@ def get_casts(
     return {
         n: make_cast(n, p.annotation)
         for n, p in sig.parameters.items()
-        if n not in ("vm", "cls")
+        if n not in ("vm", "cls", "self")
     }
 
 

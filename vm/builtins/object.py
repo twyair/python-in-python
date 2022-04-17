@@ -20,7 +20,7 @@ import vm.builtins.dict as pydict
 import vm.builtins.pytype as pytype
 import vm.builtins.int as pyint
 import vm.function_ as fn
-from common.deco import pymethod, pyproperty, pyslot
+from common.deco import pyclassmethod, pymethod, pyproperty, pyslot
 from common.error import PyImplBase, PyImplError, PyImplException
 
 
@@ -110,14 +110,14 @@ class PyBaseObject(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     @pymethod(True)
     @staticmethod
     def i__setattr__(
-        obj: PyObjectRef, name: PyStrRef, value: PyObjectRef, *, vm: VirtualMachine
+        zelf: PyObjectRef, name: PyStrRef, value: PyObjectRef, *, vm: VirtualMachine
     ) -> None:
-        generic_setattr(obj, name, value, vm)
+        generic_setattr(zelf, name, value, vm)
 
     @pymethod(True)
     @staticmethod
-    def i__delattr__(obj: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine) -> None:
-        generic_setattr(obj, name, None, vm)
+    def i__delattr__(zelf: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine) -> None:
+        generic_setattr(zelf, name, None, vm)
 
     @pymethod(True)
     @staticmethod
@@ -130,62 +130,64 @@ class PyBaseObject(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
         class_ = zelf.class_()
 
         if (
-            qualname := class_._.get___qualname__(vm).downcast_ref(pystr.PyStr)
+            qualname := class_._.get___qualname__(vm=vm).downcast_ref(pystr.PyStr)
         ) is not None:
             qualname = qualname._.as_str()
         else:
             return None
 
-        if (mod := class_._.get___module__(vm).downcast_ref(pystr.PyStr)) is not None:
+        if (
+            mod := class_._.get___module__(vm=vm).downcast_ref(pystr.PyStr)
+        ) is not None:
             mod = mod._.as_str()
             if mod != "builtins":
                 return "<{}.{} object at {:x}>".format(mod, qualname, zelf.get_id())
 
         return "<{} object at {:x}>".format(class_._.slot_name(), zelf.get_id())
 
-    @pymethod(False)
+    @pyclassmethod(False)
     @staticmethod
     def i__subclasshook__(args: FuncArgs, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.get_not_implemented()
 
-    @pymethod(True)
+    @pyclassmethod(True)
     @staticmethod
     def i__init_subclass__(class_: PyTypeRef, /) -> None:
         return
 
     @pymethod(True)
     @staticmethod
-    def i__dir__(obj: PyObjectRef, /, *, vm: VirtualMachine) -> PyObjectRef:
+    def i__dir__(zelf: PyObjectRef, /, *, vm: VirtualMachine) -> PyObjectRef:
         dict_: prc.PyRef[pydict.PyDict] = pydict.PyDict.from_attributes(
-            obj.class_()._.get_attributes(), vm
+            zelf.class_()._.get_attributes(), vm
         ).into_ref(vm)
 
-        if obj.dict is not None:
-            vm.call_method(dict_, "update", fn.FuncArgs([obj.dict.d]))
+        if zelf.dict is not None:
+            vm.call_method(dict_, "update", fn.FuncArgs([zelf.dict.d]))
 
         return vm.ctx.new_list(list(dict_._.get_keys()))
 
     @pymethod(True)
     @staticmethod
     def i__format__(
-        obj: PyObjectRef, format_spec: PyStrRef, *, vm: VirtualMachine
+        zelf: PyObjectRef, format_spec: PyStrRef, *, vm: VirtualMachine
     ) -> PyStrRef:
         if not format_spec._.as_str():
-            return obj.str(vm)
+            return zelf.str(vm)
         else:
             vm.new_type_error(
-                f"unsupported format string passed to {obj.class_()._.name()}.__format__"
+                f"unsupported format string passed to {zelf.class_()._.name()}.__format__"
             )
 
     @pymethod(False)
     @staticmethod
-    def i__init__(args: FuncArgs, *, vm: VirtualMachine) -> None:
+    def i__init__(zelf: PyObjectRef, args: FuncArgs, *, vm: VirtualMachine) -> None:
         return
 
     @pyproperty()
     @staticmethod
-    def get___class__(obj: PyObjectRef, *, vm: VirtualMachine) -> PyTypeRef:
-        return obj.clone_class()
+    def get___class__(zelf: PyObjectRef, *, vm: VirtualMachine) -> PyTypeRef:
+        return zelf.clone_class()
 
     @pyproperty()
     @staticmethod
@@ -210,32 +212,32 @@ class PyBaseObject(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
     @pyslot
     @staticmethod
     def slot_getattro(
-        obj: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine
+        zelf: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine
     ) -> PyObjectRef:
-        return vm.generic_getattribute(obj, name)
+        return vm.generic_getattribute(zelf, name)
 
     @pymethod(True)
     @staticmethod
     def i__getattribute__(
-        obj: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine
+        zelf: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine
     ) -> PyObjectRef:
-        return PyBaseObject.slot_getattro(obj, name, vm=vm)
+        return PyBaseObject.slot_getattro(zelf, name, vm=vm)
 
     @pymethod(True)
     @staticmethod
-    def i__reduce__(obj: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
-        return common_reduce(obj, 0, vm)
+    def i__reduce__(zelf: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
+        return common_reduce(zelf, 0, vm)
 
     @staticmethod
-    def _reduce_ex(obj: PyObjectRef, proto: int, vm: VirtualMachine) -> PyObjectRef:
+    def _reduce_ex(zelf: PyObjectRef, proto: int, vm: VirtualMachine) -> PyObjectRef:
         raise NotImplementedError
 
     @pymethod(True)
     @staticmethod
     def i__reduce_ex__(
-        obj: PyObjectRef, proto: pyint.PyIntRef, *, vm: VirtualMachine
+        zelf: PyObjectRef, proto: pyint.PyIntRef, *, vm: VirtualMachine
     ) -> PyObjectRef:
-        return PyBaseObject._reduce_ex(obj, proto._.as_int(), vm)
+        return PyBaseObject._reduce_ex(zelf, proto._.as_int(), vm)
 
     @pyslot
     @staticmethod

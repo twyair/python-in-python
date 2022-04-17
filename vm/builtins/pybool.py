@@ -40,10 +40,10 @@ class PyBool(
     @pymethod(True)
     @staticmethod
     def format(
-        obj: PyObjectRef, format_spec: PyStrRef, *, vm: VirtualMachine
+        zelf: PyObjectRef, format_spec: PyStrRef, *, vm: VirtualMachine
     ) -> PyStrRef:
         if not format_spec._.as_str():
-            return obj.str(vm)
+            return zelf.str(vm)
         else:
             vm.new_type_error("unsupported format string passed to bool.__format__")
 

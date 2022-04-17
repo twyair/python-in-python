@@ -615,7 +615,7 @@ class StaticTypeMixin:
         return pytype.PyType.new_ref(
             cls.NAME,  # type: ignore
             [cls.static_baseclass()],
-            {},
+            PyAttributes(),
             cls.make_slots(),  # type: ignore
             cls.static_metaclass(),
         )
@@ -675,28 +675,32 @@ def make_setter(setter: MethodData) -> PySetterFunc:
 def make_method(method: MethodData) -> PyNativeFunc:
     sig = inspect.signature(method.method)
 
-    first_arg = list(sig.parameters)[0]
-    if first_arg == "self":
-        get_self_arg = lambda x: x._
-    elif first_arg == "zelf":
-        get_self_arg = lambda x: x
-    else:
-        unreachable(f"first arg is {first_arg}")
+    get_self_arg = None
+    if method.type == ImplMethodType.INSTANCE:
+        first_arg = list(sig.parameters)[0]
+        if first_arg == "self":
+            get_self_arg = lambda x: x._
+        elif first_arg == "zelf":
+            get_self_arg = lambda x: x
+        else:
+            unreachable(
+                f"first arg is '{first_arg}' in method '{method.name}' [{method.method}]"
+            )
 
-    def func(vm: VirtualMachine, args: FuncArgs) -> PyObjectRef:
+    def func(vm: VirtualMachine, fargs: FuncArgs) -> PyObjectRef:
         # TODO: catch & handle exceptions
-        assert "vm" not in args.kwargs
-        bs = sig.bind(*args.args, **args.kwargs, vm=vm)
+        assert "vm" not in fargs.kwargs
+        bs = sig.bind(*fargs.args, **fargs.kwargs, vm=vm)
 
         res = method.method(
-            get_self_arg(args.args[0]),
+            *([get_self_arg(fargs.args[0])] if get_self_arg is not None else []),
             *[
                 method.casts[n](vm, v) if method.casts is not None else v
-                for n, v in list(zip(bs.arguments, args.args))[1:]
+                for n, v in list(zip(bs.arguments, fargs.args))[bool(get_self_arg) :]
             ],
             **{
                 k: method.casts[k](vm, v) if method.casts is not None else v
-                for k, v in args.kwargs.items()
+                for k, v in fargs.kwargs.items()
             },
             vm=vm,
         )
@@ -771,15 +775,17 @@ class PyModuleImpl:
 @dataclass
 class PyClassImpl(PyClassDef, StaticTypeMixin):
     TP_FLAGS: ClassVar[PyTypeFlags] = slot.PyTypeFlags.default()
-    pyimpl_at: ClassVar[PyClassImplData] = None
+    pyimpl_at: ClassVar[PyClassImplData] = None  # type: ignore
 
     @classmethod
     def impl_extend_class(cls, ctx: PyContext, class_: PyTypeRef) -> None:
         for method in cls.pyimpl_at.methods.values():
-            assert method.type == ImplMethodType.INSTANCE, method  # FIXME!
+            # if method.type == ImplMethodType.INSTANCE:
             func = make_method(method)
             new_method = ctx.new_method(ctx.new_str(method.name)._, class_, func)
             class_._.set_str_attr(method.name, new_method)
+            # elif method.type == ImplMethodType.CLASS:
+            #     func = make_method(method)
 
         for prop in cls.pyimpl_at.properties.values():
             assert prop.deleter is None, prop
@@ -943,7 +949,7 @@ class PyMethod(ABC):
     @staticmethod
     def get_special(obj: PyObjectRef, name: str, vm: VirtualMachine) -> PyMethod:
         obj_cls = obj.class_()
-        func = obj_cls.get_attr(vm.mk_str(name), vm)
+        func = obj_cls._.get_attr(name)
         if func is None:
             raise PyImplError(obj)
         if func.class_()._.slots.flags.has_feature(slot.PyTypeFlags.METHOD_DESCR):

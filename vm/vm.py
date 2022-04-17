@@ -50,6 +50,7 @@ import vm.exceptions as vm_exceptions
 import vm.function_ as vm_function_
 import vm.builtins.object as pyobject
 import vm.builtins.module as pymodule
+import vm.builtins.int as pyint
 
 from bytecode.bytecode import CodeObject, FrozenModule
 from common.error import PyImplBase, PyImplError, PyImplException
@@ -434,14 +435,14 @@ class VirtualMachine:
 
     def to_index_opt(self, obj: PyObjectRef) -> Optional[PyIntRef]:
         try:
-            return obj.downcast(PyInt)
+            return obj.downcast(pyint.PyInt)
         except PyImplError as e:
             index = self.get_method(e.obj, "__index__")
             if index is None:
                 return None
             index = self.invoke(index, vm_function_.FuncArgs.empty())
             try:
-                return index.downcast(PyInt)
+                return index.downcast(pyint.PyInt)
             except PyImplError as e:
                 self.new_type_error(
                     f"__index__ returned non-int (type {e.obj.class_()._.name()})"

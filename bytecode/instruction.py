@@ -1438,7 +1438,7 @@ class ListAppend(Instruction):
         obj = frame.nth_value(self.i)
         list_ = obj.downcast_unchecked(PyList)
         item = frame.pop_value()
-        list_._.append(item)
+        list_._.append(item, vm=vm)
 
 
 @final

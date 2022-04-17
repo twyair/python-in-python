@@ -32,7 +32,7 @@ class PositionIterInternal(Generic[T]):
     position: int
 
     @staticmethod
-    def new(obj: T, position: int) -> PositionIterInternal:
+    def new(obj: T, position: int) -> PositionIterInternal[T]:
         return PositionIterInternal(IterStatusActive(obj), position)
 
     def set_state(

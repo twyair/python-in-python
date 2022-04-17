@@ -8,9 +8,10 @@
 # st = stb.finish()
 # print(st)
 
-from common.error import PyImplBase
+from common.error import PyImplBase, PyImplError, PyImplException
 from compiler.compile import CompileError
 from compiler.mode import Mode
+from vm.pyobjectrc import PyObjectRef
 from vm.vm import Interpreter, VirtualMachine
 
 
@@ -35,6 +36,14 @@ def repl(vm: VirtualMachine) -> None:
                 print(f"last: {res.class_()._.name()} = {res.repr(vm)._.as_str()}")
 
 
+def print_exception(exc: PyImplBase) -> None:
+    if isinstance(exc, PyImplException):
+        name = str(exc.exception.class_()._.name())[2:]
+        print(f"{name}: ...")
+    elif isinstance(exc, PyImplError):
+        print(f"PyImplError: obj-type = {exc.obj.class_()._.name()}")
+
+
 def do(vm: VirtualMachine) -> None:
     scope = vm.new_scope_with_builtins()
     try:
@@ -42,6 +51,7 @@ def do(vm: VirtualMachine) -> None:
         code_obj = vm.compile(
             # "callable(abs)",
             "repr(3j * 3 + 5j - 3.0)",
+            # "[3j] * 3",
             # "bool(5.0)",
             # "'sss' + 'abcd'",
             Mode.Eval,
@@ -49,8 +59,22 @@ def do(vm: VirtualMachine) -> None:
         )
     except CompileError as e:
         vm.new_syntax_error(e)
-    res = vm.run_code_object(code_obj, scope)
-    print(res.class_()._.name(), res.repr(vm)._.as_str())
+
+    try:
+        res = vm.run_code_object(code_obj, scope)
+    except PyImplBase as e:
+        print_exception(e)
+        return
+    try:
+        repr_ = res.repr(vm)._.as_str()
+    except PyImplBase as e:
+        print_exception(e)
+        raise
+
+    print(
+        res.class_()._.name(),
+        repr_,
+    )
 
 
 Interpreter.default().enter(do)
