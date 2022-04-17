@@ -189,6 +189,7 @@ TYPE2MODULE = {
     "ArgMapping": "vm.function.arguments",
     "ArgCallable": "vm.function.arguments",
     "ArgBytesLike": "vm.function.arguments",
+    "ArgIterable": "vm.function.arguments",
 }
 
 

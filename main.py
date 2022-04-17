@@ -8,9 +8,31 @@
 # st = stb.finish()
 # print(st)
 
+from common.error import PyImplBase
 from compiler.compile import CompileError
 from compiler.mode import Mode
 from vm.vm import Interpreter, VirtualMachine
+
+
+def repl(vm: VirtualMachine) -> None:
+    scope = vm.new_scope_with_builtins()
+    while True:
+        line = input(">>> ")
+        try:
+            code_obj = vm.compile(line, Mode.Eval, "<repl>")
+            # code_obj = vm.compile(line, Mode.Single, "<repl>")
+        except CompileError as e:
+            vm.new_syntax_error(e)
+        try:
+            res = vm.run_code_object(code_obj, scope)
+        except PyImplBase as e:
+            print(f"exception: {type(e)}")
+        except BaseException:
+            raise
+        else:
+            if not vm.is_none(res):
+                scope.globals._.set_item(vm.mk_str("last"), res, vm)
+                print(f"last: {res.class_()._.name()} = {res.repr(vm)._.as_str()}")
 
 
 def do(vm: VirtualMachine) -> None:
@@ -28,7 +50,7 @@ def do(vm: VirtualMachine) -> None:
     except CompileError as e:
         vm.new_syntax_error(e)
     res = vm.run_code_object(code_obj, scope)
-    print(res.class_()._.name(), res._)
+    print(res.class_()._.name(), res.repr(vm)._.as_str())
 
 
 Interpreter.default().enter(do)

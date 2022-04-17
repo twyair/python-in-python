@@ -497,8 +497,12 @@ class PyRef(Generic[PyRefT]):
     def set_item(
         self, needle: PyObjectRef, value: PyObjectRef, vm: VirtualMachine
     ) -> None:
-        if dict_ := self.downcast_ref_if_exact(PyDict, vm):
-            return dict_.set_item(needle, value, vm)
+        import vm.builtins.dict as pydict  # FIXME
+        from vm.protocol.mapping import PyMapping
+        from vm.protocol.sequence import PySequence
+
+        if dict_ := self.downcast_ref_if_exact(pydict.PyDict, vm):
+            return dict_._.set_item(needle, value, vm)
 
         mapping = PyMapping.from_pyobj(self)
         seq = PySequence.from_pyobj(self)

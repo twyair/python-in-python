@@ -9,17 +9,21 @@ if TYPE_CHECKING:
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyRef, PyObjectRef
     from vm.vm import VirtualMachine
+    from vm.builtins.int import PyIntRef
+    from vm.builtins.list import PyListRef
 
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
+
 import vm.builtins.iter as pyiter
 import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
-import vm.function_ as vm_function_
+import vm.function_ as fn
 
+from vm.function.arguments import ArgIterable
 from common.hash import PyHash
-from common.deco import pymethod
+from common.deco import pymethod, pystaticmethod
 
 
 @po.tp_flags(basetype=True)
@@ -57,7 +61,7 @@ class PyStr(
     SEQUENCE_METHODS: ClassVar[sequence.PySequenceMethods] = sequence.PySequenceMethods(
         length=lambda m, vm: PyStr.sequence_downcast(m)._._len(),
         concat=lambda m, other, vm: PyStr.i__add__(
-            PyStr.sequence_downcast(m), other, vm
+            PyStr.sequence_downcast(m), other, vm=vm
         ),
         repeat=lambda m, n, vm: PyStr._mul(PyStr.sequence_downcast(m), n, vm),
         item=None,  # TODO #lambda m, i, vm: PyStr.sequence_downcast(m)._.get_item_by_index(vm, i)
@@ -97,33 +101,6 @@ class PyStr(
         assert n >= 0, n
         return PyStr.new_ref(PyStr(zelf._.value * n), vm.ctx)
 
-    def _contains(self, needle: PyObjectRef, vm: VirtualMachine) -> bool:
-        raise NotImplementedError
-
-    def _getitem(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
-        raise NotImplementedError
-
-    @pymethod(True)
-    @classmethod
-    def i__add__(
-        cls, zelf: PyObjectRef, other: PyObjectRef, vm: VirtualMachine
-    ) -> PyObjectRef:
-        value = other.downcast_ref(PyStr)
-        if value is not None:
-            return PyStr.new_ref(PyStr(zelf._.value + value._.value), vm.ctx)
-        else:
-            if (radd := vm.get_method(other, "__radd__")) is not None:
-                return vm.invoke(radd, vm_function_.FuncArgs([zelf]))
-            else:
-                vm.new_type_error(
-                    f'can only concatenate str (not "{other.class_()._.name()}") to str'
-                )
-
-    @classmethod
-    def hash(cls, zelf: PyRef[PyStr], vm: VirtualMachine) -> PyHash:
-        # FIXME?
-        return hash(zelf._.as_str())
-
     @classmethod
     def cmp(
         cls,
@@ -159,16 +136,390 @@ class PyStr(
 
     @classmethod
     def py_new(
-        cls, class_: PyTypeRef, args: FuncArgs, vm: VirtualMachine
+        cls, class_: PyTypeRef, fargs: FuncArgs, /, vm: VirtualMachine
     ) -> prc.PyObjectRef:
+        args = fargs.bind(__str_args)
+        object_: Optional[PyObjectRef] = args.arguments["object"]
+        encoding: Optional[PyStrRef] = args.arguments["encoding"]
+        errors: Optional[PyStrRef] = args.arguments["errors"]
+
+        if object_ is not None:
+            if encoding is not None:
+                string = vm.state.codec_registry.decode_text(
+                    object_, encoding._.as_str(), errors, vm
+                )
+            else:
+                string = object_.str(vm)
+        else:
+            string = PyStr("").into_ref_with_type(vm, class_)
+
+        if string.class_().is_(class_):
+            return string
+        else:
+            return PyStr(string._.as_str()).into_pyresult_with_type(vm, class_)
+
+    @pymethod(True)
+    @staticmethod
+    def i__add__(
+        zelf: PyRef[PyStr], other: PyObjectRef, *, vm: VirtualMachine
+    ) -> PyObjectRef:
+        if (value := other.payload_(PyStr)) is not None:
+            return PyStr.from_str(zelf._.as_str() + value.as_str(), vm.ctx)
+        elif (radd := vm.get_method(other, "__radd__")) is not None:
+            return vm.invoke(radd, fn.FuncArgs([zelf]))
+        else:
+            vm.new_type_error(
+                f'can only concatenate str (not "{other.class_()._.name()}") to str'
+            )
+
+    @pymethod(True)
+    def i__bool__(self, *, vm: VirtualMachine) -> bool:
+        return bool(self.value)
+
+    def _contains(self, needle: PyObjectRef, vm: VirtualMachine) -> bool:
         raise NotImplementedError
 
-    # TODO: impl PyStr @ 323
-    # TODO: impl PyStr @ 379
+    @pymethod(True)
+    def i__contains__(self, needle: PyObjectRef, /, *, vm: VirtualMachine) -> bool:
+        return self._contains(needle, vm)
+
+    def _getitem(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def i__getitem__(
+        self, needle: PyObjectRef, /, *, vm: VirtualMachine
+    ) -> PyObjectRef:
+        return self._getitem(needle, vm)
+
+    @classmethod
+    def hash(cls, zelf: PyRef[PyStr], vm: VirtualMachine) -> PyHash:
+        # FIXME?
+        return hash(zelf._.as_str())
+
+    @pymethod(True)
+    def i__len__(self, *, vm: VirtualMachine) -> int:
+        return len(self.value)
+
+    @pymethod(True)
+    def isascii(self, *, vm: VirtualMachine) -> bool:
+        return self.value.isascii()
+
+    @pymethod(True)
+    def i__sizeof__(self, *, vm: VirtualMachine) -> int:
+        return self.value.__sizeof__()
+
+    @pymethod(True)
+    @staticmethod
+    def i__mul__(
+        zelf: PyRef[PyStr], value: PyIntRef, /, *, vm: VirtualMachine
+    ) -> PyStrRef:
+        i = value._.as_int()
+        if i == 1 and zelf.class_().is_(vm.ctx.types.str_type):
+            return zelf
+        else:
+            return PyStr.from_str(zelf._.as_str() * i, vm.ctx)
+
+    @pymethod(True)
+    @staticmethod
+    def i__rmul__(
+        zelf: PyRef[PyStr], value: PyIntRef, /, *, vm: VirtualMachine
+    ) -> PyStrRef:
+        return PyStr.i__mul__(zelf, value, vm=vm)
+
+    @pymethod(True)
+    @staticmethod
+    def i__str__(zelf: PyRef[PyStr], *, vm: VirtualMachine) -> PyStrRef:
+        return zelf
+
+    @pymethod(True)
+    def i__repr__(self, *, vm: VirtualMachine) -> str:
+        return repr(self.as_str())
+
+    @pymethod(True)
+    def lower(self, *, vm: VirtualMachine) -> str:
+        return self.value.lower()
+
+    @pymethod(True)
+    def casefold(self, *, vm: VirtualMachine) -> str:
+        return self.value.casefold()
+
+    @pymethod(True)
+    def upper(self, *, vm: VirtualMachine) -> str:
+        return self.value.upper()
+
+    @pymethod(True)
+    def capitalize(self, *, vm: VirtualMachine) -> str:
+        return self.value.capitalize()
+
+    # TODO: test
+    @pymethod(False)
+    def split(self, fargs: FuncArgs, *, vm: VirtualMachine) -> PyListRef:
+        sep, maxsplit = __split_args_make(fargs)
+        return vm.ctx.new_list(
+            [PyStr.from_str(s, vm.ctx) for s in self.value.split(sep, maxsplit)]
+        )
+
+    @pymethod(False)
+    def rsplit(self, fargs: FuncArgs, *, vm: VirtualMachine) -> PyListRef:
+        sep, maxsplit = __split_args_make(fargs)
+        return vm.ctx.new_list(
+            [PyStr.from_str(s, vm.ctx) for s in self.value.rsplit(sep, maxsplit)]
+        )
+
+    @pymethod(True)
+    def strip(self, chars: Optional[PyStrRef] = None, *, vm: VirtualMachine) -> str:
+        return self.as_str().strip(chars._.as_str() if chars is not None else chars)
+
+    @pymethod(True)
+    def lstrip(self, chars: Optional[PyStrRef] = None, *, vm: VirtualMachine) -> str:
+        return self.as_str().lstrip(chars._.as_str() if chars is not None else chars)
+
+    @pymethod(True)
+    def rstrip(self, chars: Optional[PyStrRef] = None, *, vm: VirtualMachine) -> str:
+        return self.as_str().rstrip(chars._.as_str() if chars is not None else chars)
+
+    @pymethod(False)
+    def endswith(self, fargs: FuncArgs, *, vm: VirtualMachine) -> bool:
+        raise NotImplementedError
+
+    @pymethod(False)
+    def startswith(self, fargs: FuncArgs, *, vm: VirtualMachine) -> bool:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def removeprefix(self, pref: PyStrRef, /, *, vm: VirtualMachine) -> str:
+        return self.as_str().removeprefix(pref._.as_str())
+
+    @pymethod(True)
+    def removesuffix(self, suff: PyStrRef, /, *, vm: VirtualMachine) -> str:
+        return self.as_str().removesuffix(suff._.as_str())
+
+    @pymethod(True)
+    def isalnum(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isalnum()
+
+    @pymethod(True)
+    def isnumeric(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isnumeric()
+
+    @pymethod(True)
+    def isdigit(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isdigit()
+
+    @pymethod(True)
+    def isdecimal(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isdecimal()
+
+    @pymethod(True)
+    def i__mod__(self, values: PyObjectRef, /, *, vm: VirtualMachine) -> str:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def i__rmod__(self, values: PyObjectRef, /, *, vm: VirtualMachine) -> PyObjectRef:
+        return vm.ctx.get_not_implemented()
+
+    @pymethod(False)
+    def format(self, fargs: FuncArgs, *, vm: VirtualMachine) -> str:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def i__format__(self, spec: PyStrRef, *, vm: VirtualMachine) -> str:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def title(self, *, vm: VirtualMachine) -> str:
+        return self.as_str().title()
+
+    @pymethod(True)
+    def swapcase(self, *, vm: VirtualMachine) -> str:
+        return self.as_str().swapcase()
+
+    @pymethod(True)
+    def isalpha(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isalpha()
+
+    @pymethod(True)
+    def replace(
+        self,
+        old: PyStrRef,
+        new: PyStrRef,
+        count: Optional[PyObjectRef] = None,
+        /,
+        *,
+        vm: VirtualMachine,
+    ) -> str:
+        if count is None:
+            c = 1
+        else:
+            # TODO: c = count.__index__()
+            raise NotImplementedError
+        return self.as_str().replace(old._.as_str(), new._.as_str(), c)
+
+    @pymethod(True)
+    def isprintable(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isprintable()
+
+    @pymethod(True)
+    def isspace(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isspace()
+
+    @pymethod(True)
+    def islower(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().islower()
+
+    @pymethod(True)
+    def isupper(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isupper()
+
+    @pymethod(False)
+    def splitlines(self, fargs: FuncArgs, *, vm: VirtualMachine) -> PyListRef:
+        raise NotImplementedError
+
+    # TODO: `iterable: ArgIterable[PyStrRef]`
+    @pymethod(True)
+    def join(self, iterable: ArgIterable, /, *, vm: VirtualMachine) -> str:
+        raise NotImplementedError
+        # return self.as_str().join()
+
+    @pymethod(False)
+    def find(self, fargs: FuncArgs, *, vm: VirtualMachine) -> int:
+        raise NotImplementedError
+
+    @pymethod(False)
+    def rfind(self, fargs: FuncArgs, *, vm: VirtualMachine) -> int:
+        raise NotImplementedError
+
+    @pymethod(False)
+    def index(self, fargs: FuncArgs, *, vm: VirtualMachine) -> int:
+        raise NotImplementedError
+
+    @pymethod(False)
+    def rindex(self, fargs: FuncArgs, *, vm: VirtualMachine) -> int:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def partition(self, sep: PyStrRef, *, vm: VirtualMachine) -> PyObjectRef:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def rpartition(self, sep: PyStrRef, *, vm: VirtualMachine) -> PyObjectRef:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def istitle(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().istitle()
+
+    @pymethod(False)
+    def count(self, fargs: FuncArgs, *, vm: VirtualMachine) -> int:
+        raise NotImplementedError
+
+    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
+    @pymethod(True)
+    def zfill(self, width: PyIntRef, /, *, vm: VirtualMachine) -> str:
+        return self.as_str().zfill(width._.as_int())
+
+    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
+    @pymethod(True)
+    def center(
+        self,
+        width: PyIntRef,
+        fillchar: Optional[PyStrRef] = None,
+        /,
+        *,
+        vm: VirtualMachine,
+    ) -> str:
+        raise NotImplementedError
+
+    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
+    @pymethod(True)
+    def ljust(
+        self,
+        width: PyIntRef,
+        fillchar: Optional[PyStrRef] = None,
+        /,
+        *,
+        vm: VirtualMachine,
+    ) -> str:
+        raise NotImplementedError
+
+    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
+    @pymethod(True)
+    def rjust(
+        self,
+        width: PyIntRef,
+        fillchar: Optional[PyStrRef] = None,
+        /,
+        *,
+        vm: VirtualMachine,
+    ) -> str:
+        raise NotImplementedError
+
+    @pymethod(False)
+    def expandtabs(self, fargs: FuncArgs, *, vm: VirtualMachine) -> str:
+        raise NotImplementedError
+
+    @pymethod(True)
+    def isidentifier(self, *, vm: VirtualMachine) -> bool:
+        return self.as_str().isidentifier()
+
+    @pymethod(True)
+    def translate(self, table: PyObjectRef, *, vm: VirtualMachine) -> str:
+        raise NotImplementedError
+
+    @pystaticmethod(True)
+    @staticmethod
+    def maketrans(
+        dict_or_str: PyObjectRef,
+        to_str: Optional[PyStrRef] = None,
+        none_str: Optional[PyStrRef] = None,
+        *,
+        vm: VirtualMachine,
+    ) -> PyObjectRef:
+        raise NotImplementedError
+
+    @pymethod(False)
+    @staticmethod
+    def encode(
+        zelf: PyRef[PyStr], fargs: FuncArgs, *, vm: VirtualMachine
+    ) -> PyBytesRef:
+        args = fargs.bind(__encode_args).arguments
+        return encode_string(zelf, args["encoding"], args["error"], vm)
 
 
 # TODO: delete
 PyStrRef: TypeAlias = "PyRef[PyStr]"
+
+
+def __split_args(sep: Optional[PyStrRef] = None, maxsplit: Optional[PyIntRef] = None):
+    ...
+
+
+def __split_args_make(fargs: FuncArgs) -> tuple[str, int]:
+    args = fargs.bind(__split_args).arguments
+    if (s := args["sep"]) is not None:
+        sep = s._.as_str()
+    else:
+        sep = " "
+    if (m := args["maxsplit"]) is not None:
+        maxsplit = m._.as_int()
+    else:
+        maxsplit = -1
+    return sep, maxsplit
+
+
+def __str_args(
+    object: Optional[PyObjectRef] = None,
+    encoding: Optional[PyStrRef] = None,
+    errors: Optional[PyStrRef] = None,
+):
+    ...
+
+
+def __encode_args(
+    encoding: Optional[PyStrRef] = None, errors: Optional[PyStrRef] = None
+):
+    ...
 
 
 @po.pyimpl(constructor=False, iter_next=True)

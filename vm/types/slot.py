@@ -534,7 +534,7 @@ class ConstructorMixin(ABC):
     @classmethod
     @abstractmethod
     def py_new(
-        cls, class_: PyTypeRef, args: FuncArgs, vm: VirtualMachine
+        cls, class_: PyTypeRef, args: FuncArgs, /, vm: VirtualMachine
     ) -> PyObjectRef:
         ...
 
