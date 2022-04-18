@@ -29,7 +29,6 @@ class PyIter(Generic[T]):
         return obj.class_()._.mro_find_map(lambda x: x.slots.iternext) is not None
 
     def next(self, vm: VirtualMachine) -> PyIterReturn[T]:
-        print(type(self.value._))
         iternext = self.value.class_()._.mro_find_map(lambda x: x.slots.iternext)
         if iternext is None:
             vm.new_type_error(
@@ -138,7 +137,6 @@ class PyIterIter(Generic[T]):
         try:
             iret = PyIter.new(self.obj, self.t).next(self.vm)
         except PyImplBase as e:
-            # print(e.exception.class_()._.name())
             x = None
         else:
             if isinstance(iret, PyIterReturnReturn):

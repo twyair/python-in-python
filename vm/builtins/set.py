@@ -37,7 +37,7 @@ import vm.protocol.iter as protocol_iter
 
 from vm.dictdatatype import DictContext, DictKey
 from common.deco import pyclassmethod, pymethod, pyslot
-from common.error import PyImplBase, PyImplException
+from common.error import PyImplBase, PyImplError, PyImplException
 from common.hash import PyHash
 
 
@@ -324,8 +324,24 @@ class PySet(
 )
 @po.pyclass("frozenset")
 @dataclass
-class PyFrozenSet(po.PyClassImpl, po.PyValueMixin):
+class PyFrozenSet(
+    po.PyClassImpl,
+    po.PyValueMixin,
+    po.TryFromObjectMixin,
+    slot.AsSequenceMixin,
+    slot.HashableMixin,
+    slot.ComparableMixin,
+    slot.ConstructorMixin,
+    slot.IterableMixin,
+):
     inner: PySetInner
+
+    SEQUENCE_METHODS: ClassVar[sequence.PySequenceMethods] = sequence.PySequenceMethods(
+        length=lambda s, vm: PyFrozenSet.sequence_downcast(s)._._len(),
+        contains=lambda s, needle, vm: PyFrozenSet.sequence_downcast(
+            s
+        )._.inner.contains(needle, vm=vm),
+    )
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
@@ -338,12 +354,208 @@ class PyFrozenSet(po.PyClassImpl, po.PyValueMixin):
     def elements(self) -> list[PyObjectRef]:
         return self.inner.elements()
 
-    # TODO: impl Constructor for PyFrozenSet
-    # TODO: impl PyFrozenSet @ 724
-    # TODO: impl AsSequence for PyFrozenSet
-    # TODO: impl Hashable for PyFrozenSet
-    # TODO: impl Comparable for PyFrozenSet
-    # TODO: impl Iterable for PyFrozenSet
+    @staticmethod
+    def from_iter(vm: VirtualMachine, it: Iterator[PyObjectRef]) -> PyFrozenSet:
+        return PyFrozenSet(PySetInner.from_iter(it, vm))
+
+    def _len(self) -> int:
+        return self.inner.len()
+
+    @pymethod(True)
+    def i__len__(self, *, vm: VirtualMachine) -> int:
+        return self._len()
+
+    @pymethod(True)
+    def i__sizeof__(self, *, vm: VirtualMachine) -> int:
+        return self.inner.__sizeof__()
+
+    @pymethod(True)
+    @staticmethod
+    def copy(zelf: PyRef[PyFrozenSet], *, vm: VirtualMachine) -> PyRef[PyFrozenSet]:
+        if zelf.class_().is_(vm.ctx.types.frozenset_type):
+            return zelf
+        else:
+            return PyFrozenSet(zelf._.inner.copy()).into_ref(vm)
+
+    @pymethod(True)
+    def i__contains__(self, needle: PyObjectRef, vm: VirtualMachine) -> bool:
+        return self.inner.contains(needle, vm=vm)
+
+    @pymethod(True)
+    def union(self, *others: ArgIterable, vm: VirtualMachine) -> PyRef[PyFrozenSet]:
+        return PyFrozenSet(self.inner.union(*others, vm=vm)).into_ref(vm)
+
+    @pymethod(True)
+    def intersection(
+        self, *others: ArgIterable, vm: VirtualMachine
+    ) -> PyRef[PyFrozenSet]:
+        return PyFrozenSet(self.inner.intersection(*others, vm=vm)).into_ref(vm)
+
+    @pymethod(True)
+    def difference(
+        self, *others: ArgIterable, vm: VirtualMachine
+    ) -> PyRef[PyFrozenSet]:
+        return PyFrozenSet(self.inner.difference(*others, vm=vm)).into_ref(vm)
+
+    @pymethod(True)
+    def symmetric_difference(
+        self, *others: ArgIterable, vm: VirtualMachine
+    ) -> PyRef[PyFrozenSet]:
+        return PyFrozenSet(self.inner.symmetric_difference(*others, vm=vm)).into_ref(vm)
+
+    @pymethod(True)
+    def issubset(self, other: ArgIterable, *, vm: VirtualMachine) -> bool:
+        return self.inner.issubset(other, vm=vm)
+
+    @pymethod(True)
+    def issuperset(self, other: ArgIterable, *, vm: VirtualMachine) -> bool:
+        return self.inner.issuperset(other, vm=vm)
+
+    @pymethod(True)
+    def isdisjoint(self, other: ArgIterable, *, vm: VirtualMachine) -> bool:
+        return self.inner.isdisjoint(other, vm=vm)
+
+    @pymethod(True)
+    def i__or__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        try:
+            set_iter = SetIterable.try_from_object(vm, other)
+        except PyImplBase as _:
+            return po.PyArithmeticValue(None)
+        else:
+            return po.PyArithmeticValue(self.union(*set_iter.iterable, vm=vm))
+
+    @pymethod(True)
+    def i__ror__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        return self.i__or__(other, vm=vm)
+
+    @pymethod(True)
+    def i__and__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        try:
+            set_iter = SetIterable.try_from_object(vm, other)
+        except PyImplBase as _:
+            return po.PyArithmeticValue(None)
+        else:
+            return po.PyArithmeticValue(self.intersection(*set_iter.iterable, vm=vm))
+
+    @pymethod(True)
+    def i__rand__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        return self.i__and__(other, vm=vm)
+
+    @pymethod(True)
+    def i__sub__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        try:
+            set_iter = SetIterable.try_from_object(vm, other)
+        except PyImplBase as _:
+            return po.PyArithmeticValue(None)
+        else:
+            return po.PyArithmeticValue(self.difference(*set_iter.iterable, vm=vm))
+
+    @pymethod(True)
+    def i__rsub__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        # FIXME?
+        return self.i__sub__(other, vm=vm)
+
+    @pymethod(True)
+    def i__xor__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        try:
+            set_iter = SetIterable.try_from_object(vm, other)
+        except PyImplBase as _:
+            return po.PyArithmeticValue(None)
+        else:
+            return po.PyArithmeticValue(
+                self.symmetric_difference(*set_iter.iterable, vm=vm)
+            )
+
+    @pymethod(True)
+    def i__rxor__(
+        self, other: PyObjectRef, *, vm: VirtualMachine
+    ) -> po.PyArithmeticValue[PyRef[PyFrozenSet]]:
+        return self.i__xor__(other, vm=vm)
+
+    @pymethod(True)
+    @staticmethod
+    def i__repr__(zelf: PyRef[PyFrozenSet], *, vm: VirtualMachine) -> str:
+        raise NotImplementedError
+
+    @pymethod(True)
+    @staticmethod
+    def i__reduce__(zelf: PyRef[PyFrozenSet], *, vm: VirtualMachine) -> PyObjectRef:
+        r = reduce_set(zelf, vm)
+        return pytuple.PyTuple([r[0], r[1], vm.unwrap_or_none(r[2])]).into_ref(vm)
+
+    @pyclassmethod(True)
+    @staticmethod
+    def i__class_getitem__(
+        class_: PyTypeRef, args: PyObjectRef, *, vm: VirtualMachine
+    ) -> pygenericalias.PyGenericAlias:
+        return pygenericalias.PyGenericAlias.new(class_, args, vm)
+
+    @classmethod
+    def as_sequence(
+        cls, zelf: PyRef[PyFrozenSet], vm: VirtualMachine
+    ) -> sequence.PySequenceMethods:
+        return cls.SEQUENCE_METHODS
+
+    @classmethod
+    def hash(cls, zelf: PyRef[PyFrozenSet], vm: VirtualMachine) -> PyHash:
+        return zelf._.inner.hash(vm=vm)
+
+    @classmethod
+    def cmp(
+        cls,
+        zelf: PyRef[PyFrozenSet],
+        other: PyObject,
+        op: slot.PyComparisonOp,
+        vm: VirtualMachine,
+    ) -> po.PyComparisonValue:
+        s = extract_set(other)
+        if s is None:
+            return po.PyComparisonValue(None)
+        return po.PyComparisonValue(zelf._.inner.compare(s, op, vm=vm))
+
+    @classmethod
+    def iter(cls, zelf: PyRef[PyFrozenSet], vm: VirtualMachine) -> PyObjectRef:
+        return zelf._.inner.iter().into_object(vm)
+
+    @classmethod
+    def py_new(
+        cls, class_: PyTypeRef, fargs: FuncArgs, /, vm: VirtualMachine
+    ) -> PyObjectRef:
+        iterable: Optional[PyObjectRef] = fargs.bind(__frozenset_py_new_args).args[0]
+        if iterable is not None:
+            if class_.is_(vm.ctx.types.frozenset_type):
+                try:
+                    return iterable.downcast_exact(PyFrozenSet, vm)
+                except PyImplError as e:
+                    pass
+            elements = vm.extract_elements_as_pyobjects(iterable)
+        else:
+            elements = []
+
+        if not elements and class_.is_(vm.ctx.types.frozenset_type):
+            return vm.ctx.empty_frozenset
+        else:
+            return PyFrozenSet.from_iter(vm, iter(elements)).into_pyresult_with_type(
+                vm, class_
+            )
+
+
+def __frozenset_py_new_args(x: Optional[PyObjectRef] = None):
+    ...
 
 
 MT = TypeVar("MT", bound=Callable)
@@ -400,12 +612,6 @@ class PySetInner:
 
     @set_context
     def union(self, other: ArgIterable, *, vm: VirtualMachine) -> PySetInner:
-        # print(
-        #     other.iterable.class_()._.name(),
-        #     other.iterable._.inner.len(),
-        #     len([self.mk(i) for i in other.iter(vm)]),
-        # )
-        print(other.iterfn)
         return PySetInner(self.content.union(self.mk(i) for i in other.iter(vm)))
 
     @set_context
