@@ -448,6 +448,9 @@ class PyRef(Generic[PyRefT]):
                 return True
 
     def length_opt(self, vm: VirtualMachine) -> Optional[int]:
+        from vm.protocol.sequence import PySequence  # FIXME
+        from vm.protocol.mapping import PyMapping  # FIXME
+
         r = PySequence.from_pyobj(self).length_opt(vm)
         if r is None:
             return PyMapping.from_pyobj(self).length_opt(vm)

@@ -362,8 +362,8 @@ class VirtualMachine:
         if cap is not None and cap >= MAX_LENGTH_HINT:
             return []
 
-        # FIXME!
-        return PyIterIter.new(self, iter_.as_ref(), cap).map(f)
+        # FIXME?
+        return PyIterIter.new(self, iter_.as_ref(), cap, None).map(f)
 
     def check_signal(self) -> None:
         signal.check_signals(self)
@@ -920,7 +920,7 @@ class VirtualMachine:
             if result.is_(self.ctx.not_implemented):
                 return None
 
-        hint = result.payload_if_subclass(PyInt, self)
+        hint = result.payload_if_subclass(pyint.PyInt, self)
         if hint is None:
             self.new_type_error(
                 f"'{result.class_()._.name()}' object cannot be interpreted as an integer"

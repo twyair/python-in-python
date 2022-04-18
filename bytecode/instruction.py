@@ -1170,7 +1170,7 @@ class LoadMethod(Instruction):
     ) -> Optional[ExecutionResult]:
         obj = frame.pop_value()
         method_name = frame.code._.code.names[self.idx]
-        method = po.PyMethod.get(obj, method_name, vm)
+        method = po.PyMethod.get(obj, vm.mk_str(method_name), vm)
         if isinstance(method, po.PyMethodFunction):
             target, is_method, func = method.target, True, method.func
         elif isinstance(method, po.PyMethodAttribute):

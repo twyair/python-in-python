@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 if TYPE_CHECKING:
     from vm.builtins.int import PyInt
@@ -50,6 +50,12 @@ class PositionIterInternal(Generic[T]):
         raise NotImplementedError
 
     # TODO: impl builtins_iter_reduce, builtins_reversed_reduce, _next, ...
+
+    def length_hint(self, f: Callable[[T], int]) -> int:
+        if isinstance(self.status, IterStatusActive):
+            return f(self.status.value) - self.position
+        else:
+            return 0
 
 
 def builtins_iter(vm: VirtualMachine) -> PyObject:

@@ -7,6 +7,7 @@ from typing import (
     Callable,
     ClassVar,
     Iterable,
+    Iterator,
     Optional,
     Set,
     TypeAlias,
@@ -31,6 +32,8 @@ import vm.builtins.iter as pyiter
 import vm.builtins.tuple as pytuple
 import vm.builtins.dict as pydict
 import vm.builtins.genericalias as pygenericalias
+import vm.function.arguments as arguments
+import vm.protocol.iter as protocol_iter
 
 from vm.dictdatatype import DictContext, DictKey
 from common.deco import pyclassmethod, pymethod, pyslot
@@ -397,6 +400,12 @@ class PySetInner:
 
     @set_context
     def union(self, other: ArgIterable, *, vm: VirtualMachine) -> PySetInner:
+        # print(
+        #     other.iterable.class_()._.name(),
+        #     other.iterable._.inner.len(),
+        #     len([self.mk(i) for i in other.iter(vm)]),
+        # )
+        print(other.iterfn)
         return PySetInner(self.content.union(self.mk(i) for i in other.iter(vm)))
 
     @set_context
@@ -427,9 +436,11 @@ class PySetInner:
     def isdisjoint(self, other: ArgIterable, *, vm: VirtualMachine) -> bool:
         return self.content.isdisjoint(other.iter(vm))
 
-    def iter(self) -> PySetIterator:
+    def iter(self: PySetInner) -> PySetIterator:
         return PySetIterator(
-            self.len(), pyiter.PositionIterInternal.new(self.content, 0)
+            self.len(),
+            pyiter.PositionIterInternal.new(self, 0),
+            iter((x.value for x in self.content)),
         )
 
     def repr(self, class_name: Optional[str], vm: VirtualMachine) -> str:
@@ -543,26 +554,54 @@ class SetIterable:
         if class_.issubclass(vm.ctx.types.set_type) or class_.issubclass(
             vm.ctx.types.frozenset_type
         ):
-            return SetIterable([ArgIterable.try_from_object(vm, obj)])
+            return SetIterable([arguments.ArgIterable.try_from_object(vm, obj)])
         else:
             vm.new_type_error(f"{class_} is not a subtype of set or frozenset")
 
 
-@po.pyimpl(constructor=True, iter_next=True)
+@po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("set_iterator")
 @dataclass
-class PySetIterator(po.PyClassImpl, po.PyValueMixin):
+class PySetIterator(
+    po.PyClassImpl,
+    po.PyValueMixin,
+    po.TryFromObjectMixin,
+    slot.IterNextMixin,
+    slot.IterNextIterableMixin,
+):
     size: int
-    internal: pyiter.PositionIterInternal
+    internal: pyiter.PositionIterInternal[PySetInner]
+    iterator: Iterator[PyObjectRef]
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.set_iterator_type
 
-    # TODO: impl PySetIterator @ 969
-    # TODO: impl Unconstructible for PySetIterator
-    # TODO: impl IterNextIterable for PySetIterator
-    # TODO: impl IterNext for PySetIterator
+    @pymethod(True)
+    def i__length_hint__(self, *, vm: VirtualMachine) -> int:
+        return self.internal.length_hint(lambda _: self.size)
+
+    @pymethod(True)
+    @staticmethod
+    def i__reduce__(zelf: PyRef[PySetIterator], *, vm: VirtualMachine) -> PyObjectRef:
+        raise NotImplementedError
+
+    @classmethod
+    def next(
+        cls, zelf: PyRef[PySetIterator], vm: VirtualMachine
+    ) -> protocol_iter.PyIterReturn:
+        if isinstance(zelf._.internal.status, pyiter.IterStatusActive):
+            if zelf._.internal.status.value.len() != zelf._.size:
+                zelf._.impl_extend_class.status = pyiter.IterStatusExhausted()
+                vm.new_runtime_error("set changed size during iteration")
+            n = next(zelf._.iterator, None)
+            if n is None:
+                zelf._.internal.status = pyiter.IterStatusExhausted()
+                return protocol_iter.PyIterReturnStopIteration(None)
+            else:
+                return protocol_iter.PyIterReturnReturn(n)
+        else:
+            return protocol_iter.PyIterReturnStopIteration(None)
 
 
 def init(context: PyContext) -> None:

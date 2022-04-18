@@ -40,10 +40,8 @@ if TYPE_CHECKING:
         PyIterReturnReturn,
         PyIterReturnStopIteration,
     )
-    from vm.pyobject import (
-        PyMethodAttribute,
-        PyMethodFunction,
-    )
+
+    # from vm.pyobject import PyMethodAttribute, PyMethodFunction
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.scope import Scope
     from vm.coroutine import Coro
@@ -521,6 +519,8 @@ class ExecutingFrame:
         return self.state.stack.pop()
 
     def pop_multiple(self, count: int) -> list[PyObjectRef]:
+        if count == 0:
+            return []
         res = self.state.stack[-count:]
         del self.state.stack[-count:]
         return res
@@ -629,9 +629,9 @@ class ExecutingFrame:
         is_method = self.pop_value().is_(vm.ctx.true_value)
         target = self.pop_value()
         if is_method:
-            method = PyMethodFunction(target=target, func=func)
+            method = po.PyMethodFunction(target=target, func=func)
         else:
-            method = PyMethodAttribute(func)
+            method = po.PyMethodAttribute(func)
         value = method.invoke(args, vm)
         self.push_value(value)
 

@@ -368,7 +368,6 @@ class IterNextIterableMixin:
 IterNextT = TypeVar("IterNextT", contravariant=True, bound="IterNextMixin")
 
 
-@dataclass
 class IterNextMixin(ABC):
     @classmethod
     @abstractmethod
@@ -376,6 +375,19 @@ class IterNextMixin(ABC):
         cls: Type[IterNextT], zelf: PyRef[IterNextT], vm: VirtualMachine
     ) -> PyIterReturn:
         ...
+
+    @pyslot
+    @classmethod
+    def slot_iternext(cls, zelf: PyObject, vm: VirtualMachine) -> PyIterReturn:
+        if (r := zelf.downcast_ref(cls)) is not None:  # type: ignore
+            return cls.next(zelf, vm)
+        else:
+            vm.new_type_error("unexpected payload for __next__")
+
+    @pymethod(True)
+    @classmethod
+    def i__next__(cls, zelf: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
+        return cls.slot_iternext(zelf, vm).into_pyresult(vm)
 
 
 # TODO: when intersection types are available change bound to `AsMappingMixin & PyValueMixin`

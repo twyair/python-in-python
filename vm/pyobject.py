@@ -740,7 +740,10 @@ def primitive_to_pyobject(
         return vm.ctx.new_bytes(value)
     elif isinstance(value, PyArithmeticValue):
         if value.value is not None:
-            return primitive_to_pyobject(value.value, vm)
+            if isinstance(value.value, prc.PyRef):
+                return value.value
+            else:
+                return primitive_to_pyobject(value.value, vm)
         else:
             return vm.ctx.get_not_implemented()
     else:
