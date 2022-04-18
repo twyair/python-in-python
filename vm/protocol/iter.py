@@ -1,31 +1,34 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from operator import length_hint
-from typing import TYPE_CHECKING, Callable, Generic, Optional, TypeVar
-from common.error import PyImplException, PyImplError
+from typing import TYPE_CHECKING, Callable, Generic, Iterator, Optional, Type, TypeVar
+from common.error import PyImplBase, PyImplException, PyImplError
 
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
     from vm.vm import VirtualMachine
     from vm.builtins.iter import PySequenceIterator
 
+T = TypeVar("T")
+
 
 @dataclass
-class PyIter:
+class PyIter(Generic[T]):
     value: PyObjectRef
+    t: Optional[Type[T]]
 
     def as_ref(self) -> PyObjectRef:
         return self.value
 
     @staticmethod
-    def new(obj: PyObjectRef) -> PyIter:
-        return PyIter(obj)
+    def new(obj: PyObjectRef, t: Optional[Type[T]]) -> PyIter[T]:
+        return PyIter(obj, t)
 
     @staticmethod
     def check(obj: PyObjectRef) -> bool:
         return obj.class_()._.mro_find_map(lambda x: x.slots.iternext) is not None
 
-    def next(self, vm: VirtualMachine) -> PyIterReturn:
+    def next(self, vm: VirtualMachine) -> PyIterReturn[T]:
         iternext = self.value.class_()._.mro_find_map(lambda x: x.slots.iternext)
         if iternext is None:
             vm.new_type_error(
@@ -33,14 +36,14 @@ class PyIter:
             )
         return iternext(self.value, vm)
 
-    def iter(self, vm: VirtualMachine) -> PyIterIter:
+    def iter(self, vm: VirtualMachine) -> PyIterIter[T]:
         length_hint = vm.length_hint_opt(self.as_ref())
-        return PyIterIter.new(vm, self.value, length_hint)
+        return PyIterIter.new(vm, self.value, length_hint, self.t)
 
-    def iter_without_hint(self, vm: VirtualMachine) -> PyIterIter:
-        return PyIterIter(vm, self.value, None)
+    def iter_without_hint(self, vm: VirtualMachine) -> PyIterIter[T]:
+        return PyIterIter(vm, self.value, None, self.t)
 
-    def into_iter(self, vm: VirtualMachine) -> PyIterIter:
+    def into_iter(self, vm: VirtualMachine) -> PyIterIter[T]:
         return self.iter(vm)
 
     def into_object(self) -> PyObjectRef:
@@ -55,7 +58,7 @@ class PyIter:
         if getiter is not None:
             iter = getiter(obj, vm)
             if PyIter.check(iter):
-                return PyIter(obj)
+                return PyIter(obj, None)
             else:
                 vm.new_type_error(
                     f"iter() returned non-iterator of type '{iter.class_()._.name()}'"
@@ -63,12 +66,9 @@ class PyIter:
         else:
             try:
                 seq_iter = PySequenceIterator.new(obj, vm)
-                return PyIter(seq_iter.into_object(vm))
+                return PyIter(seq_iter.into_object(vm), None)
             except PyImplError as _:
                 vm.new_type_error(f"'{obj.class_()._.name()}' object is not iterable")
-
-
-T = TypeVar("T")
 
 
 @dataclass
@@ -115,20 +115,39 @@ class PyIterReturnStopIteration(PyIterReturn):
 
 
 @dataclass
-class PyIterIter:
+class PyIterIter(Generic[T]):
     vm: VirtualMachine
     obj: PyObjectRef
     length_hint: Optional[int]
+    t: Optional[Type[T]]
 
     @staticmethod
     def new(
-        vm: VirtualMachine, obj: PyObjectRef, length_hint: Optional[int]
-    ) -> PyIterIter:
-        return PyIterIter(vm, obj, length_hint)
+        vm: VirtualMachine,
+        obj: PyObjectRef,
+        length_hint: Optional[int],
+        t: Optional[Type[T]],
+    ) -> PyIterIter[T]:
+        return PyIterIter(vm, obj, length_hint, t)
 
-    def next(self) -> Optional[PyObjectRef]:
-        raise NotImplementedError
-        # r = PyIter.new(self.obj).next(self.vm)
+    def __iter__(self) -> Iterator[T]:
+        return self
 
-    def size_hint(self) -> tuple[int, Optional[int]]:
-        return (self.length_hint or 0, self.length_hint)
+    def __next__(self) -> T:
+        # raise NotImplementedError
+        try:
+            iret = PyIter.new(self.obj, self.t).next(self.vm)
+        except PyImplBase as _:
+            x = None
+        else:
+            if isinstance(iret, PyIterReturnReturn):
+                x = iret.value
+            else:
+                x = None
+        # TODO: T::try_from_object(self.vm, x)
+        if x is None:
+            raise StopIteration
+        return self.t.try_from_object(self.vm, x)  # type: ignore
+
+    # def size_hint(self) -> tuple[int, Optional[int]]:
+    #     return (self.length_hint or 0, self.length_hint)

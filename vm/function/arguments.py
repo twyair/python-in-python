@@ -43,10 +43,10 @@ class ArgIterable(Generic[T]):
 
     def iter(self, vm: VirtualMachine) -> PyIterIter:
         if self.iterfn is not None:
-            return vm_iter.PyIter(self.iterfn(self.iterable, vm)).into_iter(vm)
+            return vm_iter.PyIter(self.iterfn(self.iterable, vm), None).into_iter(vm)
         else:
             return vm_iter.PyIter(
-                pyiter.PySequenceIterator.new(self.iterable, vm).into_object(vm)
+                pyiter.PySequenceIterator.new(self.iterable, vm).into_object(vm), None
             ).into_iter(vm)
 
 

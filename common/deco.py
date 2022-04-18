@@ -187,6 +187,7 @@ TYPE2MODULE = {
     "PyStr": "vm.builtins.pystr",
     "PyType": "vm.builtins.pytype",
     "PyInt": "vm.builtins.int",
+    "SetIterable": "vm.builtins.set",
     "ArgIterable": "vm.function.arguments",
     "ArgMapping": "vm.function.arguments",
     "ArgCallable": "vm.function.arguments",

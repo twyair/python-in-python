@@ -705,7 +705,7 @@ class ExecutingFrame:
     def execute_for_iter(
         self, vm: VirtualMachine, target: Label
     ) -> Optional[ExecutionResult]:
-        top_of_stack = PyIter.new(self.last_value())
+        top_of_stack = PyIter.new(self.last_value(), None)
 
         try:
             next_obj = top_of_stack.next(vm)

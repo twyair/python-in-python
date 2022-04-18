@@ -12,27 +12,17 @@ if TYPE_CHECKING:
     from vm.builtins.coroutine import PyCoroutine
     from vm.builtins.dict import PyDict
     from vm.builtins.list import PyList
-    from vm.builtins.pystr import PyStr
-    from vm.builtins.set import PySet
 
-    # from vm.frame import (
-    #     BlockExceptHandler,
-    #     BlockFinally,
-    #     BlockFinallyHandler,
-    #     BlockLoop,
-    #     BlockTryExcept,
-    #     ExecutionResult,
-    #     ExecutionResultYield,
-    #     UnwindBreak,
-    #     UnwindContinue,
-    #     UnwindRaising,
-    #     UnwindReturning,
-    # )
+    # from vm.builtins.pystr import PyStr
+    # from vm.builtins.set import PySet
+
     from vm.function_ import FuncArgs
     from bytecode.bytecode import ConversionFlag, RaiseKind
     from vm.frame import ExecutingFrame, ExecutionResult
     from vm.vm import VirtualMachine
 
+import vm.builtins.pystr as pystr
+import vm.builtins.set as pyset
 import vm.frame as vm_frame
 import vm.pyobject as po
 
@@ -1329,7 +1319,7 @@ class BuildString(Instruction):
     ) -> Optional[ExecutionResult]:
         # FIXME?
         s = [
-            pyobj.payload_unchecked(PyStr).as_str()
+            pyobj.payload_unchecked(pystr.PyStr).as_str()
             for pyobj in frame.pop_multiple(self.size)
         ]
         str_obj = vm.ctx.new_str("".join(s))
@@ -1382,14 +1372,14 @@ class BuildSet(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        set = PySet.new_ref(vm.ctx)
+        set = pyset.PySet.new_ref(vm.ctx)
         elements = frame.pop_multiple(self.size)
         if self.unpack:
             for element in elements:
-                vm.map_iterable_object(element, lambda x: set._.add(x, vm))
+                vm.map_iterable_object(element, lambda x: set._.add(x, vm=vm))
         else:
             for element in elements:
-                set._.add(element, vm)
+                set._.add(element, vm=vm)
         frame.push_value(set)
 
 
@@ -1453,9 +1443,9 @@ class SetAdd(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         obj = frame.nth_value(self.i)
-        set_ = obj.downcast_unchecked(PySet)
+        set_ = obj.downcast_unchecked(pyset.PySet)
         item = frame.pop_value()
-        set_._.add(item, vm)
+        set_._.add(item, vm=vm)
 
 
 @final
