@@ -20,6 +20,7 @@ import vm.pyobjectrc as prc
 import vm.types.slot as slot
 import vm.builtins.float as pyfloat
 import vm.builtins.pystr as pystr
+import vm.function_ as fn
 
 
 @po.tp_flags(basetype=True)
@@ -32,6 +33,7 @@ class PyComplex(
     po.TryFromObjectMixin,
     slot.ComparableMixin,
     slot.HashableMixin,
+    slot.ConstructorMixin,
 ):
     value: complex
 
@@ -46,10 +48,13 @@ class PyComplex(
     def to_complex(self) -> complex:
         return self.value
 
-    # TODO?
-    # @pymethod(True)
-    # @staticmethod
-    # def complex(zelf: PyRef[PyComplex], vm: VirtualMachine) -> PyRef[PyComplex]:
+    @pymethod(True)
+    @staticmethod
+    def i__complex__(zelf: PyRef[PyComplex], *, vm: VirtualMachine) -> PyRef[PyComplex]:
+        if zelf.class_().is_(vm.ctx.types.complex_type):
+            return zelf
+        else:
+            return PyComplex(zelf._.value).into_ref(vm)
 
     @pyproperty()
     def get_real(self, *, vm: VirtualMachine) -> PyObjectRef:
@@ -142,14 +147,18 @@ class PyComplex(
     def i__rpow__(self, other: PyObjectRef, *, vm: VirtualMachine) -> PyObjectRef:
         return self.op(other, lambda a, b: inner_pow(b, a, vm), vm)
 
-    # TODO?
-    # @pymethod(True)
-    # def getnewargs(self, vm: VirtualMachine) -> tuple[float, float]:
-    #     return (self.value.real, self.value.imag)
+    @pymethod(True)
+    def i__getnewargs__(self, *, vm: VirtualMachine) -> PyObjectRef:
+        return vm.new_tuple(
+            [vm.ctx.new_float(self.value.real), vm.ctx.new_float(self.value.imag)]
+        )
 
-    # TODO: impl Constructor for PyComplex
-    # @classmethod
-    # def py_new(cls, class_: PyTypeRef, args: ComplexArgs, vm: VirtualMachine) -> PyObjectRef:
+    @classmethod
+    def py_new(
+        cls, class_: PyTypeRef, fargs: fn.FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
+        args = fargs.bind(__py_new_args).arguments
+        raise NotImplementedError
 
     @classmethod
     def cmp(
@@ -181,6 +190,12 @@ class PyComplex(
 
 
 # TODO: impl PyObjectRef @ 41 : `try_complex(self, vm)`
+
+
+def __py_new_args(
+    real: Optional[PyObjectRef] = None, imag: Optional[PyObjectRef] = None
+):
+    ...
 
 
 def to_op_complex(value: PyObjectRef, vm: VirtualMachine) -> Optional[complex]:

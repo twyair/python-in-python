@@ -54,16 +54,9 @@ class NameUsage(enum.Enum):
 
 @dataclass
 class CallType:
-    # TODO: move to subclasses
+    @abstractmethod
     def normal_call(self) -> Instruction:
-        if isinstance(self, CallTypePositional):
-            return instruction.CallFunctionPositional(self.nargs)
-        elif isinstance(self, CallTypeKeyword):
-            return instruction.CallFunctionKeyword(self.nargs)
-        elif isinstance(self, CallTypeEx):
-            return instruction.CallFunctionEx(self.has_kwargs)
-        else:
-            assert False, self
+        ...
 
     @abstractmethod
     def method_call(self) -> Instruction:
@@ -74,6 +67,9 @@ class CallType:
 class CallTypePositional(CallType):
     nargs: int
 
+    def normal_call(self) -> Instruction:
+        return instruction.CallFunctionPositional(self.nargs)
+
     def method_call(self) -> Instruction:
         return instruction.CallMethodPositional(self.nargs)
 
@@ -82,6 +78,9 @@ class CallTypePositional(CallType):
 class CallTypeKeyword(CallType):
     nargs: int
 
+    def normal_call(self) -> Instruction:
+        return instruction.CallFunctionKeyword(self.nargs)
+
     def method_call(self) -> Instruction:
         return instruction.CallMethodKeyword(self.nargs)
 
@@ -89,6 +88,9 @@ class CallTypeKeyword(CallType):
 @dataclass
 class CallTypeEx(CallType):
     has_kwargs: bool
+
+    def normal_call(self) -> Instruction:
+        return instruction.CallFunctionEx(self.has_kwargs)
 
     def method_call(self) -> Instruction:
         return instruction.CallMethodEx(self.has_kwargs)

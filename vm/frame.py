@@ -396,7 +396,7 @@ class ExecutingFrame:
 
     def import_(self, vm: VirtualMachine, module: Optional[PyStrRef]) -> FrameResult:
         module = module if module is not None else PyStr.from_str("", vm.ctx)
-        from_list = PyTupleTyped[PyStrRef].from_object(self.pop_value())
+        from_list = PyTupleTyped[PyStr].try_from_object(PyStr, vm, self.pop_value())
         level = int_from_object(vm, self.pop_value())
         self.push_value(vm.import_(module, from_list, level))
         return None
@@ -476,8 +476,6 @@ class ExecutingFrame:
         else:
             assert False
 
-    # TODO: get_elements
-
     def _get_name(self, idx: NameIdx) -> str:
         return self.code._.code.names[idx]
 
@@ -512,7 +510,8 @@ class ExecutingFrame:
         return None
 
     def push_value(self, obj: PyObjectRef) -> None:
-        # TODO: fatal("tried to push value onto stack but overflowed max_stacksize")
+        if len(self.state.stack) >= self.code._.code.max_stacksize:
+            self.fatal("tried to push value onto stack but overflowed max_stacksize")
         self.state.stack.append(obj)
 
     def pop_value(self) -> PyObjectRef:
@@ -735,7 +734,7 @@ class ExecutingFrame:
                 "second to top value on the stack must be a code object"
             )
         if MakeFunctionFlags.CLOSURE in flags:
-            closure = PyTupleTyped.try_from_object(PyCell, self.pop_value())
+            closure = PyTupleTyped.try_from_object(PyCell, vm, self.pop_value())
         else:
             closure = None
         if MakeFunctionFlags.ANNOTATIONS in flags:

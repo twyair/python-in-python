@@ -5,30 +5,30 @@ from typing import TYPE_CHECKING, Callable, Generic, Iterator, Optional, Type, T
 from common.error import PyImplBase, PyImplException, PyImplError
 
 if TYPE_CHECKING:
-    from vm.pyobjectrc import PyObjectRef
+    from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
     from vm.builtins.iter import PySequenceIterator
 
-T = TypeVar("T")
+TR = TypeVar("TR", bound="PyRef")
 
 
 @dataclass
-class PyIter(Generic[T]):
+class PyIter(Generic[TR]):
     value: PyObjectRef
-    t: Optional[Type[T]]
+    t: Optional[Type[TR]]
 
     def as_ref(self) -> PyObjectRef:
         return self.value
 
     @staticmethod
-    def new(obj: PyObjectRef, t: Optional[Type[T]]) -> PyIter[T]:
+    def new(obj: PyObjectRef, t: Optional[Type[TR]]) -> PyIter[TR]:
         return PyIter(obj, t)
 
     @staticmethod
     def check(obj: PyObjectRef) -> bool:
         return obj.class_()._.mro_find_map(lambda x: x.slots.iternext) is not None
 
-    def next(self, vm: VirtualMachine) -> PyIterReturn[T]:
+    def next(self, vm: VirtualMachine) -> PyIterReturn[TR]:
         iternext = self.value.class_()._.mro_find_map(lambda x: x.slots.iternext)
         if iternext is None:
             vm.new_type_error(
@@ -36,14 +36,14 @@ class PyIter(Generic[T]):
             )
         return iternext(self.value, vm)
 
-    def iter(self, vm: VirtualMachine) -> PyIterIter[T]:
+    def iter(self, vm: VirtualMachine) -> PyIterIter[TR]:
         length_hint = vm.length_hint_opt(self.as_ref())
         return PyIterIter.new(vm, self.value, length_hint, self.t)
 
-    def iter_without_hint(self, vm: VirtualMachine) -> PyIterIter[T]:
+    def iter_without_hint(self, vm: VirtualMachine) -> PyIterIter[TR]:
         return PyIterIter(vm, self.value, None, self.t)
 
-    def into_iter(self, vm: VirtualMachine) -> PyIterIter[T]:
+    def into_iter(self, vm: VirtualMachine) -> PyIterIter[TR]:
         return self.iter(vm)
 
     def into_object(self) -> PyObjectRef:
@@ -72,7 +72,7 @@ class PyIter(Generic[T]):
 
 
 @dataclass
-class PyIterReturn(Generic[T]):
+class PyIterReturn(Generic[TR]):
     @staticmethod
     def from_pyresult(
         result: Callable[[], PyObjectRef], vm: VirtualMachine
@@ -112,8 +112,8 @@ class PyIterReturn(Generic[T]):
 
 
 @dataclass
-class PyIterReturnReturn(PyIterReturn[T]):
-    value: T
+class PyIterReturnReturn(PyIterReturn[TR]):
+    value: TR
 
 
 @dataclass
@@ -122,25 +122,25 @@ class PyIterReturnStopIteration(PyIterReturn):
 
 
 @dataclass
-class PyIterIter(Generic[T]):
+class PyIterIter(Generic[TR]):
     vm: VirtualMachine
     obj: PyObjectRef
     length_hint: Optional[int]
-    t: Optional[Type[T]]
+    t: Optional[Type[TR]]
 
     @staticmethod
     def new(
         vm: VirtualMachine,
         obj: PyObjectRef,
         length_hint: Optional[int],
-        t: Optional[Type[T]],
-    ) -> PyIterIter[T]:
+        t: Optional[Type[TR]],
+    ) -> PyIterIter[TR]:
         return PyIterIter(vm, obj, length_hint, t)
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> Iterator[TR]:
         return self
 
-    def __next__(self) -> T:
+    def __next__(self) -> TR:
         try:
             iret = PyIter.new(self.obj, self.t).next(self.vm)
         except PyImplBase as e:

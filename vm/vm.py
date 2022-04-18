@@ -51,6 +51,7 @@ import vm.function_ as vm_function_
 import vm.builtins.object as pyobject
 import vm.builtins.module as pymodule
 import vm.builtins.int as pyint
+import vm.signal as vm_signal
 
 from bytecode.bytecode import CodeObject, FrozenModule
 from common.error import PyImplBase, PyImplError, PyImplException
@@ -159,6 +160,16 @@ class VirtualMachine:
 
         self.initialized = True
 
+    def check(self, t: Type[PT], obj: PyObject) -> None:
+        class_ = t.class_(self)
+        if obj.isinstance(class_):
+            if obj.payload_is(t):
+                return
+            else:
+                prc.pyref_payload_error(self, class_, obj)
+        else:
+            prc.pyref_type_error(self, class_, obj)
+
     # TODO: move
     def mk_str(self, s: str) -> PyStrRef:
         import vm.builtins.pystr as pystr
@@ -166,8 +177,7 @@ class VirtualMachine:
         return pystr.PyStr.from_str(s, self.ctx)
 
     def check_signals(self) -> None:
-        # TODO
-        pass
+        return vm_signal.check_signals(self)
 
     def run_code_object(self, code: PyRef[PyCode], scope: scope.Scope) -> PyResult:
         assert self.builtins.dict is not None

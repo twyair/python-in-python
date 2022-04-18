@@ -244,7 +244,7 @@ def make_cast(
         if annotation in ("int", "Optional[int]"):
             return cast_to_int
         proxy = TypeProxy.from_annotation(annotation)
-        if proxy is None and name == "zelf":  # TODO: del
+        if proxy is None and name == "zelf":
             return lambda vm, obj: obj
         assert proxy is not None, annotation
         return proxy.try_from_object

@@ -50,7 +50,17 @@ class PositionIterInternal(Generic[T]):
     ) -> PyTupleRef:
         raise NotImplementedError
 
-    # TODO: impl builtins_iter_reduce, builtins_reversed_reduce, _next, ...
+    def builtins_iter_reduce(
+        self, f: Callable[[T], PyObjectRef], vm: VirtualMachine
+    ) -> PyTupleRef:
+        iter_ = builtins_iter(vm)
+        return self._reduce(iter_, f, vm)
+
+    def builtins_reversed_reduce(
+        self, f: Callable[[T], PyObjectRef], vm: VirtualMachine
+    ) -> PyTupleRef:
+        reversed_ = builtins_reversed(vm)
+        return self._reduce(reversed_, f, vm)
 
     def _next(
         self,
@@ -72,6 +82,15 @@ class PositionIterInternal(Generic[T]):
             zelf.position += 1
 
         return self._next(f, inc_pos)
+
+    def rev_next(self, f: Callable[[T, int], PyIterReturn]) -> PyIterReturn:
+        def do(zelf: PositionIterInternal) -> None:
+            if zelf.position == 0:
+                zelf.status = IterStatusExhausted()
+            else:
+                zelf.position -= 1
+
+        return self._next(f, do)
 
     def length_hint(self, f: Callable[[T], int]) -> int:
         if isinstance(self.status, IterStatusActive):

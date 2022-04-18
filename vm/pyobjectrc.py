@@ -540,7 +540,6 @@ class PyRef(Generic[PyRefT]):
     def is_(self, other: Any) -> bool:
         return self.get_id() == other.get_id()
 
-    # TODO: fix all usages that ignore `None`
     def payload_(self, t: Type[PT]) -> Optional[PT]:
         if self.payload_is(t):
             return self._  # type: ignore
@@ -568,7 +567,7 @@ class PyRef(Generic[PyRefT]):
                 pyref_payload_error(vm, class_, obj)
         else:
             r = t.special_retrieve(vm, obj)
-            if r is None:  # TODO: check what's the return type of special_retrieve
+            if r is None:
                 pyref_payload_error(vm, class_, obj)
             return r
 
@@ -601,6 +600,12 @@ def pyref_payload_error(
 ) -> NoReturn:
     vm.new_runtime_error(
         f"Unexpected payload '{class_._.name()}' for type '{obj.class_()._.name()}'"
+    )
+
+
+def pyref_type_error(vm: VirtualMachine, class_: PyTypeRef, obj: PyObject) -> NoReturn:
+    vm.new_type_error(
+        "Expected type '{}', not '{}'".format(class_._.name(), obj.class_._.name())
     )
 
 

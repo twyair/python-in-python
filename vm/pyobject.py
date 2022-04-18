@@ -60,7 +60,7 @@ from common.deco import (
     PropertyDescriptorType,
 )
 from common.hash import PyHash
-from common.error import PyImplError, unreachable
+from common.error import PyImplBase, PyImplError, unreachable
 
 
 # TODO: class attributes should maintain insertion order (use IndexMap here)
@@ -346,7 +346,8 @@ class TypeProtocolMixin:
 
 @dataclass
 class PyValueMixin:
-    @abstractclassmethod
+    @classmethod
+    @abstractmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         ...
 
@@ -545,7 +546,7 @@ def pyclass(
     tp_name: Optional[str] = None,
     module_name: Optional[str] = None,
     doc: Optional[str] = None,
-    base: Optional[str] = None,  # TODO
+    base: Optional[str] = None,
 ) -> Callable[[PC], PC]:
     if tp_name is None:
         tp_name = name  # FIXME?
@@ -706,7 +707,7 @@ def make_method(method: MethodData) -> PyNativeFunc:
         )
         if isinstance(res, prc.PyRef):
             return res
-        # TODO: move to decorator
+        # TODO? move to decorator
         else:
             return primitive_to_pyobject(res, vm)
 
@@ -1011,11 +1012,15 @@ class TryFromObjectMixin:
     def try_from_object(cls: Type[TT], vm: VirtualMachine, obj: PyObjectRef) -> TT:
         class_ = cls.class_(vm)
         if obj.isinstance(class_):
-            return obj.downcast(cls)._
-            # TODO: .map_err(|obj| pyref_payload_error(vm, class, obj))
+            try:
+                return obj.downcast(cls)._
+            except PyImplError as e:
+                prc.pyref_payload_error(vm, class_, e.obj)
         else:
-            return cls.special_retrieve(vm, obj)._
-            # TODO: .unwrap_or_else(|| Err(pyref_type_error(vm, class, obj)))
+            try:
+                return cls.special_retrieve(vm, obj)._
+            except PyImplBase as _:
+                prc.pyref_type_error(vm, class_, obj)
 
 
 @tp_flags(basetype=True)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
+
 @dataclass
 class PyBytesInner:
     elements: bytearray
@@ -8,5 +9,3 @@ class PyBytesInner:
     @staticmethod
     def from_(elements: bytearray) -> PyBytesInner:
         return PyBytesInner(elements)
-
-# TODO: ...

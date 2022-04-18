@@ -349,8 +349,13 @@ class PyTupleTyped(Generic[T]):
     tuple: PyTupleRef
 
     @staticmethod
-    def try_from_object(t: Type[T], obj: PyObjectRef) -> PyTupleTyped[PyRef[T]]:
-        raise NotImplementedError
+    def try_from_object(
+        t: Type[T], vm: VirtualMachine, obj: PyObjectRef
+    ) -> PyTupleTyped[PyRef[T]]:
+        tup = PyTuple.try_from_object(vm, obj)
+        for elem in tup.as_slice():
+            vm.check(t, elem)  # type: ignore
+        return PyTupleTyped(tup.into_ref(vm))
 
     def __len__(self) -> int:
         return len(self.tuple._.elements)
