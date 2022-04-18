@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
+from vm.protocol.iter import PyIterReturn, PyIterReturnReturn, PyIterReturnStopIteration
 
 if TYPE_CHECKING:
     from vm.builtins.int import PyInt
@@ -50,6 +51,27 @@ class PositionIterInternal(Generic[T]):
         raise NotImplementedError
 
     # TODO: impl builtins_iter_reduce, builtins_reversed_reduce, _next, ...
+
+    def _next(
+        self,
+        f: Callable[[T, int], PyIterReturn],
+        op: Callable[[PositionIterInternal], None],
+    ) -> PyIterReturn:
+        if isinstance(self.status, IterStatusActive):
+            ret = f(self.status.value, self.position)
+            if isinstance(ret, PyIterReturnReturn):
+                op(self)
+            else:
+                self.status = IterStatusExhausted()
+            return ret
+        else:
+            return PyIterReturnStopIteration(None)
+
+    def next(self, f: Callable[[T, int], PyIterReturn]) -> PyIterReturn:
+        def inc_pos(zelf: PositionIterInternal) -> None:
+            zelf.position += 1
+
+        return self._next(f, inc_pos)
 
     def length_hint(self, f: Callable[[T], int]) -> int:
         if isinstance(self.status, IterStatusActive):

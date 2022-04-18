@@ -85,6 +85,13 @@ class PyIterReturn(Generic[T]):
             raise
 
     @staticmethod
+    def from_option(opt: Optional[PyObjectRef]) -> PyIterReturn:
+        if opt is None:
+            return PyIterReturnStopIteration(None)
+        else:
+            return PyIterReturnReturn(opt)
+
+    @staticmethod
     def from_getitem_result(
         result: Callable[[], PyObjectRef], vm: VirtualMachine
     ) -> PyIterReturn:

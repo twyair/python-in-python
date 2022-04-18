@@ -22,6 +22,7 @@ import vm.utils as utils
 import vm.sliceable as sliceable
 import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
+import vm.protocol.iter as protocol_iter
 from common import ISIZE_MAX
 
 
@@ -157,6 +158,13 @@ class PyTuple(
     def index_in_range(self, i: int) -> bool:
         return not (i >= len(self.elements) or i < 0 and -i > len(self.elements))
 
+    def get_item_by_index_opt(
+        self, vm: VirtualMachine, i: int
+    ) -> Optional[PyObjectRef]:
+        if not self.index_in_range(i):
+            return None
+        return self.elements[i]
+
     def get_item_by_index(self, vm: VirtualMachine, i: int) -> PyObjectRef:
         if not self.index_in_range(i):
             vm.new_index_error("index out of range")
@@ -230,9 +238,6 @@ class PyTuple(
     ) -> pygenericalias.PyGenericAlias:
         return pygenericalias.PyGenericAlias.new(cls_, args, vm)
 
-    # TODO: impl AsMapping for PyTuple
-    # TODO: impl AsSequence for PyTuple
-
     @classmethod
     def hash(cls, zelf: PyRef[PyTuple], vm: VirtualMachine) -> PyHash:
         return utils.hash_iter(iter(zelf._.elements), vm)
@@ -290,7 +295,6 @@ class PyTuple(
         return cls.SEQUENCE_METHODS
 
 
-# TODO: del
 PyTupleRef: TypeAlias = "PyRef[PyTuple]"
 
 
@@ -298,20 +302,43 @@ def __py_new_args(x: Optional[PyObjectRef] = None, /):
     ...
 
 
-@po.pyimpl(constructor=True, iter_next=True)
+@po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("tuple_iterator")
 @dataclass
-class PyTupleIterator(po.PyClassImpl, po.PyValueMixin):
+class PyTupleIterator(
+    po.PyClassImpl,
+    po.PyValueMixin,
+    po.TryFromObjectMixin,
+    slot.IterNextMixin,
+    slot.IterNextIterableMixin,
+):
     internal: pyiter.PositionIterInternal[PyTupleRef]
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.tuple_iterator_type
 
-    # TODO: impl PyTupleIterator @ 417
-    # TODO: impl Unconstructible for PyTupleIterator
-    # TODO: impl IterNextIterable for PyTupleIterator
-    # TODO: impl IterNext for PyTupleIterator
+    @pymethod(True)
+    def i__length_hint__(self, *, vm: VirtualMachine) -> int:
+        return self.internal.length_hint(lambda x: x._.len())
+
+    @pymethod(True)
+    def i__setstate__(self, state: PyObjectRef, *, vm: VirtualMachine) -> None:
+        self.internal.set_state(state, lambda obj, pos: min(pos, obj._.len()), vm)
+
+    @pymethod(True)
+    def i__reduce__(self, *, vm: VirtualMachine) -> PyTupleRef:
+        raise NotImplementedError
+
+    @classmethod
+    def next(
+        cls, zelf: PyRef[PyTupleIterator], vm: VirtualMachine
+    ) -> protocol_iter.PyIterReturn:
+        return zelf._.internal.next(
+            lambda tup, pos: protocol_iter.PyIterReturn.from_option(
+                tup._.get_item_by_index_opt(vm, pos)
+            )
+        )
 
 
 T = TypeVar("T")
