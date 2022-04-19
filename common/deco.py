@@ -262,7 +262,7 @@ def pyfunction(f: CT) -> CT:
 
 CT = TypeVar(
     "CT",
-    bound="Callable[..., PyValueMixin | PyObjectRef | str | bool | int | float | complex | PyArithmeticValue | None]",
+    bound="Callable[..., PyValueMixin | PyObjectRef | str | bytes | bool | int | float | complex | PyArithmeticValue | None]",
 )
 
 

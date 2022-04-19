@@ -59,9 +59,9 @@ class PyByteArray(
             other, vm
         ),  # TODO
         repeat=lambda s, n, vm: PyByteArray.sequence_downcast(s)._mul(n, vm),  # TODO
-        item=lambda s, i, vm: PyByteArray.sequence_downcast(s)._.get_item_by_index(
-            vm, i
-        ),  # FIXME!
+        item=lambda s, i, vm: vm.ctx.new_int(
+            PyByteArray.sequence_downcast(s)._.get_item_by_index(vm, i)
+        ),
         ass_item=None,  # TODO
         inplace_concat=None,  # TODO
         inplace_repeat=None,  # TODO

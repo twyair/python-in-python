@@ -4,8 +4,6 @@ import enum
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional, TypeAlias
 
-from common.error import PyImplBase, PyImplException, unreachable
-from vm.protocol.iter import PyIterReturnStopIteration
 
 if TYPE_CHECKING:
     from vm.builtins.code import PyCode
@@ -19,11 +17,13 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 
+from common.error import PyImplBase, PyImplException, unreachable
 from common.deco import pyclassmethod, pymethod, pyproperty
 import vm.pyobject as po
 import vm.coroutine as coroutine
 import vm.builtins.genericalias as pygenericalias
 import vm.types.slot as slot
+import vm.protocol.iter as protocol_iter
 
 
 @po.pyimpl(constructor=False)
@@ -160,7 +160,7 @@ class PyAsyncGenWrappedValue(po.PyClassImpl):
             ag.inner.closed = False
             ag.running_async = True
             raise
-        if isinstance(val, PyIterReturnStopIteration):
+        if isinstance(val, protocol_iter.PyIterReturnStopIteration):
             ag.inner.closed = ag.running_async = True
         else:
             ag.inner.closed = ag.running_async = False

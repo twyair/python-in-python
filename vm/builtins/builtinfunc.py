@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 from common.error import PyImplError
-from vm.builtins.function import PyBoundMethod
 
 if TYPE_CHECKING:
     from vm.builtins.staticmethod import PyStaticMethod
@@ -16,6 +15,7 @@ if TYPE_CHECKING:
     from vm.function_ import PyNativeFunc
 
 from common.deco import pymethod, pyproperty
+import vm.builtins.function as pyfunction
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.builtins.pystr as pystr
@@ -155,7 +155,7 @@ class PyBuiltinMethod(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixi
         if vm.is_none(robj) and not cls._cls_is(class_, robj.class_()):
             return zelf
         else:
-            return PyBoundMethod.new_ref(robj, zelf_, vm.ctx)
+            return pyfunction.PyBoundMethod.new_ref(robj, zelf_, vm.ctx)
 
     @staticmethod
     def new_ref(
