@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, TypeAlias
 
 if TYPE_CHECKING:
 
@@ -20,14 +20,15 @@ import vm.pyobjectrc as prc
 
 from common.deco import pymethod, pyproperty, pyslot
 
-FrozenModule = bytecode.FrozenModule["PyConstant"]
-
 
 @dataclass
 class PyConstant:
     value: ConstantData
 
     Name: ClassVar = pystr.PyStrRef
+
+
+FrozenModule: TypeAlias = bytecode.FrozenModule["PyConstant"]
 
 
 @dataclass
@@ -44,7 +45,8 @@ class PyObjBag:
 class PyCode(po.PyClassImpl):
     code: CodeObject[PyConstant]
 
-    def class_(self, vm: VirtualMachine) -> PyTypeRef:
+    @classmethod
+    def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.code_type
 
     @pyslot

@@ -219,34 +219,8 @@ def inner_pow(v1: complex, v2: complex, vm: VirtualMachine) -> complex:
         vm.new_zero_division_error(
             f"{v1} cannot be raised to a negative or complex power"
         )
-        # raise PyImplException.from_python_exception(e)
     except OverflowError as _:
         vm.new_overflow_error("complex exponentiation overflow")
-        # raise PyImplException.from_python_exception(e)
-    # else:
-    # return PyComplex(ans).into_ref(vm)
-    # if v1 == 0:
-    #     if v2.imag != 0:
-    #         vm.new_zero_division_error(
-    #             f"{v1} cannot be raised to a negative or complex power"
-    #         )
-    #     elif v2 == 0:
-    #         return PyComplex(1 + 0j).into_ref(vm)
-    #     else:
-    #         return PyComplex(0j).into_ref(vm)
-
-    # ans = v1 ** v2
-    # if False:
-    #     # TOD?O: ans.is_infinite() && !(v1.is_infinite() || v2.is_infinite())
-    #     vm.new_overflow_error("complex exponentiation overflow")
-    # return PyComplex(ans).into_ref(vm)
-
-
-# @derive_from_args
-# @dataclass
-# class ComplexArgs:
-#     real: Optional[PyObjectRef]
-#     imag: Optional[PyObjectRef]
 
 
 def init(context: PyContext) -> None:

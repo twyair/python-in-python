@@ -263,9 +263,8 @@ class Frame(po.PyClassImpl):
     def current_location(self) -> Location:
         return self.code._.code.locations[self.lasti - 1]
 
-    def yield_from_target(self) -> Optional[PyObjectRef]:
-        raise NotADirectoryError
-        # return self.with_exec(lambda exec: exec.yield_from_target(), vm)
+    def yield_from_target(self, vm: VirtualMachine) -> Optional[PyObjectRef]:
+        return self.with_exec(lambda exec: exec.yield_from_target(), vm)
 
     def get_lasti(self) -> int:
         return self.lasti
