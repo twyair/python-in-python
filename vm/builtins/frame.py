@@ -5,8 +5,6 @@ if TYPE_CHECKING:
     from vm.pyobject import PyContext
 import vm.frame as frame
 
-# impl FrameRef
-
 
 def init(context: PyContext) -> None:
     frame.Frame.extend_class(context, context.types.frame_type)

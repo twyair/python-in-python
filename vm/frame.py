@@ -41,18 +41,19 @@ if TYPE_CHECKING:
         PyIterReturnStopIteration,
     )
 
-    # from vm.pyobject import PyMethodAttribute, PyMethodFunction
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.scope import Scope
     from vm.coroutine import Coro
     from vm.vm import VirtualMachine
 
+from common.deco import pymethod, pyproperty
 from common.error import PyImplBase, PyImplError, PyImplErrorStr, PyImplException
 
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.function_ as fn
 import vm.types.slot as slot
+import vm.builtins.int as pyint
 import bytecode.instruction as instruction
 
 
@@ -139,7 +140,7 @@ Lasti = int
 
 
 @final
-@po.pyimpl(py_ref=True, constructor=True)
+@po.pyimpl(py_ref=True, constructor=False)
 @po.pyclass("frame")
 @dataclass
 class Frame(po.PyClassImpl):
@@ -269,6 +270,55 @@ class Frame(po.PyClassImpl):
     def get_lasti(self) -> int:
         return self.lasti
 
+    @pymethod(True)
+    def i__repr__(self, *, vm: VirtualMachine) -> str:
+        return "<frame object at .. >"
+
+    @pymethod(True)
+    def i__delattr__(self, value: PyStrRef, /, *, vm: VirtualMachine) -> None:
+        if value._.as_str() == "f_trace":
+            self.set_f_trace(vm.ctx.get_none(), vm=vm)
+
+    @pymethod(True)
+    def clear(self, *, vm: VirtualMachine) -> None:
+        raise NotImplementedError("TODO")
+
+    @pyproperty()
+    def get_f_globals(self, *, vm: VirtualMachine) -> PyDictRef:
+        return self.globals
+
+    @pyproperty()
+    def get_f_locals(self, *, vm: VirtualMachine) -> PyObjectRef:
+        raise NotImplementedError
+        # return [x.into_pyobject() for x in self.get_locals(vm)]
+
+    @pyproperty()
+    def get_f_code(self, *, vm: VirtualMachine) -> PyRef[PyCode]:
+        return self.code
+
+    @pyproperty()
+    def get_f_back(self, *, vm: VirtualMachine) -> Optional[PyRef[Frame]]:
+        fs = reversed(vm.frames)
+        while not next(fs).is_(self):
+            pass
+        return next(fs)
+
+    @pyproperty()
+    def get_f_lasti(self, *, vm: VirtualMachine) -> int:
+        return self.get_lasti()
+
+    @pyproperty()
+    def get_f_lineno(self, *, vm: VirtualMachine) -> int:
+        return self.current_location().row
+
+    @pyproperty()
+    def get_f_trace(self, *, vm: VirtualMachine) -> PyObjectRef:
+        return self.trace
+
+    @pyproperty()
+    def set_f_trace(self, value: PyObjectRef, /, *, vm: VirtualMachine) -> None:
+        self.trace = value
+
 
 R = TypeVar("R")
 
@@ -396,7 +446,7 @@ class ExecutingFrame:
     def import_(self, vm: VirtualMachine, module: Optional[PyStrRef]) -> FrameResult:
         module = module if module is not None else PyStr.from_str("", vm.ctx)
         from_list = PyTupleTyped[PyStr].try_from_object(PyStr, vm, self.pop_value())
-        level = int_from_object(vm, self.pop_value())
+        level = pyint.PyInt.try_from_object(vm, self.pop_value())
         self.push_value(vm.import_(module, from_list, level))
         return None
 
