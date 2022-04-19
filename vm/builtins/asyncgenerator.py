@@ -29,7 +29,7 @@ import vm.types.slot as slot
 @po.pyimpl(constructor=False)
 @po.pyclass("async_generator")
 @dataclass
-class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
+class PyAsyncGen(po.PyClassImpl):
     inner: Coro
     running_async: bool
 
@@ -45,32 +45,32 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
         return PyAsyncGen(inner=coroutine.Coro.new(frame, name), running_async=False)
 
     @pyproperty()
-    def get_name(self) -> PyStrRef:
+    def get_name(self, *, vm: VirtualMachine) -> PyStrRef:
         return self.inner.name
 
     @pyproperty()
-    def set_name(self, name: PyStrRef) -> None:
+    def set_name(self, name: PyStrRef, *, vm: VirtualMachine) -> None:
         self.inner.set_name(name)
 
     @pymethod(True)
     @staticmethod
-    def i__repr__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> str:
+    def i__repr__(zelf: PyRef[PyAsyncGen], *, vm: VirtualMachine) -> str:
         return zelf._.inner.repr(zelf.as_object(), zelf.get_id(), vm)
 
     @pymethod(True)
     @staticmethod
-    def i__aiter__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyRef[PyAsyncGen]:
+    def i__aiter__(zelf: PyRef[PyAsyncGen], *, vm: VirtualMachine) -> PyRef[PyAsyncGen]:
         return zelf
 
     @pymethod(True)
     @staticmethod
-    def i__anext__(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyAsyncGenASend:
-        return PyAsyncGen.asend(zelf, vm.ctx.get_none(), vm)
+    def i__anext__(zelf: PyRef[PyAsyncGen], *, vm: VirtualMachine) -> PyAsyncGenASend:
+        return PyAsyncGen.asend(zelf, vm.ctx.get_none(), vm=vm)
 
     @pymethod(True)
     @staticmethod
     def asend(
-        zelf: PyRef[PyAsyncGen], value: PyObjectRef, vm: VirtualMachine
+        zelf: PyRef[PyAsyncGen], value: PyObjectRef, *, vm: VirtualMachine
     ) -> PyAsyncGenASend:
         return PyAsyncGenASend(ag=zelf, state=AwaitableState.Init, value=value)
 
@@ -81,6 +81,7 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
         exc_type: PyObjectRef,
         exc_val: Optional[PyObjectRef],
         exc_tb: Optional[PyObjectRef],
+        *,
         vm: VirtualMachine,
     ) -> PyAsyncGenAThrow:
         return PyAsyncGenAThrow(
@@ -92,7 +93,7 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
 
     @pymethod(True)
     @staticmethod
-    def aclose(zelf: PyRef[PyAsyncGen], vm: VirtualMachine) -> PyAsyncGenAThrow:
+    def aclose(zelf: PyRef[PyAsyncGen], *, vm: VirtualMachine) -> PyAsyncGenAThrow:
         return PyAsyncGenAThrow(
             ag=zelf,
             aclose=True,
@@ -105,25 +106,25 @@ class PyAsyncGen(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
         )
 
     @pyproperty()
-    def get_ag_await(self, vm: VirtualMachine) -> Optional[PyObjectRef]:
+    def get_ag_await(self, *, vm: VirtualMachine) -> Optional[PyObjectRef]:
         return self.inner.frame._.yield_from_target()
 
     @pyproperty()
-    def get_ag_frame(self, vm: VirtualMachine) -> PyObjectRef:
+    def get_ag_frame(self, *, vm: VirtualMachine) -> PyObjectRef:
         return self.inner.frame
 
     @pyproperty()
-    def get_ag_running(self, vm: VirtualMachine) -> PyObjectRef:
+    def get_ag_running(self, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_bool(self.inner.running)
 
     @pyproperty()
-    def get_ag_code(self, vm: VirtualMachine) -> PyObjectRef:
+    def get_ag_code(self, *, vm: VirtualMachine) -> PyObjectRef:
         return self.inner.frame._.code
 
     @pyclassmethod(True)
     @staticmethod
     def i__getitem__(
-        class_: PyTypeRef, args: PyObjectRef, vm: VirtualMachine
+        class_: PyTypeRef, args: PyObjectRef, *, vm: VirtualMachine
     ) -> PyGenericAlias:
         return pygenericalias.PyGenericAlias.new(class_, args, vm)
 
@@ -134,7 +135,7 @@ PyAsyncGenRef: TypeAlias = "PyRef[PyAsyncGen]"
 @po.pyimpl()
 @po.pyclass("async_generator_wrapped_value")
 @dataclass
-class PyAsyncGenWrappedValue(po.TryFromObjectMixin, po.PyClassImpl, po.PyValueMixin):
+class PyAsyncGenWrappedValue(po.PyClassImpl):
     value: PyObjectRef
 
     @classmethod
@@ -186,9 +187,7 @@ class AwaitableState(enum.Enum):
 @po.pyclass("async_generator_asend")
 @dataclass
 class PyAsyncGenASend(
-    po.TryFromObjectMixin,
     po.PyClassImpl,
-    po.PyValueMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
 ):
@@ -278,9 +277,7 @@ class PyAsyncGenASend(
 @po.pyclass("async_generator_athrow")
 @dataclass
 class PyAsyncGenAThrow(
-    po.TryFromObjectMixin,
     po.PyClassImpl,
-    po.PyValueMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
 ):

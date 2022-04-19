@@ -20,7 +20,7 @@ import vm.types.slot as slot
 @po.pyimpl(constructor=True)
 @po.pyclass("cell")
 @dataclass
-class PyCell(po.PyClassImpl, po.PyValueMixin):
+class PyCell(po.PyClassImpl):
     contents: Optional[PyObjectRef]
 
     @classmethod
@@ -47,7 +47,7 @@ PyCellRef: TypeAlias = "PyRef[PyCell]"
 @po.pyimpl(get_descriptor=True, callable=True)
 @po.pyclass("function")
 @dataclass
-class PyFunction(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
+class PyFunction(po.PyClassImpl):
     code: PyRef[PyCode]
     globals: PyDictRef
     closure: Optional[PyTupleTyped[PyCellRef]]
@@ -87,9 +87,7 @@ class PyFunction(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
 @po.pyimpl(callable=True, comparable=True, get_attr=True, constructor=True)
 @po.pyclass("method")
 @dataclass
-class PyBoundMethod(
-    po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin, slot.CallableMixin
-):
+class PyBoundMethod(po.PyClassImpl, slot.CallableMixin):
     object: PyObjectRef
     function: PyObjectRef
 

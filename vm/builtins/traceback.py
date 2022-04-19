@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, TypeAlias
+
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
     from vm.pyobject import PyContext
@@ -9,10 +10,11 @@ if TYPE_CHECKING:
     from vm.vm import VirtualMachine
 import vm.pyobject as po
 
+
 @po.pyimpl()
 @po.pyclass("traceback")
 @dataclass
-class PyTraceback(po.PyClassImpl, po.PyValueMixin):
+class PyTraceback(po.PyClassImpl):
     next: Optional[PyTracebackRef]
     frame: FrameRef
 

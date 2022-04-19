@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional, Union
 from common.error import PyImplBase
 
 if TYPE_CHECKING:
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl
+    from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.builtins.pytype import PyType, PyTypeRef
     from vm.vm import VirtualMachine
@@ -14,7 +14,7 @@ import vm.pyobject as po
 @po.pyimpl(constructor=True, get_descriptor=True, get_attr=True)
 @po.pyclass("super")
 @dataclass
-class PySuper(po.PyClassImpl, po.PyValueMixin):
+class PySuper(po.PyClassImpl):
     type: PyTypeRef
     obj: Optional[tuple[PyObjectRef, PyTypeRef]]
 

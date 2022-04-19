@@ -28,7 +28,7 @@ import vm.function_ as vm_function_
 )
 @po.pyclass("bytes")
 @dataclass
-class PyBytes(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
+class PyBytes(po.PyClassImpl):
     inner: bytes
 
     @classmethod
@@ -160,7 +160,7 @@ class PyBytes(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
 @po.pyimpl()  # TODO
 @po.pyclass("bytes_iterator")
 @dataclass
-class PyBytesIterator(po.PyClassImpl, po.PyValueMixin):
+class PyBytesIterator(po.PyClassImpl):
     internal: PositionIterInternal[PyBytesRef]
 
     @classmethod

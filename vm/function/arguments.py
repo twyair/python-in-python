@@ -41,7 +41,7 @@ class ArgIterable(Generic[T]):
             vm.new_type_error(f"'{cls._.name()}' object is not iterable")
         return ArgIterable(obj, iterfn)
 
-    def iter(self, vm: VirtualMachine) -> PyIterIter:
+    def iter(self, vm: VirtualMachine) -> PyIterIter[PyObjectRef]:
         if self.iterfn is not None:
             return vm_iter.PyIter(self.iterfn(self.iterable, vm), None).into_iter(vm)
         else:

@@ -21,9 +21,7 @@ import vm.protocol.iter as protocol_iter
 @po.pyclass("filter")
 @dataclass
 class PyFilter(
-    po.PyValueMixin,
     po.PyClassImpl,
-    po.TryFromObjectMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
     slot.ConstructorMixin,

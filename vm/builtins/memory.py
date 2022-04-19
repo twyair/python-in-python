@@ -2,12 +2,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from common.hash import PyHash
+
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
     from vm.protocol.buffer import BufferDescriptor, PyBuffer
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl
+    from vm.pyobject import PyContext
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+
 
 @po.pyimpl(
     hashable=True,
@@ -19,7 +21,7 @@ import vm.pyobject as po
 )
 @po.pyclass("memoryview")
 @dataclass
-class PyMemoryView(po.PyClassImpl, po.PyValueMixin):
+class PyMemoryView(po.PyClassImpl):
     buffer: PyBuffer
     released: bool
     start: int

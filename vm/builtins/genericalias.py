@@ -1,10 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
     from vm.builtins.tuple import PyTupleRef
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl, tp_flags
+    from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObjectRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
@@ -32,7 +33,7 @@ ATTR_EXCEPTIONS = [
 )
 @po.pyclass("GenericAlias", module_name="types")
 @dataclass
-class PyGenericAlias(po.PyClassImpl, po.PyValueMixin):
+class PyGenericAlias(po.PyClassImpl):
     origin: PyTypeRef
     args: PyTupleRef
     parameters: PyTupleRef

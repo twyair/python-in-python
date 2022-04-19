@@ -24,8 +24,6 @@ from common.hash import PyHash
 @dataclass
 class PyInt(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.HashableMixin,
     slot.ComparableMixin,
     slot.ConstructorMixin,

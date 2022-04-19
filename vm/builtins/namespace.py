@@ -4,14 +4,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
-    from vm.pyobject import (
-        PyClassImpl,
-        PyContext,
-        PyValueMixin,
-        pyclass,
-        pyimpl,
-        tp_flags,
-    )
+    from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
@@ -22,7 +15,7 @@ import vm.pyobjectrc as prc
 @po.pyimpl(constructor=True, comparable=True)
 @po.pyclass("SimpleNamespace")
 @dataclass
-class PyNamespace(po.PyClassImpl, po.PyValueMixin):
+class PyNamespace(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.namespace_type

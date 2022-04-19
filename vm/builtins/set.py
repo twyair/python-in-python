@@ -38,7 +38,7 @@ import vm.protocol.iter as protocol_iter
 from vm.dictdatatype import DictContext, DictKey
 from common.deco import pyclassmethod, pymethod, pyslot
 from common.error import PyImplBase, PyImplError, PyImplException
-from common.hash import PyHash
+from common.hash import PyHash, hash_iter_unordered
 
 
 @po.tp_flags(basetype=True)
@@ -47,8 +47,6 @@ from common.hash import PyHash
 @dataclass
 class PySet(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.ComparableMixin,
     slot.IterableMixin,
     slot.AsSequenceMixin,
@@ -326,8 +324,6 @@ class PySet(
 @dataclass
 class PyFrozenSet(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.AsSequenceMixin,
     slot.HashableMixin,
     slot.ComparableMixin,
@@ -704,7 +700,7 @@ class PySetInner:
         )
 
     def hash(self, *, vm: VirtualMachine) -> PyHash:
-        return utils.hash_iter_unordered(self.elements())
+        return hash_iter_unordered(self.elements(), vm)
 
     def retry_op_with_frozenset(
         self,
@@ -770,8 +766,6 @@ class SetIterable:
 @dataclass
 class PySetIterator(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
 ):

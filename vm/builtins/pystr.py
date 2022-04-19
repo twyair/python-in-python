@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from logging.config import fileConfig
 from typing import TYPE_CHECKING, ClassVar, Optional, TypeAlias
 
 if TYPE_CHECKING:
@@ -39,8 +40,6 @@ from common.deco import pymethod, pystaticmethod
 @dataclass
 class PyStr(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.HashableMixin,
     slot.AsMappingMixin,
     slot.AsSequenceMixin,
@@ -344,17 +343,14 @@ class PyStr(
         self,
         old: PyStrRef,
         new: PyStrRef,
-        count: Optional[PyObjectRef] = None,
+        count: Optional[int] = None,
         /,
         *,
         vm: VirtualMachine,
     ) -> str:
         if count is None:
-            c = 1
-        else:
-            # TODO: c = count.__index__()
-            raise NotImplementedError
-        return self.as_str().replace(old._.as_str(), new._.as_str(), c)
+            count = -1
+        return self.as_str().replace(old._.as_str(), new._.as_str(), count)
 
     @pymethod(True)
     def isprintable(self, *, vm: VirtualMachine) -> bool:
@@ -379,8 +375,7 @@ class PyStr(
     # TODO: `iterable: ArgIterable[PyStrRef]`
     @pymethod(True)
     def join(self, iterable: ArgIterable, /, *, vm: VirtualMachine) -> str:
-        raise NotImplementedError
-        # return self.as_str().join()
+        return self.value.join(x.downcast(PyStr)._.as_str() for x in iterable.iter(vm))
 
     @pymethod(False)
     def find(self, fargs: FuncArgs, *, vm: VirtualMachine) -> int:
@@ -400,11 +395,15 @@ class PyStr(
 
     @pymethod(True)
     def partition(self, sep: PyStrRef, *, vm: VirtualMachine) -> PyObjectRef:
-        raise NotImplementedError
+        return vm.ctx.new_tuple(
+            [vm.ctx.new_str(x) for x in self.value.partition(sep._.as_str())]
+        )
 
     @pymethod(True)
     def rpartition(self, sep: PyStrRef, *, vm: VirtualMachine) -> PyObjectRef:
-        raise NotImplementedError
+        return vm.ctx.new_tuple(
+            [vm.ctx.new_str(x) for x in self.value.rpartition(sep._.as_str())]
+        )
 
     @pymethod(True)
     def istitle(self, *, vm: VirtualMachine) -> bool:
@@ -414,46 +413,48 @@ class PyStr(
     def count(self, fargs: FuncArgs, *, vm: VirtualMachine) -> int:
         raise NotImplementedError
 
-    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
     @pymethod(True)
-    def zfill(self, width: PyIntRef, /, *, vm: VirtualMachine) -> str:
-        return self.as_str().zfill(width._.as_int())
+    def zfill(self, width: int, /, *, vm: VirtualMachine) -> str:
+        return self.as_str().zfill(width)
 
-    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
     @pymethod(True)
     def center(
         self,
-        width: PyIntRef,
+        width: int,
         fillchar: Optional[PyStrRef] = None,
         /,
         *,
         vm: VirtualMachine,
     ) -> str:
-        raise NotImplementedError
+        return self.value.center(
+            width, fillchar._.as_str() if fillchar is not None else " "
+        )
 
-    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
     @pymethod(True)
     def ljust(
         self,
-        width: PyIntRef,
+        width: int,
         fillchar: Optional[PyStrRef] = None,
         /,
         *,
         vm: VirtualMachine,
     ) -> str:
-        raise NotImplementedError
+        return self.value.ljust(
+            width, fillchar._.as_str() if fillchar is not None else " "
+        )
 
-    # TODO: `width` only needs to support __index__ (doesnt have to be an int)
     @pymethod(True)
     def rjust(
         self,
-        width: PyIntRef,
+        width: int,
         fillchar: Optional[PyStrRef] = None,
         /,
         *,
         vm: VirtualMachine,
     ) -> str:
-        raise NotImplementedError
+        return self.value.rjust(
+            width, fillchar._.as_str() if fillchar is not None else " "
+        )
 
     @pymethod(False)
     def expandtabs(self, fargs: FuncArgs, *, vm: VirtualMachine) -> str:
@@ -527,8 +528,6 @@ def __encode_args(
 @dataclass
 class PyStrIterator(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.IterNextIterableMixin,
     slot.IterNextMixin,
 ):

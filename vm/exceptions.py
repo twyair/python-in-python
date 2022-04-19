@@ -23,7 +23,7 @@ import vm.builtins.tuple as pytuple
 @po.pyimpl()
 @po.pyclass("BaseException")
 @dataclass
-class PyBaseException(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
+class PyBaseException(po.PyClassImpl):
     traceback: Optional[PyTracebackRef]
     cause: Optional[PyRef[PyBaseException]]
     context: Optional[PyRef[PyBaseException]]
@@ -646,7 +646,7 @@ class ExceptionCtorInstance(ExceptionCtor):
 # @po.pyimpl()
 # @po.pyexception("PySystemExit", "PyBaseException", "Request to exit from the interpreter.")
 # @dataclass
-# class PySystemExit(po.PyValueMixin, po.PyClassImpl):
+# class PySystemExit(po.PyClassImpl):
 #     @classmethod
 #     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
 #         return vm.ctx.exceptions.system_exit
@@ -656,7 +656,7 @@ class ExceptionCtorInstance(ExceptionCtor):
     "PySystemExit", "PyBaseException", "Request to exit from the interpreter."
 )
 @dataclass
-class PySystemExit(po.PyValueMixin, po.PyClassImpl):
+class PySystemExit(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.system_exit
@@ -666,7 +666,7 @@ class PySystemExit(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyGeneratorExit", "PyBaseException", "Request that a generator exit.")
 @dataclass
-class PyGeneratorExit(po.PyValueMixin, po.PyClassImpl):
+class PyGeneratorExit(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.generator_exit
@@ -678,7 +678,7 @@ class PyGeneratorExit(po.PyValueMixin, po.PyClassImpl):
     "PyKeyboardInterrupt", "PyBaseException", "Program interrupted by user."
 )
 @dataclass
-class PyKeyboardInterrupt(po.PyValueMixin, po.PyClassImpl):
+class PyKeyboardInterrupt(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.keyboard_interrupt
@@ -690,7 +690,7 @@ class PyKeyboardInterrupt(po.PyValueMixin, po.PyClassImpl):
     "PyException", "PyBaseException", "Common base class for all non-exit exceptions."
 )
 @dataclass
-class PyException(po.PyValueMixin, po.PyClassImpl):
+class PyException(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.exception_type
@@ -702,7 +702,7 @@ class PyException(po.PyValueMixin, po.PyClassImpl):
     "PyStopIteration", "PyException", "Signal the end from iterator.__next__()."
 )
 @dataclass
-class PyStopIteration(po.PyValueMixin, po.PyClassImpl):
+class PyStopIteration(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.stop_iteration
@@ -714,7 +714,7 @@ class PyStopIteration(po.PyValueMixin, po.PyClassImpl):
     "PyStopAsyncIteration", "PyException", "Signal the end from iterator.__anext__()."
 )
 @dataclass
-class PyStopAsyncIteration(po.PyValueMixin, po.PyClassImpl):
+class PyStopAsyncIteration(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.stop_async_iteration
@@ -724,7 +724,7 @@ class PyStopAsyncIteration(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyArithmeticError", "PyException", "Base class for arithmetic errors.")
 @dataclass
-class PyArithmeticError(po.PyValueMixin, po.PyClassImpl):
+class PyArithmeticError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.arithmetic_error
@@ -736,7 +736,7 @@ class PyArithmeticError(po.PyValueMixin, po.PyClassImpl):
     "PyFloatingPointError", "PyArithmeticError", "Floating point operation failed."
 )
 @dataclass
-class PyFloatingPointError(po.PyValueMixin, po.PyClassImpl):
+class PyFloatingPointError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.floating_point_error
@@ -748,7 +748,7 @@ class PyFloatingPointError(po.PyValueMixin, po.PyClassImpl):
     "PyOverflowError", "PyArithmeticError", "Result too large to be represented."
 )
 @dataclass
-class PyOverflowError(po.PyValueMixin, po.PyClassImpl):
+class PyOverflowError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.overflow_error
@@ -762,7 +762,7 @@ class PyOverflowError(po.PyValueMixin, po.PyClassImpl):
     "Second argument to a division or modulo operation was zero.",
 )
 @dataclass
-class PyZeroDivisionError(po.PyValueMixin, po.PyClassImpl):
+class PyZeroDivisionError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.zero_division_error
@@ -772,7 +772,7 @@ class PyZeroDivisionError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyAssertionError", "PyException", "Assertion failed.")
 @dataclass
-class PyAssertionError(po.PyValueMixin, po.PyClassImpl):
+class PyAssertionError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.assertion_error
@@ -782,7 +782,7 @@ class PyAssertionError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyAttributeError", "PyException", "Attribute not found.")
 @dataclass
-class PyAttributeError(po.PyValueMixin, po.PyClassImpl):
+class PyAttributeError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.attribute_error
@@ -792,7 +792,7 @@ class PyAttributeError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyBufferError", "PyException", "Buffer error.")
 @dataclass
-class PyBufferError(po.PyValueMixin, po.PyClassImpl):
+class PyBufferError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.buffer_error
@@ -802,7 +802,7 @@ class PyBufferError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyEOFError", "PyException", "Read beyond end of file.")
 @dataclass
-class PyEOFError(po.PyValueMixin, po.PyClassImpl):
+class PyEOFError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.eof_error
@@ -819,7 +819,7 @@ class PyEOFError(po.PyValueMixin, po.PyClassImpl):
     "Import can't find module, or can't find name in module.",
 )
 @dataclass
-class PyImportError(po.PyValueMixin, po.PyClassImpl):
+class PyImportError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.import_error
@@ -853,7 +853,7 @@ class PyImportError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyModuleNotFoundError", "PyImportError", "Module not found.")
 @dataclass
-class PyModuleNotFoundError(po.PyValueMixin, po.PyClassImpl):
+class PyModuleNotFoundError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.module_not_found_error
@@ -863,7 +863,7 @@ class PyModuleNotFoundError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyLookupError", "PyException", "Base class for lookup errors.")
 @dataclass
-class PyLookupError(po.PyValueMixin, po.PyClassImpl):
+class PyLookupError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.lookup_error
@@ -873,7 +873,7 @@ class PyLookupError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyIndexError", "PyLookupError", "Sequence index out of range.")
 @dataclass
-class PyIndexError(po.PyValueMixin, po.PyClassImpl):
+class PyIndexError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.index_error
@@ -883,7 +883,7 @@ class PyIndexError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyKeyError", "PyLookupError", "Mapping key not found.")
 @dataclass
-class PyKeyError(po.PyValueMixin, po.PyClassImpl):
+class PyKeyError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.key_error
@@ -893,7 +893,7 @@ class PyKeyError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyMemoryError", "PyException", "Out of memory.")
 @dataclass
-class PyMemoryError(po.PyValueMixin, po.PyClassImpl):
+class PyMemoryError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.memory_error
@@ -903,7 +903,7 @@ class PyMemoryError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyNameError", "PyException", "Name not found globally.")
 @dataclass
-class PyNameError(po.PyValueMixin, po.PyClassImpl):
+class PyNameError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.name_error
@@ -917,7 +917,7 @@ class PyNameError(po.PyValueMixin, po.PyClassImpl):
     "Local name referenced but not bound to a value.",
 )
 @dataclass
-class PyUnboundLocalError(po.PyValueMixin, po.PyClassImpl):
+class PyUnboundLocalError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.unbound_local_error
@@ -927,7 +927,7 @@ class PyUnboundLocalError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyOSError", "PyException", "Base class for I/O related errors.")
 @dataclass
-class PyOSError(po.PyValueMixin, po.PyClassImpl):
+class PyOSError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.os_error
@@ -984,7 +984,7 @@ class PyOSError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyBlockingIOError", "PyOSError", "I/O operation would block.")
 @dataclass
-class PyBlockingIOError(po.PyValueMixin, po.PyClassImpl):
+class PyBlockingIOError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.blocking_io_error
@@ -994,7 +994,7 @@ class PyBlockingIOError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyChildProcessError", "PyOSError", "Child process error.")
 @dataclass
-class PyChildProcessError(po.PyValueMixin, po.PyClassImpl):
+class PyChildProcessError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.child_process_error
@@ -1004,7 +1004,7 @@ class PyChildProcessError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyConnectionError", "PyOSError", "Connection error.")
 @dataclass
-class PyConnectionError(po.PyValueMixin, po.PyClassImpl):
+class PyConnectionError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.connection_error
@@ -1014,7 +1014,7 @@ class PyConnectionError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyBrokenPipeError", "PyConnectionError", "Broken pipe.")
 @dataclass
-class PyBrokenPipeError(po.PyValueMixin, po.PyClassImpl):
+class PyBrokenPipeError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.broken_pipe_error
@@ -1024,7 +1024,7 @@ class PyBrokenPipeError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyConnectionAbortedError", "PyConnectionError", "Connection aborted.")
 @dataclass
-class PyConnectionAbortedError(po.PyValueMixin, po.PyClassImpl):
+class PyConnectionAbortedError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.connection_aborted_error
@@ -1034,7 +1034,7 @@ class PyConnectionAbortedError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyConnectionRefusedError", "PyConnectionError", "Connection refused.")
 @dataclass
-class PyConnectionRefusedError(po.PyValueMixin, po.PyClassImpl):
+class PyConnectionRefusedError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.connection_refused_error
@@ -1044,7 +1044,7 @@ class PyConnectionRefusedError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyConnectionResetError", "PyConnectionError", "Connection reset.")
 @dataclass
-class PyConnectionResetError(po.PyValueMixin, po.PyClassImpl):
+class PyConnectionResetError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.connection_reset_error
@@ -1054,7 +1054,7 @@ class PyConnectionResetError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyFileExistsError", "PyOSError", "File already exists.")
 @dataclass
-class PyFileExistsError(po.PyValueMixin, po.PyClassImpl):
+class PyFileExistsError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.file_exists_error
@@ -1064,7 +1064,7 @@ class PyFileExistsError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyFileNotFoundError", "PyOSError", "File not found.")
 @dataclass
-class PyFileNotFoundError(po.PyValueMixin, po.PyClassImpl):
+class PyFileNotFoundError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.file_not_found_error
@@ -1074,7 +1074,7 @@ class PyFileNotFoundError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyInterruptedError", "PyOSError", "Interrupted by signal.")
 @dataclass
-class PyInterruptedError(po.PyValueMixin, po.PyClassImpl):
+class PyInterruptedError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.interrupted_error
@@ -1086,7 +1086,7 @@ class PyInterruptedError(po.PyValueMixin, po.PyClassImpl):
     "PyIsADirectoryError", "PyOSError", "Operation doesn't work on directories."
 )
 @dataclass
-class PyIsADirectoryError(po.PyValueMixin, po.PyClassImpl):
+class PyIsADirectoryError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.is_a_directory_error
@@ -1098,7 +1098,7 @@ class PyIsADirectoryError(po.PyValueMixin, po.PyClassImpl):
     "PyNotADirectoryError", "PyOSError", "Operation only works on directories."
 )
 @dataclass
-class PyNotADirectoryError(po.PyValueMixin, po.PyClassImpl):
+class PyNotADirectoryError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.not_a_directory_error
@@ -1108,7 +1108,7 @@ class PyNotADirectoryError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyPermissionError", "PyOSError", "Not enough permissions.")
 @dataclass
-class PyPermissionError(po.PyValueMixin, po.PyClassImpl):
+class PyPermissionError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.permission_error
@@ -1118,7 +1118,7 @@ class PyPermissionError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyProcessLookupError", "PyOSError", "Process not found.")
 @dataclass
-class PyProcessLookupError(po.PyValueMixin, po.PyClassImpl):
+class PyProcessLookupError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.process_lookup_error
@@ -1128,7 +1128,7 @@ class PyProcessLookupError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyTimeoutError", "PyOSError", "Timeout expired.")
 @dataclass
-class PyTimeoutError(po.PyValueMixin, po.PyClassImpl):
+class PyTimeoutError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.timeout_error
@@ -1140,7 +1140,7 @@ class PyTimeoutError(po.PyValueMixin, po.PyClassImpl):
     "PyReferenceError", "PyException", "Weak ref proxy used after referent went away."
 )
 @dataclass
-class PyReferenceError(po.PyValueMixin, po.PyClassImpl):
+class PyReferenceError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.reference_error
@@ -1150,7 +1150,7 @@ class PyReferenceError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyRuntimeError", "PyException", "Unspecified run-time error.")
 @dataclass
-class PyRuntimeError(po.PyValueMixin, po.PyClassImpl):
+class PyRuntimeError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.runtime_error
@@ -1164,7 +1164,7 @@ class PyRuntimeError(po.PyValueMixin, po.PyClassImpl):
     "Method or function hasn't been implemented yet.",
 )
 @dataclass
-class PyNotImplementedError(po.PyValueMixin, po.PyClassImpl):
+class PyNotImplementedError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.not_implemented_error
@@ -1174,7 +1174,7 @@ class PyNotImplementedError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyRecursionError", "PyRuntimeError", "Recursion limit exceeded.")
 @dataclass
-class PyRecursionError(po.PyValueMixin, po.PyClassImpl):
+class PyRecursionError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.recursion_error
@@ -1184,7 +1184,7 @@ class PyRecursionError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PySyntaxError", "PyException", "Invalid syntax.")
 @dataclass
-class PySyntaxError(po.PyValueMixin, po.PyClassImpl):
+class PySyntaxError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.syntax_error
@@ -1194,7 +1194,7 @@ class PySyntaxError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyIndentationError", "PySyntaxError", "Improper indentation.")
 @dataclass
-class PyIndentationError(po.PyValueMixin, po.PyClassImpl):
+class PyIndentationError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.indentation_error
@@ -1206,7 +1206,7 @@ class PyIndentationError(po.PyValueMixin, po.PyClassImpl):
     "PyTabError", "PyIndentationError", "Improper mixture of spaces and tabs."
 )
 @dataclass
-class PyTabError(po.PyValueMixin, po.PyClassImpl):
+class PyTabError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.tab_error
@@ -1220,7 +1220,7 @@ class PyTabError(po.PyValueMixin, po.PyClassImpl):
     "Internal error in the Python interpreter.\n\nPlease report this to the Python maintainer, along with the traceback,\nthe Python version, and the hardware/OS platform and version.",
 )
 @dataclass
-class PySystemError(po.PyValueMixin, po.PyClassImpl):
+class PySystemError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.system_error
@@ -1230,7 +1230,7 @@ class PySystemError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyTypeError", "PyException", "Inappropriate argument type.")
 @dataclass
-class PyTypeError(po.PyValueMixin, po.PyClassImpl):
+class PyTypeError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.type_error
@@ -1242,7 +1242,7 @@ class PyTypeError(po.PyValueMixin, po.PyClassImpl):
     "PyValueError", "PyException", "Inappropriate argument value (of correct type)."
 )
 @dataclass
-class PyValueError(po.PyValueMixin, po.PyClassImpl):
+class PyValueError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.value_error
@@ -1252,7 +1252,7 @@ class PyValueError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyUnicodeError", "PyValueError", "Unicode related error.")
 @dataclass
-class PyUnicodeError(po.PyValueMixin, po.PyClassImpl):
+class PyUnicodeError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.unicode_error
@@ -1262,7 +1262,7 @@ class PyUnicodeError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyUnicodeDecodeError", "PyUnicodeError", "Unicode decoding error.")
 @dataclass
-class PyUnicodeDecodeError(po.PyValueMixin, po.PyClassImpl):
+class PyUnicodeDecodeError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.unicode_decode_error
@@ -1272,7 +1272,7 @@ class PyUnicodeDecodeError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyUnicodeEncodeError", "PyUnicodeError", "Unicode encoding error.")
 @dataclass
-class PyUnicodeEncodeError(po.PyValueMixin, po.PyClassImpl):
+class PyUnicodeEncodeError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.unicode_encode_error
@@ -1284,7 +1284,7 @@ class PyUnicodeEncodeError(po.PyValueMixin, po.PyClassImpl):
     "PyUnicodeTranslateError", "PyUnicodeError", "Unicode translation error."
 )
 @dataclass
-class PyUnicodeTranslateError(po.PyValueMixin, po.PyClassImpl):
+class PyUnicodeTranslateError(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.unicode_translate_error
@@ -1303,7 +1303,7 @@ class PyUnicodeTranslateError(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception("PyWarning", "PyException", "Base class for warning categories.")
 @dataclass
-class PyWarning(po.PyValueMixin, po.PyClassImpl):
+class PyWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.warning
@@ -1317,7 +1317,7 @@ class PyWarning(po.PyValueMixin, po.PyClassImpl):
     "Base class for warnings about deprecated features.",
 )
 @dataclass
-class PyDeprecationWarning(po.PyValueMixin, po.PyClassImpl):
+class PyDeprecationWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.deprecation_warning
@@ -1331,7 +1331,7 @@ class PyDeprecationWarning(po.PyValueMixin, po.PyClassImpl):
     "Base class for warnings about features which will be deprecated\nin the future.",
 )
 @dataclass
-class PyPendingDeprecationWarning(po.PyValueMixin, po.PyClassImpl):
+class PyPendingDeprecationWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.pending_deprecation_warning
@@ -1345,7 +1345,7 @@ class PyPendingDeprecationWarning(po.PyValueMixin, po.PyClassImpl):
     "Base class for warnings about dubious runtime behavior.",
 )
 @dataclass
-class PyRuntimeWarning(po.PyValueMixin, po.PyClassImpl):
+class PyRuntimeWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.runtime_warning
@@ -1357,7 +1357,7 @@ class PyRuntimeWarning(po.PyValueMixin, po.PyClassImpl):
     "PySyntaxWarning", "PyWarning", "Base class for warnings about dubious syntax."
 )
 @dataclass
-class PySyntaxWarning(po.PyValueMixin, po.PyClassImpl):
+class PySyntaxWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.syntax_warning
@@ -1369,7 +1369,7 @@ class PySyntaxWarning(po.PyValueMixin, po.PyClassImpl):
     "PyUserWarning", "PyWarning", "Base class for warnings generated by user code."
 )
 @dataclass
-class PyUserWarning(po.PyValueMixin, po.PyClassImpl):
+class PyUserWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.user_warning
@@ -1383,7 +1383,7 @@ class PyUserWarning(po.PyValueMixin, po.PyClassImpl):
     "Base class for warnings about constructs that will change semantically\nin the future.",
 )
 @dataclass
-class PyFutureWarning(po.PyValueMixin, po.PyClassImpl):
+class PyFutureWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.future_warning
@@ -1397,7 +1397,7 @@ class PyFutureWarning(po.PyValueMixin, po.PyClassImpl):
     "Base class for warnings about probable mistakes in module imports.",
 )
 @dataclass
-class PyImportWarning(po.PyValueMixin, po.PyClassImpl):
+class PyImportWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.import_warning
@@ -1411,7 +1411,7 @@ class PyImportWarning(po.PyValueMixin, po.PyClassImpl):
     "Base class for warnings about Unicode related problems, mostly\nrelated to conversion problems.",
 )
 @dataclass
-class PyUnicodeWarning(po.PyValueMixin, po.PyClassImpl):
+class PyUnicodeWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.unicode_warning
@@ -1425,7 +1425,7 @@ class PyUnicodeWarning(po.PyValueMixin, po.PyClassImpl):
     "Base class for warnings about bytes and buffer related problems, mostly\nrelated to conversion from str or comparing to str.",
 )
 @dataclass
-class PyBytesWarning(po.PyValueMixin, po.PyClassImpl):
+class PyBytesWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.bytes_warning
@@ -1437,7 +1437,7 @@ class PyBytesWarning(po.PyValueMixin, po.PyClassImpl):
     "PyResourceWarning", "PyWarning", "Base class for warnings about resource usage."
 )
 @dataclass
-class PyResourceWarning(po.PyValueMixin, po.PyClassImpl):
+class PyResourceWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.resource_warning
@@ -1449,7 +1449,7 @@ class PyResourceWarning(po.PyValueMixin, po.PyClassImpl):
     "PyEncodingWarning", "PyWarning", "Base class for warnings about encodings."
 )
 @dataclass
-class PyEncodingWarning(po.PyValueMixin, po.PyClassImpl):
+class PyEncodingWarning(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.exceptions.encoding_warning

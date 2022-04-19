@@ -21,12 +21,7 @@ from common.deco import pymethod
 @po.pyimpl(constructor=True)
 @po.pyclass("bool", base="PyInt")
 @dataclass
-class PyBool(
-    po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
-    slot.ConstructorMixin,
-):
+class PyBool(po.PyClassImpl, slot.ConstructorMixin):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.bool_type

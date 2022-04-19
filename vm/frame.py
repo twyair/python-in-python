@@ -142,7 +142,7 @@ Lasti = int
 @po.pyimpl(py_ref=True, constructor=True)
 @po.pyclass("frame")
 @dataclass
-class Frame(po.PyClassImpl, po.PyValueMixin):
+class Frame(po.PyClassImpl):
     code: PyRef[PyCode]
     fastlocals: list[Optional[PyObject]]
     cells_frees: list[PyCellRef]

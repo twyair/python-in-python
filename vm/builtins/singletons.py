@@ -1,16 +1,18 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl
+    from vm.pyobject import PyContext
     from vm.vm import VirtualMachine
     from vm.builtins.pytype import PyTypeRef
 import vm.pyobject as po
 
+
 @po.pyimpl(constructor=True)
 @po.pyclass("NoneType")
 @dataclass
-class PyNone(po.PyClassImpl, po.PyValueMixin):
+class PyNone(po.PyClassImpl):
     @staticmethod
     def class_(vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.none_type
@@ -22,7 +24,7 @@ class PyNone(po.PyClassImpl, po.PyValueMixin):
 @po.pyimpl(constructor=True)
 @po.pyclass("NotImplementedType")
 @dataclass
-class PyNotImplemented(po.PyClassImpl, po.PyValueMixin):
+class PyNotImplemented(po.PyClassImpl):
     @staticmethod
     def class_(vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.not_implemented_type

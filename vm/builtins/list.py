@@ -34,8 +34,6 @@ from common.error import unreachable, PyImplBase
 @dataclass
 class PyList(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.ComparableMixin,
     slot.IterableMixin,
     slot.AsMappingMixin,
@@ -411,7 +409,7 @@ PyListRef: TypeAlias = "PyRef[PyList]"
 @po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("list_iterator")
 @dataclass
-class PyListIterator(po.PyClassImpl, po.PyValueMixin):
+class PyListIterator(po.PyClassImpl):
     internal: pyiter.PositionIterInternal[PyListRef]
 
     @classmethod
@@ -426,7 +424,7 @@ class PyListIterator(po.PyClassImpl, po.PyValueMixin):
 @po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("list_reverse_iterator")
 @dataclass
-class PyListReverseIterator(po.PyClassImpl, po.PyValueMixin):
+class PyListReverseIterator(po.PyClassImpl):
     internal: pyiter.PositionIterInternal[PyListRef]
 
     @classmethod

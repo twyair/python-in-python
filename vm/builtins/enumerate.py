@@ -25,9 +25,7 @@ from common.deco import pyclassmethod, pymethod
 @po.pyclass("enumerate")
 @dataclass
 class PyEnumerate(
-    po.PyValueMixin,
     po.PyClassImpl,
-    po.TryFromObjectMixin,
     slot.ConstructorMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
@@ -95,12 +93,7 @@ def __py_new_args(iterator: PyIter, start: Optional[PyIntRef]):
 @po.pyimpl(iter_next=True)
 @po.pyclass("reversed")
 @dataclass
-class PyReverseSequenceIterator(
-    po.PyValueMixin,
-    po.PyClassImpl,
-    po.TryFromObjectMixin,
-    slot.IterNextMixin,
-):
+class PyReverseSequenceIterator(po.PyClassImpl, slot.IterNextMixin):
     internal: PositionIterInternal[PyObjectRef]
 
     @classmethod

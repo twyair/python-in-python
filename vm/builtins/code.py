@@ -38,7 +38,7 @@ class PyObjBag:
 @po.pyimpl(py_ref=True)
 @po.pyclass("code")
 @dataclass
-class PyCode(po.PyClassImpl, po.TryFromObjectMixin, po.PyValueMixin):
+class PyCode(po.PyClassImpl):
     code: CodeObject[PyConstant]
 
     def class_(self, vm: VirtualMachine) -> PyTypeRef:

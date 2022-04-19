@@ -63,8 +63,6 @@ def iter_search(
 @dataclass
 class PyRange(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.AsMappingMixin,
     slot.AsSequenceMixin,
     slot.HashableMixin,
@@ -374,8 +372,6 @@ class RangeIndexSlice(RangeIndex):
 @dataclass
 class PyLongRangeIterator(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
 ):
@@ -408,9 +404,7 @@ class PyLongRangeIterator(
 @po.pyclass("range_iterator")
 @dataclass
 class PyRangeIterator(
-    po.PyValueMixin,
     po.PyClassImpl,
-    po.TryFromObjectMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
 ):

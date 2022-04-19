@@ -22,7 +22,7 @@ PyDeleterFunc: TypeAlias = Callable[["VirtualMachine", "PyObjectRef"], None]
 @po.pyimpl(get_descriptor=True, constructor=True)
 @po.pyclass("getset_descriptor")
 @dataclass
-class PyGetSet(po.PyClassImpl, po.PyValueMixin):
+class PyGetSet(po.PyClassImpl):
     name: str
     klass: PyTypeRef
     getter: Optional[PyGetterFunc]

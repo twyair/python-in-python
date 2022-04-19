@@ -62,9 +62,7 @@ class PyNativeFuncDef:
 @po.pyimpl(callable=True, constructor=False)
 @po.pyclass(name="builtin_function_or_method")
 @dataclass
-class PyBuiltinFunction(
-    po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin, slot.CallableMixin
-):
+class PyBuiltinFunction(po.PyClassImpl, slot.CallableMixin):
     value: PyNativeFuncDef
     module_: Optional[PyObjectRef]
 
@@ -134,13 +132,7 @@ class PyBuiltinFunction(
 @po.pyimpl(get_descriptor=True, callable=True, constructor=False)
 @po.pyclass(name="method_descriptor")
 @dataclass
-class PyBuiltinMethod(
-    po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
-    slot.CallableMixin,
-    slot.GetDescriptorMixin,
-):
+class PyBuiltinMethod(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
     value: PyNativeFuncDef
     klass: PyTypeRef
 

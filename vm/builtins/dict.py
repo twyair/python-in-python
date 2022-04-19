@@ -25,9 +25,7 @@ from common.deco import pymethod
 )
 @po.pyclass("dict")
 @dataclass
-class PyDict(
-    po.TryFromObjectMixin, po.PyValueMixin, po.PyClassImpl, slot.AsMappingMixin
-):
+class PyDict(po.PyClassImpl, slot.AsMappingMixin):
     entries: DictContentType
 
     MAPPING_METHODS: ClassVar = mapping.PyMappingMethods(
@@ -185,7 +183,7 @@ PyDictRef: TypeAlias = "PyRef[PyDict]"
 )
 @po.pyclass("dict_keys")
 @dataclass
-class PyDictKeys(po.PyValueMixin, po.PyClassImpl):
+class PyDictKeys(po.PyClassImpl):
     dict: PyDictRef
 
     @classmethod
@@ -200,7 +198,7 @@ class PyDictKeys(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("dict_keyiterator")
 @dataclass
-class PyDictKeyIterator(po.PyValueMixin, po.PyClassImpl):
+class PyDictKeyIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_keyiterator_type
@@ -209,7 +207,7 @@ class PyDictKeyIterator(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("dict_reversekeyiterator")
 @dataclass
-class PyDictReverseKeyIterator(po.PyValueMixin, po.PyClassImpl):
+class PyDictReverseKeyIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_reversekeyiterator_type
@@ -218,7 +216,7 @@ class PyDictReverseKeyIterator(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl(dict_view=True, constructor=True, iterable=True, as_sequence=True)
 @po.pyclass("dict_values")
 @dataclass
-class PyDictValues(po.PyValueMixin, po.PyClassImpl):
+class PyDictValues(po.PyClassImpl):
     dict: PyDictRef
 
     @classmethod
@@ -233,7 +231,7 @@ class PyDictValues(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("dict_valueiterator")
 @dataclass
-class PyDictValueIterator(po.PyValueMixin, po.PyClassImpl):
+class PyDictValueIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_valueiterator_type
@@ -242,7 +240,7 @@ class PyDictValueIterator(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("dict_reversevalueiterator")
 @dataclass
-class PyDictReverseValueIterator(po.PyValueMixin, po.PyClassImpl):
+class PyDictReverseValueIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_reversevalueiterator_type
@@ -258,7 +256,7 @@ class PyDictReverseValueIterator(po.PyValueMixin, po.PyClassImpl):
 )
 @po.pyclass("dict_items")
 @dataclass
-class PyDictItems(po.PyValueMixin, po.PyClassImpl):
+class PyDictItems(po.PyClassImpl):
     dict: PyDictRef
 
     @classmethod
@@ -273,7 +271,7 @@ class PyDictItems(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("dict_itemiterator")
 @dataclass
-class PyDictItemIterator(po.PyValueMixin, po.PyClassImpl):
+class PyDictItemIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_keys_type
@@ -282,7 +280,7 @@ class PyDictItemIterator(po.PyValueMixin, po.PyClassImpl):
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("dict_reverseitemiterator")
 @dataclass
-class PyDictReverseItemIterator(po.PyValueMixin, po.PyClassImpl):
+class PyDictReverseItemIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_reverseitemiterator_type

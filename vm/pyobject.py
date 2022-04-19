@@ -344,8 +344,7 @@ class TypeProtocolMixin:
         return self.class_()._.issubclass(cls)
 
 
-@dataclass
-class PyValueMixin:
+class PyValueMixin(ABC):
     @classmethod
     @abstractmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
@@ -707,7 +706,9 @@ def make_method(method: MethodData) -> PyNativeFunc:
         )
         if isinstance(res, prc.PyRef):
             return res
-        # TODO? move to decorator
+        # TODO? move to decorator?
+        elif isinstance(res, PyValueMixin):
+            return res.into_ref(vm)
         else:
             return primitive_to_pyobject(res, vm)
 
@@ -776,8 +777,43 @@ class PyModuleImpl:
         return module
 
 
+class TryFromObjectRequirements(Protocol):
+    @classmethod
+    def class_(cls, vm: VirtualMachine) -> PyTypeRef:
+        ...
+
+    @classmethod
+    def special_retrieve(
+        cls: Type[T], vm: VirtualMachine, obj: PyObjectRef
+    ) -> PyRef[T]:
+        ...
+
+    @classmethod
+    def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> T:
+        ...
+
+
+TT = TypeVar("TT", bound=TryFromObjectRequirements)
+
+
+class TryFromObjectMixin:
+    @classmethod
+    def try_from_object(cls: Type[TT], vm: VirtualMachine, obj: PyObjectRef) -> TT:
+        class_ = cls.class_(vm)
+        if obj.isinstance(class_):
+            try:
+                return obj.downcast(cls)._
+            except PyImplError as e:
+                prc.pyref_payload_error(vm, class_, e.obj)
+        else:
+            try:
+                return cls.special_retrieve(vm, obj)._
+            except PyImplBase as _:
+                prc.pyref_type_error(vm, class_, obj)
+
+
 @dataclass
-class PyClassImpl(PyClassDef, StaticTypeMixin):
+class PyClassImpl(PyClassDef, StaticTypeMixin, PyValueMixin, TryFromObjectMixin):
     TP_FLAGS: ClassVar[PyTypeFlags] = slot.PyTypeFlags.default()
     pyimpl_at: ClassVar[PyClassImplData] = None  # type: ignore
 
@@ -985,42 +1021,6 @@ class PyMethodAttribute(PyMethod):
 
     def invoke(self, args: FuncArgs, vm: VirtualMachine) -> PyObjectRef:
         return vm.invoke(self.func, args.into_args(vm))
-
-
-class TryFromObjectRequirements(Protocol):
-    @classmethod
-    def class_(cls, vm: VirtualMachine) -> PyTypeRef:
-        ...
-
-    @classmethod
-    def special_retrieve(
-        cls: Type[T], vm: VirtualMachine, obj: PyObjectRef
-    ) -> PyRef[T]:
-        ...
-
-    @classmethod
-    def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> T:
-        ...
-
-
-TT = TypeVar("TT", bound=TryFromObjectRequirements)
-
-
-@dataclass
-class TryFromObjectMixin:
-    @classmethod
-    def try_from_object(cls: Type[TT], vm: VirtualMachine, obj: PyObjectRef) -> TT:
-        class_ = cls.class_(vm)
-        if obj.isinstance(class_):
-            try:
-                return obj.downcast(cls)._
-            except PyImplError as e:
-                prc.pyref_payload_error(vm, class_, e.obj)
-        else:
-            try:
-                return cls.special_retrieve(vm, obj)._
-            except PyImplBase as _:
-                prc.pyref_type_error(vm, class_, obj)
 
 
 @tp_flags(basetype=True)

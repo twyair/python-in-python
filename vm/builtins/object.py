@@ -28,7 +28,7 @@ from common.error import PyImplBase, PyImplError, PyImplException
 @po.pyimpl()
 @po.pyclass("object")
 @dataclass
-class PyBaseObject(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
+class PyBaseObject(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.object_type

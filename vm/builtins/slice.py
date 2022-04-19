@@ -66,7 +66,7 @@ class SaturatedSlice:
 @po.pyimpl(hashable=True, comparable=True)
 @po.pyclass("slice")
 @dataclass
-class PySlice(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
+class PySlice(po.PyClassImpl):
     start: Optional[PyObjectRef]
     stop: PyObjectRef
     step: Optional[PyObjectRef]
@@ -131,7 +131,7 @@ class PySlice(po.PyClassImpl, po.PyValueMixin, po.TryFromObjectMixin):
 @po.pyimpl()
 @po.pyclass("EllipsisType")
 @dataclass
-class PyEllipsis(po.PyClassImpl, po.PyValueMixin):
+class PyEllipsis(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.ellipsis_type

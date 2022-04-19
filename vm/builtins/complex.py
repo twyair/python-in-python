@@ -28,9 +28,7 @@ import vm.function_ as fn
 @po.pyclass("complex")
 @dataclass
 class PyComplex(
-    po.PyValueMixin,
     po.PyClassImpl,
-    po.TryFromObjectMixin,
     slot.ComparableMixin,
     slot.HashableMixin,
     slot.ConstructorMixin,

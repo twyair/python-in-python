@@ -30,9 +30,7 @@ from common.hash import PyHash
 @po.pyclass("float")
 @dataclass
 class PyFloat(
-    po.PyValueMixin,
     po.PyClassImpl,
-    po.TryFromObjectMixin,
     slot.ConstructorMixin,
     slot.ComparableMixin,
     slot.HashableMixin,

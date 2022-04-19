@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Generic, Optional, Type, TypeAlias, TypeVar
 from common.deco import pyclassmethod, pymethod
 from common.error import PyImplBase, PyImplError
-from common.hash import PyHash
+from common.hash import PyHash, hash_iter
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
@@ -39,8 +39,6 @@ from common import ISIZE_MAX
 @dataclass
 class PyTuple(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.ComparableMixin,
     slot.IterableMixin,
     slot.ConstructorMixin,
@@ -240,7 +238,7 @@ class PyTuple(
 
     @classmethod
     def hash(cls, zelf: PyRef[PyTuple], vm: VirtualMachine) -> PyHash:
-        return utils.hash_iter(iter(zelf._.elements), vm)
+        return hash_iter(iter(zelf._.elements), vm)
 
     @classmethod
     def py_new(
@@ -307,8 +305,6 @@ def __py_new_args(x: Optional[PyObjectRef] = None, /):
 @dataclass
 class PyTupleIterator(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.IterNextMixin,
     slot.IterNextIterableMixin,
 ):

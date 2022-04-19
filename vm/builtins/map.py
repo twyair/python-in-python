@@ -26,7 +26,6 @@ from common.error import unreachable
 @dataclass
 class PyMap(
     po.PyClassImpl,
-    po.PyValueMixin,
     slot.ConstructorMixin,
     slot.IterNextIterableMixin,
     slot.IterNextMixin,

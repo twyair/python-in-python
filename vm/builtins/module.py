@@ -4,18 +4,10 @@ from typing import TYPE_CHECKING
 from common.error import PyImplBase, PyImplErrorStr
 
 if TYPE_CHECKING:
-    from vm.builtins.dict import PyDictRef
     from vm.builtins.pystr import PyStrRef
     from vm.builtins.pytype import PyTypeRef
     from vm.function_ import FuncArgs
-    from vm.pyobject import (
-        PyClassImpl,
-        PyContext,
-        PyValueMixin,
-        pyclass,
-        pyimpl,
-        tp_flags,
-    )
+    from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
@@ -25,7 +17,7 @@ import vm.pyobject as po
 @po.pyimpl(get_attr=True)
 @po.pyclass("module")
 @dataclass
-class PyModule(po.PyClassImpl, po.PyValueMixin):
+class PyModule(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.module_type

@@ -11,10 +11,11 @@ if TYPE_CHECKING:
     from vm.vm import VirtualMachine
 import vm.pyobject as po
 
+
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("generator")
 @dataclass
-class PyGenerator(po.PyValueMixin, po.PyClassImpl):
+class PyGenerator(po.PyClassImpl):
     inner: Coro
 
     @classmethod

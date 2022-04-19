@@ -1,8 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl, tp_flags
+    from vm.pyobject import PyContext
     from protocol.iter import PyIter
 import vm.pyobject as po
 
@@ -11,7 +12,7 @@ import vm.pyobject as po
 @po.pyimpl(iter_next=True, constructor=True)
 @po.pyclass("zip")
 @dataclass
-class PyZip(po.PyClassImpl, po.PyValueMixin):
+class PyZip(po.PyClassImpl):
     iterators: list[PyIter]
     strict: bool
 

@@ -5,12 +5,14 @@ import inspect
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 import importlib
 
+from common.error import unreachable
+
 
 if TYPE_CHECKING:
     from vm.function_ import FuncArgs
     from vm.pyobjectrc import PyObjectRef
     from vm.vm import VirtualMachine
-    from vm.pyobject import PyArithmeticValue
+    from vm.pyobject import PyArithmeticValue, PyValueMixin
 
 # from vm.types.slot import SLOTS
 
@@ -249,8 +251,7 @@ def make_cast(
         assert proxy is not None, annotation
         return proxy.try_from_object
     else:
-        raise NotImplementedError(f"got: {annotation}")
-        # return lambda vm, obj: annotation.try_from_object(vm, obj)  # type: ignore
+        unreachable(f"got: '{annotation}' of type '{type(annotation)}'")
 
 
 def pyfunction(f: CT) -> CT:
@@ -261,7 +262,7 @@ def pyfunction(f: CT) -> CT:
 
 CT = TypeVar(
     "CT",
-    bound="Callable[..., PyObjectRef | str | bool | int | float | complex | PyArithmeticValue | None]",
+    bound="Callable[..., PyValueMixin | PyObjectRef | str | bool | int | float | complex | PyArithmeticValue | None]",
 )
 
 

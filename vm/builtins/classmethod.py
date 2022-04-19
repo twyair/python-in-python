@@ -4,25 +4,23 @@ from typing import TYPE_CHECKING, Optional
 from common.error import PyImplBase
 
 if TYPE_CHECKING:
-    from vm.builtins.function import PyBoundMethod
     from vm.builtins.pytype import PyTypeRef
     from vm.function_ import FuncArgs
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 
-from common.deco import pyproperty
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
+import vm.builtins.function as pyfunction
+from common.deco import pyproperty
 
 
 @po.pyimpl(get_descriptor=True, constructor=True)
 @po.pyclass("classmethod")
 @dataclass
-class PyClassMethod(
-    po.PyClassImpl, po.PyValueMixin, slot.GetDescriptorMixin, slot.ConstructorMixin
-):
+class PyClassMethod(po.PyClassImpl, slot.GetDescriptorMixin, slot.ConstructorMixin):
     callable: PyObjectRef
 
     @classmethod
@@ -42,10 +40,10 @@ class PyClassMethod(
         cls: Optional[PyObjectRef],
         vm: VirtualMachine,
     ) -> PyObjectRef:
-        zelf_, obj_ = PyClassMethod._unwrap(zelf, PyClassMethod, obj, vm)
+        zelf_, obj_ = PyClassMethod._unwrap(zelf, obj, vm)
         if cls is None:
             cls = obj_.clone_class().into_pyobj(vm)
-        return PyBoundMethod.new_ref(cls, zelf_._.callable, vm.ctx)
+        return pyfunction.PyBoundMethod.new_ref(cls, zelf_._.callable, vm.ctx)
 
     @classmethod
     def py_new(

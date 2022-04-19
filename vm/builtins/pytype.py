@@ -71,9 +71,7 @@ R = TypeVar("R")
 @po.pyclass("type")
 @dataclass
 class PyType(
-    po.TryFromObjectMixin,
     po.PyClassImpl,
-    po.PyValueMixin,
     slot.CallableMixin,
     slot.SetAttrMixin,
     slot.GetAttrMixin,

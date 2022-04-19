@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from vm.builtins.tuple import PyTupleRef
     from vm.function.arguments import ArgCallable
     from vm.protocol.sequence import PySequenceMethods
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl
+    from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObject, PyObjectRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
@@ -110,7 +110,7 @@ def builtins_reversed(vm: VirtualMachine) -> PyObject:
 @po.pyimpl(iter_next=True)
 @po.pyclass("iterator")
 @dataclass
-class PySequenceIterator(po.PyClassImpl, po.PyValueMixin):
+class PySequenceIterator(po.PyClassImpl):
     seq_methods: PySequenceMethods
     internal: PositionIterInternal[PyObjectRef]
 
@@ -132,7 +132,7 @@ class PySequenceIterator(po.PyClassImpl, po.PyValueMixin):
 @po.pyimpl(iter_next=True)
 @po.pyclass("callable_iterator")
 @dataclass
-class PyCallableIterator(po.PyClassImpl, po.PyValueMixin):
+class PyCallableIterator(po.PyClassImpl):
     sentinel: PyObjectRef
     status: IterStatusActive[ArgCallable] | IterStatusExhausted
 

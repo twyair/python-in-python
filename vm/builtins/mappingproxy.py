@@ -14,7 +14,7 @@ import vm.pyobject as po
 @po.pyimpl(constructor=True, iterable=True, as_mapping=True, as_sequence=True)
 @po.pyclass("mappingproxy")
 @dataclass
-class PyMappingProxy(po.PyClassImpl, po.PyValueMixin):
+class PyMappingProxy(po.PyClassImpl):
     mapping: MappingProxyInner
 
     @classmethod

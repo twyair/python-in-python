@@ -1,19 +1,21 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
     from vm.builtins.tuple import PyTupleRef
-    from vm.pyobject import PyClassImpl, PyContext, PyValueMixin, pyclass, pyimpl, tp_flags
+    from vm.pyobject import PyContext
     from vm.vm import VirtualMachine
 
 import vm.pyobject as po
+
 
 @po.tp_flags(basetype=True)
 @po.pyimpl(hashable=True, comparable=True, as_mapping=True)
 @po.pyclass("UnionType")
 @dataclass
-class PyUnion(po.PyClassImpl, po.PyValueMixin):
+class PyUnion(po.PyClassImpl):
     args: PyTupleRef
     parameters: PyTupleRef
 

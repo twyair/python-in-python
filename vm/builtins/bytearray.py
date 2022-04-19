@@ -36,8 +36,6 @@ import vm.protocol.mapping as mapping
 @dataclass
 class PyByteArray(
     po.PyClassImpl,
-    po.PyValueMixin,
-    po.TryFromObjectMixin,
     slot.AsMappingMixin,
     slot.IterableMixin,
     slot.ComparableMixin,
@@ -251,7 +249,7 @@ PyByteArrayRef: TypeAlias = "PyRef[PyByteArray]"
 @po.pyimpl(iter_next=True)
 @po.pyclass("bytearray_iterator")
 @dataclass
-class PyByteArrayIterator(po.PyClassImpl, po.PyValueMixin):
+class PyByteArrayIterator(po.PyClassImpl):
     internal: PositionIterInternal[PyByteArrayRef]
 
     @classmethod
