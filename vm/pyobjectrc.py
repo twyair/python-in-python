@@ -294,6 +294,12 @@ class PyRef(Generic[PyRefT]):
     def from_obj_unchecked(obj: PyObjectRef) -> PyRef[PyRefT]:
         return obj
 
+    def dict_(self) -> Optional[PyDictRef]:
+        if self.dict is None:
+            return None
+        else:
+            return self.dict.d
+
     def downcast(self, t: Type[PT]) -> PyRef[PT]:
         if self.payload_is(t):
             return PyRef[PT].from_obj_unchecked(self)

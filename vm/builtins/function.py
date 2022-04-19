@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, TypeAlias
 
+
 if TYPE_CHECKING:
     from vm.function_ import FuncArgs
     from vm.builtins.pystr import PyStrRef
@@ -15,12 +16,26 @@ if TYPE_CHECKING:
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
+import vm.builtins.pystr as pystr
+import vm.frame as vframe
+import vm.function.arguments as arguments
+import vm.scope as vscope
+import vm.builtins.asyncgenerator as pyasyncgenerator
+import vm.builtins.generator as pygenerator
+import vm.builtins.coroutine as pycoroutine
+import bytecode.bytecode as bytecode
+from common.deco import pymethod, pyproperty
+from common.error import PyImplBase
+
+# from vm.builtins.pystr import PyStr
+# from vm.frame import Frame
+# from vm.function.arguments import ArgMapping
 
 
 @po.pyimpl(constructor=True)
 @po.pyclass("cell")
 @dataclass
-class PyCell(po.PyClassImpl):
+class PyCell(po.PyClassImpl, slot.ConstructorMixin):
     contents: Optional[PyObjectRef]
 
     @classmethod
@@ -31,23 +46,49 @@ class PyCell(po.PyClassImpl):
     def default() -> PyCell:
         return PyCell(None)
 
-    def into_ref(self, vm: VirtualMachine) -> PyCellRef:
-        return PyRef[PyCell](vm.ctx.types.cell_type, None, self)
+    @staticmethod
+    def new(contents: Optional[PyObjectRef]) -> PyCell:
+        return PyCell(contents)
 
     def set(self, value: Optional[PyObjectRef]) -> None:
         self.contents = value
 
-    # TODO: impl Constructor for PyCell
+    @pyproperty()
+    def get_cell_contents(self, *, vm: VirtualMachine) -> PyObjectRef:
+        if self.contents is None:
+            vm.new_value_error("Cell is empty")
+        else:
+            return self.contents
+
+    @pyproperty()
+    def set_cell_contents(self, x: PyObjectRef, *, vm: VirtualMachine) -> None:
+        self.set(x)
+
+    # TODO: uncomment
+    # @pyproperty()
+    # def del_cell_contents(self, *, vm: VirtualMachine) -> None:
+    #     self.set(None)
+
+    @classmethod
+    def py_new(
+        cls, class_: PyTypeRef, fargs: FuncArgs, /, vm: VirtualMachine
+    ) -> PyObjectRef:
+        arg = fargs.bind(__pycell_py_new_args).arguments["value"]
+        return PyCell.new(arg).into_pyresult_with_type(vm, class_)
 
 
 PyCellRef: TypeAlias = "PyRef[PyCell]"
+
+
+def __pycell_py_new_args(value: Optional[PyObjectRef] = None):
+    ...
 
 
 @po.tp_flags(has_dict=True, method_descr=True)
 @po.pyimpl(get_descriptor=True, callable=True)
 @po.pyclass("function")
 @dataclass
-class PyFunction(po.PyClassImpl):
+class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
     code: PyRef[PyCode]
     globals: PyDictRef
     closure: Optional[PyTupleTyped[PyCellRef]]
@@ -75,12 +116,127 @@ class PyFunction(po.PyClassImpl):
             name=name,
         )
 
-    def into_object(self: PyFunction, vm: VirtualMachine) -> PyRef[PyFunction]:
-        return prc.PyRef.new_ref(self, vm.ctx.types.function_type, None)
+    def fill_locals_from_args(
+        self, frame: vframe.Frame, func_args: FuncArgs, vm: VirtualMachine
+    ) -> None:
+        raise NotImplementedError
 
-    # TODO: impl PyFunction @ 334
-    # TODO: impl GetDescriptor for PyFunction
-    # TODO: impl Callable for PyFunction
+    def invoke_with_locals(
+        self,
+        func_args: FuncArgs,
+        locals: Optional[arguments.ArgMapping],
+        vm: VirtualMachine,
+    ) -> PyObjectRef:
+        code = self.code._.code
+        if bytecode.CodeFlags.NEW_LOCALS in code.flags:
+            locals = arguments.ArgMapping.from_dict_exact(vm.ctx.new_dict())
+        elif locals is None:
+            locals = arguments.ArgMapping.from_dict_exact(self.globals)
+
+        if self.closure is None:
+            closure = []
+        else:
+            closure = self.closure.as_slice()
+
+        dict_ = vm.builtins.dict_()
+        assert dict_ is not None  # FIXME?
+
+        frame = vframe.Frame.new(
+            code=self.code,
+            scope=vscope.Scope.new(locals, self.globals),
+            builtins=dict_,
+            closure=closure,
+            vm=vm,
+        ).into_ref(vm)
+
+        self.fill_locals_from_args(frame._, func_args, vm)
+
+        is_gen = bytecode.CodeFlags.IS_GENERATOR in code.flags
+        is_coro = bytecode.CodeFlags.IS_COROUTINE in code.flags
+        if is_gen and not is_coro:
+            return pygenerator.PyGenerator.new(frame, self.name).into_ref(vm)
+        elif not is_gen and is_coro:
+            return pycoroutine.PyCoroutine.new(frame, self.name).into_ref(vm)
+        elif is_gen and is_coro:
+            return pyasyncgenerator.PyAsyncGen.new(frame, self.name).into_ref(vm)
+        else:
+            return vm.run_frame_full(frame)
+
+    def invoke(self, func_args: FuncArgs, vm: VirtualMachine) -> PyObjectRef:
+        return self.invoke_with_locals(func_args, None, vm)
+
+    @pyproperty()
+    def get___code__(self, *, vm: VirtualMachine) -> PyRef[PyCode]:
+        return self.code
+
+    @pyproperty()
+    def get___defaults__(self, *, vm: VirtualMachine) -> Optional[PyTupleRef]:
+        return self.defaults_and_kwdefaults[0]
+
+    @pyproperty()
+    def set___defaults__(
+        self, defaults: Optional[PyTupleRef], *, vm: VirtualMachine
+    ) -> None:
+        self.defaults_and_kwdefaults = (defaults, self.defaults_and_kwdefaults[1])
+
+    @pyproperty()
+    def get___kwdefaults__(self, *, vm: VirtualMachine) -> Optional[PyDictRef]:
+        return self.defaults_and_kwdefaults[1]
+
+    @pyproperty()
+    def set___kwdefaults__(
+        self, kwdefaults: Optional[PyDictRef], *, vm: VirtualMachine
+    ) -> None:
+        self.defaults_and_kwdefaults = (self.defaults_and_kwdefaults[0], kwdefaults)
+
+    @pyproperty()
+    def get___globals__(self, *, vm: VirtualMachine) -> PyDictRef:
+        return self.globals
+
+    @pyproperty()
+    def get___closure__(self, *, vm: VirtualMachine) -> Optional[PyTupleRef]:
+        if self.closure is None:
+            return None
+        return self.closure.tuple
+
+    @pyproperty()
+    def get___name__(self, *, vm: VirtualMachine) -> PyStrRef:
+        return self.name
+
+    @pyproperty()
+    def set___name__(self, name: PyStrRef, /, *, vm: VirtualMachine) -> None:
+        self.name = name
+
+    @pymethod(True)
+    @staticmethod
+    def i__repr__(zelf: PyRef[PyFunction], *, vm: VirtualMachine) -> str:
+        try:
+            qualname_attr = zelf.as_object().get_attr(
+                vm.ctx.new_str("__qualname__"), vm
+            )
+        except PyImplBase as _:
+            qualname = None
+        else:
+            qualname = qualname_attr.downcast_ref(pystr.PyStr)
+        if qualname is None:
+            qualname = zelf._.name
+        return "<function {} at {:#x}>".format(qualname._.as_str(), zelf.get_id())
+
+    @classmethod
+    def descr_get(
+        cls,
+        zelf: PyObjectRef,
+        obj: Optional[PyObjectRef],
+        class_: Optional[PyObjectRef],
+        vm: VirtualMachine,
+    ) -> PyObjectRef:
+        raise NotImplementedError
+
+    @classmethod
+    def call(
+        cls, zelf: PyRef[PyFunction], args: FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
+        return zelf._.invoke(args, vm)
 
 
 @po.tp_flags(has_dict=True)
