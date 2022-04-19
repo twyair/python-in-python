@@ -1,21 +1,24 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Generic
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
 
-    # from vm.builtins.pystr import PyStrRef
+    from vm.builtins.tuple import PyTupleRef
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyRef
     from bytecode.bytecode import ConstantData, CodeObject
     from vm.builtins.pytype import PyTypeRef
     from vm.vm import VirtualMachine
-from common.deco import pymethod
-import vm.pyobject as po
-import vm.pyobjectrc as prc
+
 import bytecode.bytecode as bytecode
 import vm.builtins.pystr as pystr
+import vm.function_ as fn
+import vm.pyobject as po
+import vm.pyobjectrc as prc
 
+from common.deco import pymethod, pyproperty, pyslot
 
 FrozenModule = bytecode.FrozenModule["PyConstant"]
 
@@ -44,16 +47,63 @@ class PyCode(po.PyClassImpl):
     def class_(self, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.code_type
 
-    def into_ref(self, vm: VirtualMachine) -> PyRef[PyCode]:
-        return prc.PyRef(vm.ctx.types.code_type, None, self)
-
-    # TODO: impl PyRef<PyCode> @ 199
+    @pyslot
+    @staticmethod
+    def slot_new(
+        class_: PyTypeRef, args: fn.FuncArgs, vm: VirtualMachine
+    ) -> prc.PyObjectRef:
+        vm.new_type_error("Cannot directly create code object")
 
     @pymethod(True)
-    def i__repr__(self, vm: VirtualMachine) -> str:
-        code = self.code
-        # FIXME: self should be PyRef[PyCode]
-        return f"<code object {code.obj_name} at {self.get_id()} file {code.source_path.as_str()}, line {code.first_line_number}>"
+    @staticmethod
+    def i__repr__(zelf: PyRef[PyCode], vm: VirtualMachine) -> str:
+        code = zelf._.code
+        return f"<code object {code.obj_name} at {zelf.get_id()} file {code.source_path.as_str()}, line {code.first_line_number}>"
+
+    @pyproperty()
+    @staticmethod
+    def get_co_posonlyargcount(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> int:
+        return zelf._.code.posonlyarg_count
+
+    @pyproperty()
+    @staticmethod
+    def get_co_argcount(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> int:
+        return zelf._.code.arg_count
+
+    @pyproperty()
+    @staticmethod
+    def get_co_filename(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> pystr.PyStrRef:
+        return zelf._.code.source_path
+
+    @pyproperty()
+    @staticmethod
+    def get_co_firstlineno(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> int:
+        return zelf._.code.first_line_number
+
+    @pyproperty()
+    @staticmethod
+    def get_co_kwonlyargcount(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> int:
+        return zelf._.code.kwonlyarg_count
+
+    @pyproperty()
+    @staticmethod
+    def get_co_consts(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> PyTupleRef:
+        return vm.ctx.new_tuple([x.value.to_pyobj(vm) for x in zelf._.code.constants])
+
+    @pyproperty()
+    @staticmethod
+    def get_co_name(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> pystr.PyStrRef:
+        return zelf._.code.obj_name
+
+    @pyproperty()
+    @staticmethod
+    def get_co_flags(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> int:
+        return zelf._.code.flags.value
+
+    @pyproperty()
+    @staticmethod
+    def get_co_varnames(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> PyTupleRef:
+        return vm.ctx.new_tuple([x for x in zelf._.code.varnames])
 
 
 def init(ctx: PyContext) -> None:
