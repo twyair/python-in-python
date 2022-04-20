@@ -480,19 +480,23 @@ class PyRef(Generic[PyRefT]):
         return r
 
     def get_item(self, needle: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
-        if dict_ := self.downcast_ref_if_exact(PyDict, vm):
-            return dict_.get_item(needle, vm)
+        import vm.builtins.dict as pydict
+        import vm.protocol.mapping as mapping
+        import vm.protocol.sequence as sequence
+
+        if dict_ := self.downcast_ref_if_exact(pydict.PyDict, vm):
+            return dict_._.get_item(needle, vm)
 
         # needle = needle.into_pyobj(vm)
         try:
-            mapping = PyMapping.try_protocol(self, vm)
+            mapping = mapping.PyMapping.try_protocol(self, vm)
         except PyImplBase:
             pass
         else:
             return mapping.subscript_(needle, vm)
 
         try:
-            seq = PySequence.try_protocol(self, vm)
+            seq = sequence.PySequence.try_protocol(self, vm)
         except PyImplBase:
             pass
         else:
@@ -626,7 +630,7 @@ def pyref_payload_error(
 
 def pyref_type_error(vm: VirtualMachine, class_: PyTypeRef, obj: PyObject) -> NoReturn:
     vm.new_type_error(
-        "Expected type '{}', not '{}'".format(class_._.name(), obj.class_._.name())
+        "Expected type '{}', not '{}'".format(class_._.name(), obj.class_()._.name())
     )
 
 

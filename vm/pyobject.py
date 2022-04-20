@@ -771,10 +771,10 @@ class TryFromObjectMixin:
             except PyImplError as e:
                 prc.pyref_payload_error(vm, class_, e.obj)
         else:
-            try:
-                return cls.special_retrieve(vm, obj)._
-            except PyImplBase as _:
+            r = cls.special_retrieve(vm, obj)
+            if r is None:
                 prc.pyref_type_error(vm, class_, obj)
+            return r._
 
 
 @dataclass

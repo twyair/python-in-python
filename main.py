@@ -50,11 +50,12 @@ def do(vm: VirtualMachine) -> None:
         # code_obj = vm.compile("x = 'running' * 3", Mode.Exec, "<embedded>")
         code_obj = vm.compile(
             # "callable(abs)",
-            "all({repr(3j * 3 + 5j - 3.0) == '', repr(3j * 3 + 5j - 3.0), False} | {False, 5,12,323,})",
+            "import sys; pdebug(sys.prefix)",
+            # "all({repr(3j * 3 + 5j - 3.0) == '', repr(3j * 3 + 5j - 3.0), False} | {False, 5,12,323,})",
             # "[3j] * 3",
             # "bool(5.0)",
             # "'sss' + 'abcd'",
-            Mode.Eval,
+            Mode.Exec,
             "<embedded>",
         )
     except CompileError as e:
@@ -64,7 +65,7 @@ def do(vm: VirtualMachine) -> None:
         res = vm.run_code_object(code_obj, scope)
     except PyImplBase as e:
         print_exception(e)
-        return
+        raise
     try:
         repr_ = res.repr(vm)._.as_str()
     except PyImplBase as e:

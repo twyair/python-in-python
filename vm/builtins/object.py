@@ -212,7 +212,7 @@ class PyBaseObject(po.PyClassImpl):
     @pyslot
     @staticmethod
     def slot_getattro(
-        zelf: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine
+        zelf: PyObjectRef, name: PyStrRef, vm: VirtualMachine
     ) -> PyObjectRef:
         return vm.generic_getattribute(zelf, name)
 

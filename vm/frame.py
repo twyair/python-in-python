@@ -54,6 +54,8 @@ import vm.pyobjectrc as prc
 import vm.function_ as fn
 import vm.types.slot as slot
 import vm.builtins.int as pyint
+import vm.builtins.tuple as pytuple
+import vm.builtins.pystr as pystr
 import bytecode.instruction as instruction
 
 
@@ -385,8 +387,9 @@ class ExecutingFrame:
             assert idx < len(instrs), (idx, instrs)
             instr = instrs[idx]
             try:
-                print([v.class_()._.name() for v in self.state.stack])
-                print(instr)
+                # print([type(v) for v in self.state.stack])
+                # print([v.class_()._.name() for v in self.state.stack])
+                # print(instr)
                 result = self.execute_instruction(instr, vm)
                 if result is None:
                     continue
@@ -444,8 +447,13 @@ class ExecutingFrame:
             return elements
 
     def import_(self, vm: VirtualMachine, module: Optional[PyStrRef]) -> FrameResult:
-        module = module if module is not None else PyStr.from_str("", vm.ctx)
-        from_list = PyTupleTyped[PyStr].try_from_object(PyStr, vm, self.pop_value())
+        module = module if module is not None else pystr.PyStr.from_str("", vm.ctx)
+        try:
+            from_list = pytuple.PyTupleTyped[pystr.PyStr].try_from_object(
+                pystr.PyStr, vm, self.pop_value()
+            )
+        except PyImplBase as _:
+            from_list = None
         level = pyint.PyInt.try_from_object(vm, self.pop_value())
         self.push_value(vm.import_(module, from_list, level.as_int()))
         return None
@@ -561,6 +569,7 @@ class ExecutingFrame:
     def push_value(self, obj: PyObjectRef) -> None:
         if len(self.state.stack) >= self.code._.code.max_stacksize:
             self.fatal("tried to push value onto stack but overflowed max_stacksize")
+        # assert isinstance(obj, prc.PyRef), obj
         self.state.stack.append(obj)
 
     def pop_value(self) -> PyObjectRef:

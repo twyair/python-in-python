@@ -14,6 +14,7 @@ from typing import (
     TypeVar,
     TYPE_CHECKING,
 )
+from common import to_opt
 
 
 if TYPE_CHECKING:
@@ -277,7 +278,9 @@ class VirtualMachine:
         name = name_str._.as_str()
         obj_cls = obj.class_()
 
-        if (descr := obj_cls.get_attr(self.mk_str(name), self)) is not None:
+        if (
+            descr := to_opt(lambda: obj_cls.get_attr(self.mk_str(name), self))
+        ) is not None:
             descr_cls = descr.class_()
             descr_get = descr_cls._.mro_find_map(lambda cls: cls.slots.descr_get)
             if descr_get is not None:
@@ -494,7 +497,11 @@ class VirtualMachine:
         )
 
         if not weird:
-            sys_modules = self.sys_module.get_attr(self.mk_str("modules"), self)
+            print(
+                "import_inner",
+                # [x._.as_str() for x in self.sys_module.dict_()._.get_keys()],
+            )
+            sys_modules = self.sys_module.get_attr(self.ctx.new_str("modules"), self)
             cached_module = sys_modules.get_item(module, self)
             if self.is_none(cached_module):
                 self.new_import_error(
@@ -504,7 +511,9 @@ class VirtualMachine:
                 return cached_module
         else:
             try:
-                import_func = self.builtins.get_attr(self.mk_str("__import__"), self)
+                import_func = self.builtins.get_attr(
+                    self.ctx.new_str("__import__"), self
+                )
             except PyImplBase:
                 self.new_import_error("__import__ not found", module)
             locals, globals = None, None

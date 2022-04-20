@@ -219,8 +219,10 @@ def pymodule(cls):
     attrs = {}
     members = inspect.getmembers(cls)
     for name, mem in members:
+        orig = name
         if name.startswith("__") and name.endswith("__") or name.startswith("_"):
             continue
+
         if not inspect.isfunction(mem):
             if name.startswith("attr_"):
                 name = name[len("attr_") :]
@@ -229,12 +231,15 @@ def pymodule(cls):
                 attrs[name] = lambda vm: primitive_to_pyobject(loc, vm)
             else:
                 continue
-        elif (fn := getattr(mem, "pyfunction", None)) is not None:
-            funcs[name] = fn
-        elif (attr := getattr(mem, "pyattr", None)) is not None:
-            attrs[name] = mem
         else:
-            assert False, f"method {name} isnt a `pyfunction` nor a `pyattr`"
+            if name.startswith("i__") and name.endswith("__"):
+                name = name[1:]
+            if (fn := getattr(mem, "pyfunction", None)) is not None:
+                funcs[name] = fn
+            elif (attr := getattr(mem, "pyattr", None)) is not None:
+                attrs[name] = attr
+            else:
+                assert False, f"method {orig} isnt a `pyfunction` nor a `pyattr`"
         # assert fn is not None,
     cls.pyfunctions = funcs
     cls.pyattrs = attrs
