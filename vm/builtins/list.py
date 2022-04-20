@@ -8,15 +8,18 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef, PyRef, PyObject
     from vm.vm import VirtualMachine
     from vm.function_ import FuncArgs
+
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
 import vm.builtins.iter as pyiter
 import vm.builtins.slice as pyslice
+import vm.builtins.tuple as pytuple
 import vm.builtins.genericalias as pygenericalias
 import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
-import vm.sliceable as vm_sliceable
+import vm.protocol.iter as viter
+import vm.sliceable as sliceable
 
 from common.deco import pyclassmethod, pymethod, pyslot
 from common.error import unreachable, PyImplBase
@@ -232,8 +235,8 @@ class PyList(
         return self.elements[s.to_primitive()]
 
     def _getitem(self, needle: PyObject, vm: VirtualMachine) -> PyObjectRef:
-        i = vm_sliceable.SequenceIndex.try_from_borrowed_object(vm, needle)
-        if isinstance(i, vm_sliceable.SequenceIndexInt):
+        i = sliceable.SequenceIndex.try_from_borrowed_object(vm, needle)
+        if isinstance(i, sliceable.SequenceIndexInt):
             return self.get_item_by_index(vm, i.value)
         else:
             return PyList.new_ref(self.get_item_by_slice(vm, i.value), vm.ctx)
@@ -247,8 +250,8 @@ class PyList(
     def _setitem(
         self, needle: PyObject, value: PyObjectRef, vm: VirtualMachine
     ) -> None:
-        i = vm_sliceable.SequenceIndex.try_from_borrowed_object(vm, needle)
-        if isinstance(i, vm_sliceable.SequenceIndexInt):
+        i = sliceable.SequenceIndex.try_from_borrowed_object(vm, needle)
+        if isinstance(i, sliceable.SequenceIndexInt):
             self.set_item_by_index(vm, i.value, value)
         else:
             seq = sequence.PySequence.from_pyobj(value).extract_cloned(lambda x: x, vm)
@@ -322,8 +325,8 @@ class PyList(
             vm.new_value_error(f"'{needle.str(vm)}' is not in list")
 
     def _delitem(self, needle: PyObject, vm: VirtualMachine) -> None:
-        i = vm_sliceable.SequenceIndex.try_from_borrowed_object(vm, needle)
-        if isinstance(i, vm_sliceable.SequenceIndexInt):
+        i = sliceable.SequenceIndex.try_from_borrowed_object(vm, needle)
+        if isinstance(i, sliceable.SequenceIndexInt):
             self.del_item_by_index(vm, i.value)
         else:
             self.del_item_by_slice(vm, i.value)
@@ -409,31 +412,69 @@ PyListRef: TypeAlias = "PyRef[PyList]"
 @po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("list_iterator")
 @dataclass
-class PyListIterator(po.PyClassImpl):
+class PyListIterator(po.PyClassImpl, slot.IterNextIterableMixin, slot.IterNextMixin):
     internal: pyiter.PositionIterInternal[PyListRef]
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.list_iterator_type
 
-    # TODO: impl PyListIterator @ 519
-    # TODO: impl IterNextIterable for PyListIterator
-    # TODO: impl IterNext for PyListIterator
+    @pymethod(True)
+    def i__length_hint__(self, *, vm: VirtualMachine) -> int:
+        return self.internal.length_hint(lambda obj: obj._._len())
+
+    @pymethod(True)
+    def i__setstate__(self, state: PyObjectRef, *, vm: VirtualMachine) -> None:
+        self.internal.set_state(state, lambda obj, pos: min(pos, obj._._len()), vm)
+
+    @pymethod(True)
+    def i__reduce__(self, *, vm: VirtualMachine) -> pytuple.PyTupleRef:
+        return self.internal.builtins_iter_reduce(lambda x: x, vm)
+
+    @classmethod
+    def next(
+        cls, zelf: PyRef[PyListIterator], vm: VirtualMachine
+    ) -> viter.PyIterReturn:
+        return zelf._.internal.next(
+            lambda l, pos: viter.PyIterReturn.from_pyresult(
+                lambda: l._.get_item_by_index(vm, pos), vm
+            )
+        )
 
 
 @po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("list_reverse_iterator")
 @dataclass
-class PyListReverseIterator(po.PyClassImpl):
+class PyListReverseIterator(
+    po.PyClassImpl, slot.IterNextMixin, slot.IterNextIterableMixin
+):
     internal: pyiter.PositionIterInternal[PyListRef]
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.list_reverseiterator_type
 
-    # TODO: impl PyListReverseIterator @ 564
-    # TODO: impl IterNextIterable for PyListReverseIterator
-    # TODO: impl IterNext for PyListReverseIterator
+    @pymethod(True)
+    def i__length_hint__(self, *, vm: VirtualMachine) -> int:
+        return self.internal.length_hint(lambda obj: obj._._len())
+
+    @pymethod(True)
+    def i__setstate__(self, state: PyObjectRef, *, vm: VirtualMachine) -> None:
+        self.internal.set_state(state, lambda obj, pos: min(pos, obj._._len()), vm)
+
+    @pymethod(True)
+    def i__reduce__(self, *, vm: VirtualMachine) -> pytuple.PyTupleRef:
+        return self.internal.builtins_reversed_reduce(lambda x: x, vm)
+
+    @classmethod
+    def next(
+        cls, zelf: PyRef[PyListIterator], vm: VirtualMachine
+    ) -> viter.PyIterReturn:
+        return zelf._.internal.rev_next(
+            lambda l, pos: viter.PyIterReturn.from_pyresult(
+                lambda: l._.get_item_by_index(vm, pos), vm
+            )
+        )
 
 
 def init(context: PyContext) -> None:
