@@ -72,7 +72,7 @@ class PySequence:
             raise NotImplementedError
         return f(self, key, vm)
 
-    # TODO: impl: length, repeat, item, ass_item, concat, inplace_concat, inplace_repeat
+    # TODO: impl: repeat, item, ass_item, concat, inplace_concat, inplace_repeat
 
     def extract_cloned(
         self, f: Callable[[PyObjectRef], R], vm: VirtualMachine
