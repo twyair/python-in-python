@@ -24,8 +24,25 @@ import vm.protocol.mapping as mapping
 class ArgCallable:
     obj: PyObjectRef
 
+    @staticmethod
+    def try_from_object(vm: VirtualMachine, obj: PyObjectRef) -> ArgCallable:
+        if vm.is_callable(obj):
+            return ArgCallable(obj)
+        else:
+            vm.new_type_error(f"'{obj.class_()._.name()}' object is not callable")
+
 
 T = TypeVar("T")
+
+
+# TODO
+# @dataclass
+# class OptionalArg(Generic[T]):
+#     value: Optional[T]
+
+#     @staticmethod
+#     def try_from_object(vm: VirtualMachine, obj: PyObjectRef) -> OptionalArg:
+#         pass
 
 
 @dataclass
@@ -64,3 +81,6 @@ class ArgMapping:
 
     def mapping(self) -> PyMapping:
         return mapping.PyMapping.with_methods(self.obj, self.mapping_methods)
+
+    def into_object(self) -> PyObjectRef:
+        return self.obj

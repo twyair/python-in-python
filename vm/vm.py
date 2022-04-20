@@ -372,8 +372,7 @@ class VirtualMachine:
         if cap is not None and cap >= MAX_LENGTH_HINT:
             return []
 
-        # FIXME?
-        return PyIterIter.new(self, iter_.as_ref(), cap, None).map(f)
+        return [f(x) for x in PyIterIter.new(self, iter_.as_ref(), cap, None)]
 
     def check_signal(self) -> None:
         signal.check_signals(self)
@@ -408,6 +407,18 @@ class VirtualMachine:
         if method is None:
             return None
         return self.call_if_get_descriptor(method, obj)
+
+    def get_method_or_type_error(
+        self, obj: PyObjectRef, method_name: str, error: Callable[[], str]
+    ) -> PyObjectRef:
+        method = self.get_method(obj, method_name)
+        if method is None:
+            self.new_type_error(error())
+        else:
+            return method
+
+    def dir(self, obj: Optional[PyObjectRef]) -> PyList:
+        raise NotImplementedError
 
     def get_special_method(self, obj: PyObjectRef, method: str) -> PyMethod:
         return po.PyMethod.get_special(obj, method, self)

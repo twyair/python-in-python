@@ -1,8 +1,9 @@
 from __future__ import annotations
+from collections import defaultdict
 from dataclasses import dataclass
 import enum
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, overload
 import importlib
 
 from common.error import unreachable
@@ -10,11 +11,54 @@ from common.error import unreachable
 
 if TYPE_CHECKING:
     from vm.function_ import FuncArgs
-    from vm.pyobjectrc import PyObjectRef
+    from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
     from vm.pyobject import PyArithmeticValue, PyValueMixin
 
 # from vm.types.slot import SLOTS
+
+
+def primitive_to_pyobject(
+    value: PyRef
+    | bool
+    | int
+    | float
+    | complex
+    | str
+    | bytes
+    | PyArithmeticValue[bool | int | float | complex | str | bytes]
+    | None,
+    vm: VirtualMachine,
+) -> PyObjectRef:
+    import vm.pyobjectrc as prc  # FIXME?
+    import vm.pyobject as po  # FIXME?
+
+    if isinstance(value, prc.PyRef):
+        return value
+    elif isinstance(value, po.PyValueMixin):
+        return value.into_ref(vm)
+    elif value is None:
+        return vm.ctx.get_none()
+    elif isinstance(value, bool):
+        return vm.ctx.new_bool(value)
+    elif isinstance(value, int):
+        return vm.ctx.new_int(value)
+    elif isinstance(value, float):
+        return vm.ctx.new_float(value)
+    elif isinstance(value, complex):
+        return vm.ctx.new_complex(value)
+    elif isinstance(value, str):
+        return vm.ctx.new_str(value)
+    elif isinstance(value, bytes):
+        return vm.ctx.new_bytes(value)
+    elif isinstance(value, po.PyArithmeticValue):
+        if value.value is not None:
+            return primitive_to_pyobject(value.value, vm)
+        else:
+            return vm.ctx.get_not_implemented()
+    else:
+        assert False, type(value)
+
 
 T = TypeVar("T")
 
@@ -174,7 +218,7 @@ def pymodule(cls):
     funcs = {}
     members = inspect.getmembers(cls)
     for name, mem in members:
-        if name.startswith("__") and name.startswith("__"):
+        if name.startswith("__") and name.endswith("__") or name.startswith("_"):
             continue
         if not inspect.isfunction(mem):
             continue
@@ -230,7 +274,7 @@ class TypeProxy:
         if self.name == "PyRef":
             return obj
         if self.typ is None:
-            self.typ = __import__(self.module, fromlist=[self.name])
+            self.typ = getattr(__import__(self.module, fromlist=[self.name]), self.name)
         return self.typ.try_from_object(vm, obj)
 
 
@@ -254,10 +298,33 @@ def make_cast(
         unreachable(f"got: '{annotation}' of type '{type(annotation)}'")
 
 
+@overload
+def pyfunction(f: bool) -> Callable[[CT], CT]:
+    ...
+
+
+@overload
 def pyfunction(f: CT) -> CT:
-    foo = cast_args(f)
-    f.__func__.pyfunction = foo
-    return f
+    ...
+
+
+def pyfunction(f):
+    cast = True
+
+    def inner(g: CT) -> CT:
+        if cast:
+            foo = cast_args(g)
+        else:
+            foo = lambda vm, fargs: g.__func__(fargs, vm=vm)
+        g.__func__.pyfunction = foo
+        return g
+
+    if isinstance(f, bool):
+        cast = f
+        return inner
+
+    else:
+        return inner(f)
 
 
 CT = TypeVar(
@@ -288,6 +355,6 @@ def cast_args(f: Callable) -> Callable[[VirtualMachine, FuncArgs], PyObjectRef]:
             **{k: casts[k](vm, v) for k, v in bs.kwargs.items() if k != "vm"},
             vm=vm,
         )
-        return vm.unwrap_or_none(res)
+        return primitive_to_pyobject(res, vm)
 
     return foo

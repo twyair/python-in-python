@@ -42,6 +42,10 @@ class PyInt(
     def from_(value: int) -> PyInt:
         return PyInt(value)
 
+    def try_to_primitive(self, vm: VirtualMachine) -> int:
+        # TODO? check that result <= ISIZE_MAX?
+        return self.as_int()
+
     @staticmethod
     def with_value(class_: PyTypeRef, value, vm: VirtualMachine) -> PyIntRef:
         if class_.is_(vm.ctx.types.int_type):

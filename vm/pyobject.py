@@ -58,6 +58,7 @@ from common.deco import (
     MethodData,
     PropertyData,
     PropertyDescriptorType,
+    primitive_to_pyobject,
 )
 from common.hash import PyHash
 from common.error import PyImplBase, PyImplError, unreachable
@@ -704,52 +705,9 @@ def make_method(method: MethodData) -> PyNativeFunc:
             },
             vm=vm,
         )
-        if isinstance(res, prc.PyRef):
-            return res
-        # TODO? move to decorator?
-        elif isinstance(res, PyValueMixin):
-            return res.into_ref(vm)
-        else:
-            return primitive_to_pyobject(res, vm)
+        return primitive_to_pyobject(res, vm)
 
     return func
-
-
-def primitive_to_pyobject(
-    value: bool
-    | int
-    | float
-    | complex
-    | str
-    | bytes
-    | PyArithmeticValue[bool | int | float | complex | str | bytes]
-    | None,
-    vm: VirtualMachine,
-) -> PyObjectRef:
-    if value is None:
-        return vm.ctx.get_none()
-    elif isinstance(value, bool):
-        return vm.ctx.new_bool(value)
-    elif isinstance(value, int):
-        return vm.ctx.new_int(value)
-    elif isinstance(value, float):
-        return vm.ctx.new_float(value)
-    elif isinstance(value, complex):
-        return vm.ctx.new_complex(value)
-    elif isinstance(value, str):
-        return vm.ctx.new_str(value)
-    elif isinstance(value, bytes):
-        return vm.ctx.new_bytes(value)
-    elif isinstance(value, PyArithmeticValue):
-        if value.value is not None:
-            if isinstance(value.value, prc.PyRef):
-                return value.value
-            else:
-                return primitive_to_pyobject(value.value, vm)
-        else:
-            return vm.ctx.get_not_implemented()
-    else:
-        assert False, type(value)
 
 
 class PyModuleImpl:

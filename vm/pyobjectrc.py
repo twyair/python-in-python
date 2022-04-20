@@ -375,6 +375,17 @@ class PyRef(Generic[PyRefT]):
 
         return self.abstract_isinstance(cls, vm)
 
+    def recursive_issubclass(self, cls: PyObject, vm: VirtualMachine) -> bool:
+        raise NotImplementedError
+
+    def is_subclass(self, cls: PyObject, vm: VirtualMachine) -> bool:
+        if cls.class_().is_(vm.ctx.types.type_type):
+            if self.is_(cls):
+                return True
+            else:
+                return self.recursive_issubclass(cls, vm)
+        raise NotImplementedError
+
     def abstract_isinstance(self, cls: PyObject, vm: VirtualMachine) -> bool:
         if (type := PyType.try_from_object(vm, cls)) is not None:
             if self.class_()._.issubclass(type.into_ref(vm)):
@@ -416,7 +427,7 @@ class PyRef(Generic[PyRefT]):
         import vm.builtins.int as pyint
         import vm.builtins.float as pyfloat
 
-        if (f := self.payload_if_exact(pyfloat.PyFloat)) is not None:
+        if (f := self.payload_if_exact(pyfloat.PyFloat, vm)) is not None:
             return f.value
         if (method := vm.get_method(self, "__float__")) is not None:
             result = vm.invoke(method, FuncArgs())
@@ -540,6 +551,9 @@ class PyRef(Generic[PyRefT]):
         else:
             vm.new_type_error(f"'{self.class_()}' does not support item deletion")
 
+    def key_as_isize(self, vm: VirtualMachine) -> int:
+        return vm.to_index(self)._.try_to_primitive(vm)
+
     def get_id(self) -> int:
         return id(self._)
 
@@ -657,7 +671,9 @@ def init_type_hierarchy() -> tuple[PyTypeRef, PyTypeRef, PyTypeRef]:
         attributes=po.PyAttributes(),
         slots=oo.PyBaseObject.make_slots(),
     )
-    type_type = PyRef[pytype.PyType].new_ref(type=None, dict=None, payload=type_payload)
+    type_type = PyRef[pytype.PyType].new_ref(
+        type=None, dict=None, payload=type_payload  # type: ignore
+    )
     type_type.type = type_type
     object_type = PyRef[pytype.PyType](
         type=type_type, dict=None, payload=object_payload

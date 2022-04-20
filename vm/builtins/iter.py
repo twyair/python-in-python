@@ -140,6 +140,10 @@ class PyCallableIterator(po.PyClassImpl):
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.callable_iterator
 
+    @staticmethod
+    def new(callable: ArgCallable, sentinel: PyObjectRef) -> PyCallableIterator:
+        return PyCallableIterator(sentinel, IterStatusActive(callable))
+
     # TODO: impl PyCallableIterator
     # TODO: impl IterNextIterable for PyCallableIterator
     # TODO: impl IterNext for PyCallableIterator
