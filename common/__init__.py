@@ -1,7 +1,9 @@
 from __future__ import annotations
+import sys
 
-ISIZE_MAX = 1 << 32
-ISIZE_MIN = -ISIZE_MAX
+ISIZE_MAX: int = sys.maxsize
+ISIZE_MIN: int = -sys.maxsize
+CHAR_MAX: int = sys.maxunicode
 
 
 def is_isize(n: int, /) -> bool:

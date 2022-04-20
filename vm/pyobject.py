@@ -728,6 +728,13 @@ class PyModuleImpl:
             vm.module_set_attr(module, vm.mk_str(name), new_func)
         # TODO: impl other kinds of module attributes
 
+        pyattrs = getattr(cls, "pyattrs", None)
+        assert pyattrs is not None
+        assert isinstance(pyattrs, dict)
+        for name, func in pyattrs.items():
+            assert isinstance(name, str)
+            vm.module_set_attr(module, vm.ctx.new_str(name), func(vm))
+
     @classmethod
     def make_module(cls, vm: VirtualMachine) -> PyObjectRef:
         module = vm.new_module(cls.__name__, vm.ctx.new_dict(), cls.__doc__)

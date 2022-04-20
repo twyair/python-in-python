@@ -575,6 +575,7 @@ class PyRef(Generic[PyRefT]):
     def payload_unchecked(self, t: Type[PT]) -> PT:
         return self._  # type: ignore
 
+    # TODO: del?
     @classmethod
     def try_from_object(
         cls, t: Type[PT], vm: VirtualMachine, obj: PyObjectRef

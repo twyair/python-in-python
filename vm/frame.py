@@ -447,7 +447,7 @@ class ExecutingFrame:
         module = module if module is not None else PyStr.from_str("", vm.ctx)
         from_list = PyTupleTyped[PyStr].try_from_object(PyStr, vm, self.pop_value())
         level = pyint.PyInt.try_from_object(vm, self.pop_value())
-        self.push_value(vm.import_(module, from_list, level))
+        self.push_value(vm.import_(module, from_list, level.as_int()))
         return None
 
     def import_from(self, vm: VirtualMachine, idx: NameIdx) -> PyObjectRef:

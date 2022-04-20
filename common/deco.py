@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 import enum
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeAlias, TypeVar, overload
 import importlib
 
 from common.error import unreachable
@@ -216,16 +216,28 @@ def pyslot(method: RT) -> RT:
 
 def pymodule(cls):
     funcs = {}
+    attrs = {}
     members = inspect.getmembers(cls)
     for name, mem in members:
         if name.startswith("__") and name.endswith("__") or name.startswith("_"):
             continue
         if not inspect.isfunction(mem):
-            continue
-        fn = getattr(mem, "pyfunction", None)
-        assert fn is not None, f"method {name} isnt a `pyfunction`"
-        funcs[name] = fn
+            if name.startswith("attr_"):
+                name = name[len("attr_") :]
+                assert name not in attrs, name
+                loc = mem
+                attrs[name] = lambda vm: primitive_to_pyobject(loc, vm)
+            else:
+                continue
+        elif (fn := getattr(mem, "pyfunction", None)) is not None:
+            funcs[name] = fn
+        elif (attr := getattr(mem, "pyattr", None)) is not None:
+            attrs[name] = mem
+        else:
+            assert False, f"method {name} isnt a `pyfunction` nor a `pyattr`"
+        # assert fn is not None,
     cls.pyfunctions = funcs
+    cls.pyattrs = attrs
     return cls
 
 
@@ -322,15 +334,25 @@ def pyfunction(f):
     if isinstance(f, bool):
         cast = f
         return inner
-
     else:
         return inner(f)
 
 
+CT_RETURN: TypeAlias = "PyValueMixin | PyObjectRef | str | bytes | bool | int | float | complex | PyArithmeticValue | None"
+
+
 CT = TypeVar(
     "CT",
-    bound="Callable[..., PyValueMixin | PyObjectRef | str | bytes | bool | int | float | complex | PyArithmeticValue | None]",
+    bound="Callable[..., CT_RETURN]",
 )
+
+
+AT = TypeVar("AT", bound="Callable[[VirtualMachine], CT_RETURN]")
+
+
+def pyattr(f: AT) -> AT:
+    f.__func__.pyattr = lambda vm: primitive_to_pyobject(f.__func__(vm), vm)
+    return f
 
 
 def get_casts(
