@@ -10,8 +10,6 @@ if TYPE_CHECKING:
     from protocol.iter import PyIter
     from vm.vm import VirtualMachine
 
-    # from vm.function_ import FuncArgs
-
 import vm.pyobject as po
 import vm.types.slot as slot
 import vm.protocol.iter as protocol_iter

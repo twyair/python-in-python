@@ -39,6 +39,7 @@ class PySequence:
 
     @staticmethod
     def from_pyobj(obj: PyObject) -> PySequence:
+        # FIXME?
         return PySequence(obj, None)
 
     def methods_(self, vm: VirtualMachine) -> PySequenceMethods:
@@ -64,6 +65,14 @@ class PySequence:
                 f"'{self.obj.class_()}' is not a sequence or has no len()"
             )
         return r
+
+    def contains(self, key: PyObjectRef, vm: VirtualMachine) -> bool:
+        f = self.methods_(vm).contains
+        if f is None:
+            raise NotImplementedError
+        return f(self, key, vm)
+
+    # TODO: impl: length, repeat, item, ass_item, concat, inplace_concat, inplace_repeat
 
     def extract_cloned(
         self, f: Callable[[PyObjectRef], R], vm: VirtualMachine

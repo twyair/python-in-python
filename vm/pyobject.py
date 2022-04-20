@@ -84,6 +84,9 @@ class PyAttributes:
     def get(self, key: str, default: T) -> T | PyObjectRef:
         return self.inner.get(key, default)
 
+    def contains_key(self, key: str) -> bool:
+        return key in self.inner
+
     # def insert(self, key: str, value: PyObjectRef) -> None:
     #     self.inner[key] = value
 
