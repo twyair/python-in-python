@@ -9,7 +9,8 @@ if TYPE_CHECKING:
     from vm.pyobject import PyContext
     from vm.pyobjectrc import PyObject, PyObjectRef
     from vm.vm import VirtualMachine
-    from vm.function_ import FuncArgs
+
+    # from vm.function_ import FuncArgs
     from common.hash import PyHash
 
 import vm.pyobject as po
@@ -33,11 +34,11 @@ class PyBaseObject(po.PyClassImpl):
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.object_type
 
-    # TODO: impl PyBaseObject @ 27
-
     @pyslot
     @staticmethod
-    def slot_new(class_: PyTypeRef, args: FuncArgs, vm: VirtualMachine) -> PyObjectRef:
+    def slot_new(
+        class_: PyTypeRef, args: fn.FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
         if class_.is_(vm.ctx.types.object_type):
             dict_ = None
         else:
@@ -63,7 +64,26 @@ class PyBaseObject(po.PyClassImpl):
     def cmp(
         zelf: PyObject, other: PyObject, op: slot.PyComparisonOp, vm: VirtualMachine
     ) -> po.PyComparisonValue:
-        raise NotImplementedError
+        if op == slot.PyComparisonOp.Eq:
+            if zelf.is_(other):
+                return po.PyComparisonValue(True)
+            else:
+                return po.PyComparisonValue(None)
+        elif op == slot.PyComparisonOp.Ne:
+            cmp = zelf.class_()._.mro_find_map(lambda cls: cls.slots.richcompare)
+            assert cmp is not None
+            obj = cmp(zelf, other, slot.PyComparisonOp.Eq, vm)
+            # FIXME? shouldnt the result be negated
+            if isinstance(obj, po.PyArithmeticValue):
+                return obj
+            else:
+                v = po.PyArithmeticValue.from_object(vm, obj)
+                if v.value is None:
+                    return po.PyComparisonValue(None)
+                else:
+                    return po.PyComparisonValue(v.value.try_to_bool(vm))
+        else:
+            return po.PyComparisonValue(None)
 
     @pymethod(True)
     @staticmethod
@@ -119,6 +139,16 @@ class PyBaseObject(po.PyClassImpl):
     def i__delattr__(zelf: PyObjectRef, name: PyStrRef, *, vm: VirtualMachine) -> None:
         generic_setattr(zelf, name, None, vm)
 
+    @pyslot
+    @staticmethod
+    def slot_setattro(
+        obj: PyObject,
+        attr_name: PyStrRef,
+        value: Optional[PyObjectRef],
+        vm: VirtualMachine,
+    ) -> None:
+        generic_setattr(obj, attr_name, value, vm)
+
     @pymethod(True)
     @staticmethod
     def i__str__(zelf: PyObjectRef, *, vm: VirtualMachine) -> PyStrRef:
@@ -147,7 +177,7 @@ class PyBaseObject(po.PyClassImpl):
 
     @pyclassmethod(False)
     @staticmethod
-    def i__subclasshook__(args: FuncArgs, *, vm: VirtualMachine) -> PyObjectRef:
+    def i__subclasshook__(args: fn.FuncArgs, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.get_not_implemented()
 
     @pyclassmethod(True)
@@ -181,7 +211,7 @@ class PyBaseObject(po.PyClassImpl):
 
     @pymethod(False)
     @staticmethod
-    def i__init__(zelf: PyObjectRef, args: FuncArgs, *, vm: VirtualMachine) -> None:
+    def i__init__(zelf: PyObjectRef, args: fn.FuncArgs, *, vm: VirtualMachine) -> None:
         return
 
     @pyproperty()
@@ -230,7 +260,15 @@ class PyBaseObject(po.PyClassImpl):
 
     @staticmethod
     def _reduce_ex(zelf: PyObjectRef, proto: int, vm: VirtualMachine) -> PyObjectRef:
-        raise NotImplementedError
+        reduce = vm.get_attribute_opt(zelf, vm.ctx.new_str("__reduce__"))
+        if reduce is not None:
+            object_reduce = vm.ctx.types.object_type._.get_attr("__reduce__")
+            assert object_reduce is not None
+            typ_obj = zelf.clone_class()
+            class_reduce = typ_obj.get_attr(vm.ctx.new_str("__reduce__"), vm)
+            if not class_reduce.is_(object_reduce):
+                return vm.invoke(reduce, fn.FuncArgs())
+        return common_reduce(zelf, proto, vm)
 
     @pymethod(True)
     @staticmethod
@@ -300,7 +338,14 @@ def generic_setattr(
 
 
 def common_reduce(obj: PyObjectRef, proto: int, vm: VirtualMachine) -> PyObjectRef:
-    raise NotImplementedError
+    if proto >= 2:
+        reducelib = vm.import_(vm.ctx.new_str("__reducelib"), None, 0)
+        reduce_2 = reducelib.get_attr(vm.ctx.new_str("reduce_2"), vm)
+        return vm.invoke(reduce_2, fn.FuncArgs([obj]))
+    else:
+        copyreg = vm.import_(vm.ctx.new_str("copyreg"), None, 0)
+        reduce_ex = copyreg.get_attr(vm.ctx.new_str("_reduce_ex"), vm)
+        return vm.invoke(reduce_ex, fn.FuncArgs([obj, vm.ctx.new_int(proto)]))
 
 
 def init(ctx: PyContext) -> None:
