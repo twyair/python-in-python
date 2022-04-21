@@ -60,7 +60,7 @@ class PyDict(po.PyClassImpl, slot.AsMappingMixin):
     def from_attributes(attrs: po.PyAttributes, vm: VirtualMachine) -> PyDict:
         d = DictContentType()
         for key, value in attrs.items():
-            d.insert(vm, vm.new_pyobj(key), value)
+            d.insert(vm, vm.ctx.new_str(key), value)
         return PyDict(d)
 
     def get_keys(self) -> Iterator[PyObjectRef]:

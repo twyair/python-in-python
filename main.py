@@ -49,17 +49,15 @@ def do(vm: VirtualMachine) -> None:
     try:
         # code_obj = vm.compile("x = 'running' * 3", Mode.Exec, "<embedded>")
         code_obj = vm.compile(
-            # "callable(abs)",
             """
+def foo(x: int) -> float:
+    return x / 2.345
 import sys
 pdebug(sys.prefix)
 pdebug(3j * 3 + 5j - 3.0)
-pdebug([3j] + [0])
+pdebug([3j] + [foo(10)])
+pdebug(foo)
 """,
-            # "all({repr(3j * 3 + 5j - 3.0) == '', repr(3j * 3 + 5j - 3.0), False} | {False, 5,12,323,})",
-            # "[3j] + [0]",
-            # "bool(5.0)",
-            # "'sss' + 'abcd'",
             Mode.Exec,
             "<embedded>",
         )

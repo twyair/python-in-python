@@ -14,20 +14,11 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    import bytecode.instruction as instruction
     from bytecode.bytecode import CodeFlags, Label, Location, RaiseKind
-    from bytecode.instruction import (
-        BinaryOperator,
-        ComparisonOperator,
-        MakeFunctionFlags,
-        NameIdx,
-        UnaryOperator,
-    )
 
-    from vm.builtins.code import PyCode
     from vm.builtins.dict import PyDict, PyDictRef
-    from vm.builtins.function import PyCell, PyFunction
-    from vm.builtins.pystr import PyStr, PyStrRef
+
+    # from vm.builtins.function import PyCell, PyFunction
     from vm.builtins.pytype import PyTypeRef
     from vm.builtins.slice import PySlice
     from vm.builtins.tuple import PyTuple, PyTupleTyped
@@ -52,6 +43,8 @@ from common.error import PyImplBase, PyImplError, PyImplErrorStr, PyImplExceptio
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.function_ as fn
+import vm.builtins.code as pycode
+import vm.builtins.function as pyfunction
 import vm.types.slot as slot
 import vm.builtins.int as pyint
 import vm.builtins.tuple as pytuple
@@ -146,7 +139,7 @@ Lasti = int
 @po.pyclass("frame")
 @dataclass
 class Frame(po.PyClassImpl):
-    code: PyRef[PyCode]
+    code: PyRef[pycode.PyCode]
     fastlocals: list[Optional[PyObject]]
     cells_frees: list[PyCellRef]
     locals: ArgMapping
@@ -162,14 +155,15 @@ class Frame(po.PyClassImpl):
 
     @staticmethod
     def new(
-        code: PyRef[PyCode],
+        code: PyRef[pycode.PyCode],
         scope: Scope,
         builtins: PyDictRef,
         closure: list[PyCellRef],
         vm: VirtualMachine,
     ) -> Frame:
         cells_frees = [
-            PyCell.default().into_ref(vm) for _ in range(len(code._.code.cellvars))
+            pyfunction.PyCell.default().into_ref(vm)
+            for _ in range(len(code._.code.cellvars))
         ] + closure
         state = FrameState(stack=[], blocks=[])
         return Frame(
@@ -220,7 +214,7 @@ class Frame(po.PyClassImpl):
                         raise
         if code.cellvars or code.freevars:
 
-            def map_to_dict(keys: list[PyStrRef], values: list[PyCellRef]):
+            def map_to_dict(keys: list[pystr.PyStrRef], values: list[PyCellRef]):
                 for k, v in zip(keys, values):
                     value = v._.contents
                     if value is not None:
@@ -277,7 +271,7 @@ class Frame(po.PyClassImpl):
         return "<frame object at .. >"
 
     @pymethod(True)
-    def i__delattr__(self, value: PyStrRef, /, *, vm: VirtualMachine) -> None:
+    def i__delattr__(self, value: pystr.PyStrRef, /, *, vm: VirtualMachine) -> None:
         if value._.as_str() == "f_trace":
             self.set_f_trace(vm.ctx.get_none(), vm=vm)
 
@@ -295,7 +289,7 @@ class Frame(po.PyClassImpl):
         # return [x.into_pyobject() for x in self.get_locals(vm)]
 
     @pyproperty()
-    def get_f_code(self, *, vm: VirtualMachine) -> PyRef[PyCode]:
+    def get_f_code(self, *, vm: VirtualMachine) -> PyRef[pycode.PyCode]:
         return self.code
 
     @pyproperty()
@@ -342,13 +336,13 @@ class ExecutionResultYield(ExecutionResult):
     value: PyObjectRef
 
 
-PyCellRef: TypeAlias = "PyRef[PyCell]"
+PyCellRef: TypeAlias = "PyRef[pyfunction.PyCell]"
 
 
 @final
 @dataclass
 class ExecutingFrame:
-    code: PyRef[PyCode]
+    code: PyRef[pycode.PyCode]
     fastlocals: list[Optional[PyObjectRef]]
     cells_frees: list[PyCellRef]
     locals: ArgMapping
@@ -358,7 +352,9 @@ class ExecutingFrame:
     lasti: Lasti
     state: FrameState
 
-    def unbound_cell_exception(self, i: NameIdx, vm: VirtualMachine) -> NoReturn:
+    def unbound_cell_exception(
+        self, i: instruction.NameIdx, vm: VirtualMachine
+    ) -> NoReturn:
         if i < len(self.code._.code.cellvars):
             name = self.code._.code.cellvars[i]
             vm.new_exception_msg(
@@ -428,7 +424,9 @@ class ExecutingFrame:
 
         return instruction.execute(self, vm)
 
-    def load_global_or_builtin(self, name: PyStrRef, vm: VirtualMachine) -> PyObjectRef:
+    def load_global_or_builtin(
+        self, name: pystr.PyStrRef, vm: VirtualMachine
+    ) -> PyObjectRef:
         r = self.globals._.get_chain(self.builtins._, name, vm)
         if r is None:
             vm.new_name_error(f"name '{name}' is not defined", name)
@@ -446,7 +444,9 @@ class ExecutingFrame:
         else:
             return elements
 
-    def import_(self, vm: VirtualMachine, module: Optional[PyStrRef]) -> FrameResult:
+    def import_(
+        self, vm: VirtualMachine, module: Optional[pystr.PyStrRef]
+    ) -> FrameResult:
         module = module if module is not None else pystr.PyStr.from_str("", vm.ctx)
         try:
             from_list = pytuple.PyTupleTyped[pystr.PyStr].try_from_object(
@@ -458,7 +458,7 @@ class ExecutingFrame:
         self.push_value(vm.import_(module, from_list, level.as_int()))
         return None
 
-    def import_from(self, vm: VirtualMachine, idx: NameIdx) -> PyObjectRef:
+    def import_from(self, vm: VirtualMachine, idx: instruction.NameIdx) -> PyObjectRef:
         module = self.last_value()
         name = self.code._.code.names[idx]
         if (
@@ -469,7 +469,7 @@ class ExecutingFrame:
         ) is not None:
             return obj
         try:
-            mod_name = module.get_attr(vm.mk_str("__name__"), vm).downcast(PyStr)
+            mod_name = module.get_attr(vm.mk_str("__name__"), vm).downcast(pystr.PyStr)
             full_mod_name = f"{mod_name}.{name}"
             sys_modules = vm.sys_module.get_attr(vm.mk_str("modules"), vm)
             return sys_modules.get_item(vm.mk_str(full_mod_name), vm)
@@ -480,12 +480,12 @@ class ExecutingFrame:
         module = self.pop_value()
         if module.dict is not None:
             if (all := module.dict.get_item(vm.mk_str("__all__"), vm)) is not None:
-                all_ = [name.as_str() for name in vm.extract_elements(PyStr, all)]
+                all_ = [name.as_str() for name in vm.extract_elements(pystr.PyStr, all)]
                 filter_pred = lambda name: name in all_
             else:
                 filter_pred = lambda name: name.startswith("_")
             for k, v in module.dict.d._.entries.items():
-                k = PyStr.try_from_object(vm, k)
+                k = pystr.PyStr.try_from_object(vm, k)
                 if filter_pred(k.as_str()):
                     self.locals.mapping().ass_subscript_(k.into_ref(vm), v, vm)
         else:
@@ -533,22 +533,22 @@ class ExecutingFrame:
         else:
             assert False
 
-    def _get_name(self, idx: NameIdx) -> str:
+    def _get_name(self, idx: instruction.NameIdx) -> str:
         return self.code._.code.names[idx]
 
-    def load_attr(self, vm: VirtualMachine, attr: NameIdx) -> FrameResult:
+    def load_attr(self, vm: VirtualMachine, attr: instruction.NameIdx) -> FrameResult:
         attr_name = self._get_name(attr)
         parent = self.pop_value()
         obj = parent.get_attr(vm.mk_str(attr_name), vm)
         self.push_value(obj)
 
-    def store_attr(self, vm: VirtualMachine, attr: NameIdx) -> FrameResult:
+    def store_attr(self, vm: VirtualMachine, attr: instruction.NameIdx) -> FrameResult:
         attr_name = self._get_name(attr)
         parent = self.pop_value()
         value = self.pop_value()
         parent.set_attr(vm.mk_str(attr_name), value, vm)
 
-    def delete_attr(self, vm: VirtualMachine, attr: NameIdx) -> FrameResult:
+    def delete_attr(self, vm: VirtualMachine, attr: instruction.NameIdx) -> FrameResult:
         attr_name = self._get_name(attr)
         parent = self.pop_value()
         parent.del_attr(vm.mk_str(attr_name), vm)
@@ -657,7 +657,7 @@ class ExecutingFrame:
     def collect_keyword_args(self, nargs: int) -> FuncArgs:
         kwarg_names = self.pop_value().downcast(PyTuple)
         args = self.pop_multiple(nargs)
-        kwarg_names = [pyobj._.as_(PyStr) for pyobj in kwarg_names._.elements]
+        kwarg_names = [pyobj._.as_(pystr.PyStr) for pyobj in kwarg_names._.elements]
         return fn.FuncArgs.with_kwargs_names(args, kwarg_names)
 
     def collect_ex_args(self, vm: VirtualMachine, has_kwargs: bool) -> FuncArgs:
@@ -669,7 +669,7 @@ class ExecutingFrame:
                 vm.new_type_error("Kwargs must be a dict.")
             # // TODO: check collections.abc.Mapping
             for key, value in kw_dict._.entries.items():
-                key = key.payload_if_subclass(PyStr, vm)
+                key = key.payload_if_subclass(pystr.PyStr, vm)
                 if key is None:
                     vm.new_type_error("keywords must be strings")
                 kwargs[key.as_str()] = value
@@ -779,47 +779,50 @@ class ExecutingFrame:
             assert False, next_obj
 
     def execute_make_function(
-        self, vm: VirtualMachine, flags: MakeFunctionFlags
+        self, vm: VirtualMachine, flags: instruction.MakeFunctionFlags
     ) -> FrameResult:
         try:
-            qualified_name = self.pop_value().downcast(PyStr)
+            qualified_name = self.pop_value().downcast(pystr.PyStr)
         except PyImplError:
             raise PyImplErrorStr("expected: qualified name to be a string")
         try:
-            code_obj = self.pop_value().downcast(PyCode)
-        except:
+            code_obj = self.pop_value().downcast(pycode.PyCode)
+        except PyImplError as e:
+            print(e)
             raise PyImplErrorStr(
                 "second to top value on the stack must be a code object"
             )
-        if MakeFunctionFlags.CLOSURE in flags:
-            closure = PyTupleTyped.try_from_object(PyCell, vm, self.pop_value())
+        if instruction.MakeFunctionFlags.CLOSURE in flags:
+            closure = PyTupleTyped.try_from_object(
+                pyfunction.PyCell, vm, self.pop_value()
+            )
         else:
             closure = None
-        if MakeFunctionFlags.ANNOTATIONS in flags:
+        if instruction.MakeFunctionFlags.ANNOTATIONS in flags:
             annotations = self.pop_value()
         else:
             annotations = vm.ctx.new_dict().into_pyobj(vm)
 
-        if MakeFunctionFlags.KW_ONLY_DEFAULTS in flags:
+        if instruction.MakeFunctionFlags.KW_ONLY_DEFAULTS in flags:
             kw_only_defaults = self.pop_value().downcast(PyDict)
             # TODO: .expect("Stack value for keyword only defaults expected to be a dict"),
         else:
             kw_only_defaults = None
 
-        if MakeFunctionFlags.DEFAULTS in flags:
+        if instruction.MakeFunctionFlags.DEFAULTS in flags:
             defaults = self.pop_value().downcast(PyTuple)
             # TODO .expect("Stack value for defaults expected to be a tuple"),
         else:
             defaults = None
 
-        func_obj = PyFunction.new(
+        func_obj = pyfunction.PyFunction.new(
             code_obj, self.globals, closure, defaults, kw_only_defaults
         ).into_object(vm)
 
         func_obj.set_attr(vm.mk_str("__doc__"), vm.ctx.get_none(), vm)
 
         name = qualified_name._.as_str().split(".")[-1]
-        func_obj.set_attr(vm.mk_str("__name__"), vm.new_pyobj(name), vm)
+        func_obj.set_attr(vm.mk_str("__name__"), vm.ctx.new_str(name), vm)
         func_obj.set_attr(vm.mk_str("__qualname__"), qualified_name, vm)
         module = vm.unwrap_or_none(
             self.globals._.get_item_opt(vm.mk_str("__name__"), vm)
@@ -829,7 +832,9 @@ class ExecutingFrame:
 
         self.push_value(func_obj)
 
-    def execute_binop(self, vm: VirtualMachine, op: BinaryOperator) -> FrameResult:
+    def execute_binop(
+        self, vm: VirtualMachine, op: instruction.BinaryOperator
+    ) -> FrameResult:
         b_ref = self.pop_value()
         a_ref = self.pop_value()
 
@@ -864,7 +869,7 @@ class ExecutingFrame:
         return None
 
     def execute_binop_inplace(
-        self, vm: VirtualMachine, op: BinaryOperator
+        self, vm: VirtualMachine, op: instruction.BinaryOperator
     ) -> FrameResult:
         b_ref = self.pop_value()
         a_ref = self.pop_value()
@@ -899,7 +904,9 @@ class ExecutingFrame:
         self.push_value(value)
         return None
 
-    def execute_unop(self, vm: VirtualMachine, op: UnaryOperator) -> FrameResult:
+    def execute_unop(
+        self, vm: VirtualMachine, op: instruction.UnaryOperator
+    ) -> FrameResult:
         a = self.pop_value()
         if op == instruction.UnaryOperator.Minus:
             value = vm._neg(a)
@@ -932,7 +939,7 @@ class ExecutingFrame:
         return not a.is_(b)
 
     def execute_compare(
-        self, vm: VirtualMachine, op: ComparisonOperator
+        self, vm: VirtualMachine, op: instruction.ComparisonOperator
     ) -> FrameResult:
         b = self.pop_value()
         a = self.pop_value()

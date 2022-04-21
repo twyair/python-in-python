@@ -27,10 +27,6 @@ import bytecode.bytecode as bytecode
 from common.deco import pymethod, pyproperty
 from common.error import PyImplBase
 
-# from vm.builtins.pystr import PyStr
-# from vm.frame import Frame
-# from vm.function.arguments import ArgMapping
-
 
 @po.pyimpl(constructor=True)
 @po.pyclass("cell")
@@ -119,7 +115,151 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
     def fill_locals_from_args(
         self, frame: vframe.Frame, func_args: FuncArgs, vm: VirtualMachine
     ) -> None:
-        raise NotImplementedError
+        code = self.code._.code
+        nargs = len(func_args.args)
+        nexpected_args = code.arg_count
+        total_args = code.arg_count + code.kwonlyarg_count
+
+        fastlocals = frame.fastlocals
+
+        args_iter = list(func_args.args)
+
+        nargs_taken = min(nargs, nexpected_args)
+
+        for i, arg in enumerate(args_iter[:nargs_taken]):
+            fastlocals[i] = arg
+
+        vararg_offset = total_args
+
+        if bytecode.CodeFlags.HAS_VARARGS in code.flags:
+            vararg_value = vm.ctx.new_tuple(args_iter[nargs:])
+            fastlocals[vararg_offset] = vararg_value
+            vararg_offset += 1
+        else:
+            if nargs > nexpected_args:
+                vm.new_type_error(
+                    "{}() takes {} positional arguments but {} were given".format(
+                        code.obj_name, nexpected_args, nargs
+                    )
+                )
+
+        if bytecode.CodeFlags.HAS_VARKEYWORDS in code.flags:
+            d = vm.ctx.new_dict()
+            fastlocals[vararg_offset] = d
+            kwargs = d
+        else:
+            kwargs = None
+
+        def argpos(r: range, name: str) -> Optional[int]:
+            return next(
+                (
+                    p
+                    for p, s in enumerate(code.varnames[r.start : r.stop], r.start)
+                    if s._.as_str() == name
+                ),
+                None,
+            )
+
+        posonly_passed_as_kwarg = []
+        for name, value in func_args.kwargs.items():
+            if (
+                pos := argpos(range(code.posonlyarg_count, total_args), name)
+            ) is not None:
+                slot = fastlocals[pos]
+                if slot is not None:
+                    vm.new_type_error(f"Got multiple values for argument '{name}'")
+                fastlocals[pos] = value
+            elif kwargs is not None:
+                kwargs._.set_item(vm.ctx.new_str(name), value, vm)
+            elif argpos(range(0, code.posonlyarg_count), name) is not None:
+                posonly_passed_as_kwarg.append(name)
+            else:
+                vm.new_type_error(f"got an unexpected keyword argument '{name}'")
+
+        if posonly_passed_as_kwarg:
+            vm.new_type_error(
+                "{}() got some positional-only arguments passed as keyword arguments: '{}'".format(
+                    code.obj_name, ",".join(posonly_passed_as_kwarg)
+                )
+            )
+
+        default_and_kwdefaults = None
+
+        def get_defaults() -> tuple[Optional[PyTupleRef], Optional[PyDictRef]]:
+            nonlocal default_and_kwdefaults
+            if default_and_kwdefaults is not None:
+                return default_and_kwdefaults
+            else:
+                default_and_kwdefaults = self.defaults_and_kwdefaults
+                return default_and_kwdefaults
+
+        if nargs < nexpected_args:
+            if (v := get_defaults()[0]) is not None:
+                defaults = v._.as_slice()
+                ndefs = len(defaults)
+            else:
+                defaults = None
+                ndefs = 0
+
+            nrequired = code.arg_count - ndefs
+
+            missing = [
+                code.varnames[i]
+                for i, x in ((i, fastlocals[i]) for i in range(nargs, nrequired))
+                if x is None
+            ]
+            missing_args_len = len(missing)
+
+            if missing:
+                if len(missing) > 1:
+                    last = missing.pop()
+                    if len(missing) == 1:
+                        and_ = "' and '"
+                    else:
+                        and_ = "', and '"
+                    right = last._.as_str()
+                else:
+                    right, and_ = "", ""
+
+                vm.new_type_error(
+                    "{}() missing {} required positional argument{}: '{}{}{}'".format(
+                        code.obj_name,
+                        missing_args_len,
+                        "" if missing_args_len == 1 else "s",
+                        "', '".join(missing),
+                        and_,
+                        right,
+                    )
+                )
+
+            if defaults is not None:
+                for i in range(
+                    max(0, min(nargs, nexpected_args) - nrequired), len(defaults)
+                ):
+                    if fastlocals[nrequired + i] is None:
+                        fastlocals[nrequired + i] = defaults[i]
+
+        if code.kwonlyarg_count > 0:
+            for slot, kwarg, i in zip(
+                fastlocals[code.arg_count :],
+                code.varnames[code.arg_count :],
+                range(code.kwonlyarg_count),
+            ):
+                if slot is not None:
+                    continue
+
+                if (defaults := get_defaults()[1]) is not None:
+                    if (default := defaults._.get_item_opt(kwarg, vm)) is not None:
+                        fastlocals[code.arg_count + i] = default
+
+                vm.new_type_error(f"Missing required kw only argument: '{kwarg}'")
+
+        if code.cell2arg is not None:
+            for cell_idx, arg_idx in enumerate(code.cell2arg):
+                if arg_idx == -1:
+                    continue
+                x = fastlocals[arg_idx]
+                frame.cells_frees[cell_idx]._.set(x)
 
     def invoke_with_locals(
         self,

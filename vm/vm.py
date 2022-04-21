@@ -255,8 +255,8 @@ class VirtualMachine:
     def new_scope_with_builtins(self) -> scope.Scope:
         return scope.Scope.with_builtins(None, self.ctx.new_dict(), self)
 
-    def new_pyobj(self, value: Any) -> PyObjectRef:
-        return value.into_pyobj(self)
+    # def new_pyobj(self, value: Any) -> PyObjectRef:
+    #     return value.into_pyobj(self)
 
     def new_tuple(self, value: Sequence[PyObjectRef]) -> PyTupleRef:
         return self.ctx.new_tuple(list(value))

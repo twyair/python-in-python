@@ -725,7 +725,7 @@ class PyModuleImpl:
                 vm.ctx.make_funcdef(vm.mk_str(name)._, func)
                 .with_doc("TODO", vm.ctx)  # TODO!
                 .into_function()
-                .with_module(vm.new_pyobj(module))
+                .with_module(module)
                 .into_ref(vm.ctx)
             )
             vm.module_set_attr(module, vm.mk_str(name), new_func)
