@@ -74,6 +74,12 @@ class PyRef(Generic[PyRefT]):
     dict: Optional[InstanceDict]
     payload: PyRefT
 
+    def debug_repr(self) -> str:
+        payload_repr = getattr(self._, "debug_repr", lambda: "...")()
+        return "<'{}' @ '{}' : '{}'>".format(
+            payload_repr, self._.__class__.__name__, self.type._.name()
+        )
+
     @property
     def _(self) -> PyRefT:
         return self.payload

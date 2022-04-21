@@ -72,6 +72,9 @@ class PyBytes(
         ),
     )
 
+    def debug_repr(self) -> str:
+        return str(self.inner)
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.bytes_type

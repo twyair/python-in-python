@@ -30,6 +30,9 @@ class PyInt(
 ):
     value: int
 
+    def debug_repr(self) -> str:
+        return str(self.value)
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.int_type

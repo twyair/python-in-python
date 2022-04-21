@@ -75,6 +75,9 @@ class PyList(
         ),
     )
 
+    def debug_repr(self) -> str:
+        return "[" + ", ".join(x.debug_repr() for x in self.elements) + "]"
+
     @staticmethod
     def new_ref(value: list[PyObjectRef], ctx: PyContext) -> PyListRef:
         return prc.PyRef.new_ref(PyList(value), ctx.types.list_type, None)

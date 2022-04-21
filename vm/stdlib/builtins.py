@@ -261,7 +261,7 @@ class builtins(po.PyModuleImpl):
     @pyfunction
     @staticmethod
     def pdebug(arg: PyObjectRef, *, vm: VirtualMachine) -> None:
-        print("DEBUG:", arg._)
+        print("DEBUG:", arg.debug_repr())
 
     # TODO:
     # @pyfunction

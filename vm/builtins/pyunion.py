@@ -1,21 +1,32 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from common.hash import PyHash
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
     from vm.builtins.tuple import PyTupleRef
     from vm.pyobject import PyContext
+    from vm.pyobjectrc import PyRef, PyObject, PyObjectRef
     from vm.vm import VirtualMachine
 
 import vm.pyobject as po
+import vm.types.slot as slot
+import vm.protocol.mapping as mapping
+import vm.builtins.pystr as pystr
 
 
 @po.tp_flags(basetype=True)
 @po.pyimpl(hashable=True, comparable=True, as_mapping=True)
 @po.pyclass("UnionType")
 @dataclass
-class PyUnion(po.PyClassImpl):
+class PyUnion(
+    po.PyClassImpl,
+    slot.AsMappingMixin,
+    slot.ComparableMixin,
+    slot.HashableMixin,
+    slot.GetAttrMixin,
+):
     args: PyTupleRef
     parameters: PyTupleRef
 
@@ -25,10 +36,32 @@ class PyUnion(po.PyClassImpl):
 
     # TODO: impl PyUnion @ 34
     # TODO: impl PyUnion @ 201
-    # TODO: impl AsMapping for PyUnion
-    # TODO: impl Comparable for PyUnion
-    # TODO: impl Hashable for PyUnion
-    # TODO: impl GetAttr for PyUnion
+
+    @classmethod
+    def as_mapping(
+        cls, zelf: PyRef[PyUnion], vm: VirtualMachine
+    ) -> mapping.PyMappingMethods:
+        raise NotImplementedError
+
+    @classmethod
+    def cmp(
+        cls,
+        zelf: PyRef[PyUnion],
+        other: PyObject,
+        op: slot.PyComparisonOp,
+        vm: VirtualMachine,
+    ) -> po.PyComparisonValue:
+        raise NotImplementedError
+
+    @classmethod
+    def hash(cls, zelf: PyRef[PyUnion], vm: VirtualMachine) -> PyHash:
+        raise NotImplementedError
+
+    @classmethod
+    def getattro(
+        cls, zelf: PyRef[PyUnion], name: pystr.PyStrRef, vm: VirtualMachine
+    ) -> PyObjectRef:
+        raise NotImplementedError
 
 
 def init(context: PyContext) -> None:

@@ -72,6 +72,9 @@ class PyStr(
         inplace_repeat=None,
     )
 
+    def debug_repr(self) -> str:
+        return self.value
+
     @staticmethod
     def class_(vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.str_type

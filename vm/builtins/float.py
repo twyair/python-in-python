@@ -37,6 +37,9 @@ class PyFloat(
 ):
     value: float
 
+    def debug_repr(self) -> str:
+        return str(self.value)
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.float_type
