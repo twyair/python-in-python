@@ -15,8 +15,6 @@ import vm.types.slot as slot
 import vm.builtins.int as pyint
 from common.deco import pymethod
 
-# import vm.function_ as fn
-
 
 @po.pyimpl(constructor=True)
 @po.pyclass("bool", base="PyInt")
