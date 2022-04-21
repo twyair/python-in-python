@@ -258,12 +258,6 @@ class PyContext:
         return prc.PyRef.new_ref(pycomplex.PyComplex(c), self.types.complex_type, None)
 
     # TODO: move
-    def new_code(self, c: CodeObject) -> PyRef[PyCode]:
-        import vm.builtins.code as pycode
-
-        return prc.PyRef.new_ref(pycode.PyCode(c), self.types.code_type, None)
-
-    # TODO: move
     def new_bytes(self, data: bytes) -> PyRef[PyBytes]:
         import vm.builtins.bytes as pybytes
 

@@ -140,7 +140,7 @@ Lasti = int
 @dataclass
 class Frame(po.PyClassImpl):
     code: PyRef[pycode.PyCode]
-    fastlocals: list[Optional[PyObject]]
+    fastlocals: list[Optional[PyObjectRef]]
     cells_frees: list[PyCellRef]
     locals: ArgMapping
     globals: PyDictRef
@@ -208,7 +208,7 @@ class Frame(po.PyClassImpl):
             fastlocals = self.fastlocals
             for k, v in zip(map[:j], fastlocals):
                 try:
-                    self.locals.mapping().ass_subscript_(vm.mk_str(k), v, vm)
+                    self.locals.mapping().ass_subscript_(k, v, vm)
                 except PyImplException as e:
                     if not e.exception.isinstance(vm.ctx.exceptions.key_error):
                         raise
@@ -365,7 +365,7 @@ class ExecutingFrame:
             name = self.code._.code.freevars[i - len(self.code._.code.cellvars)]
             vm.new_name_error(
                 f"free variable '{name}' referenced before assignment in enclosing scope",
-                vm.mk_str(name),
+                name,
             )
 
     def update_lasti(self, f: Callable[[int], int]) -> None:
@@ -461,12 +461,7 @@ class ExecutingFrame:
     def import_from(self, vm: VirtualMachine, idx: instruction.NameIdx) -> PyObjectRef:
         module = self.last_value()
         name = self.code._.code.names[idx]
-        if (
-            obj := vm.get_attribute_opt(
-                module,
-                vm.mk_str(name),
-            )
-        ) is not None:
+        if (obj := vm.get_attribute_opt(module, name)) is not None:
             return obj
         try:
             mod_name = module.get_attr(vm.mk_str("__name__"), vm).downcast(pystr.PyStr)
@@ -534,7 +529,7 @@ class ExecutingFrame:
             assert False
 
     def _get_name(self, idx: instruction.NameIdx) -> str:
-        return self.code._.code.names[idx]
+        return self.code._.code.names[idx]._.as_str()
 
     def load_attr(self, vm: VirtualMachine, attr: instruction.NameIdx) -> FrameResult:
         attr_name = self._get_name(attr)
@@ -569,7 +564,6 @@ class ExecutingFrame:
     def push_value(self, obj: PyObjectRef) -> None:
         if len(self.state.stack) >= self.code._.code.max_stacksize:
             self.fatal("tried to push value onto stack but overflowed max_stacksize")
-        # assert isinstance(obj, prc.PyRef), obj
         self.state.stack.append(obj)
 
     def pop_value(self) -> PyObjectRef:
@@ -655,9 +649,9 @@ class ExecutingFrame:
         return fn.FuncArgs(args=self.pop_multiple(nargs), kwargs=OrderedDict())
 
     def collect_keyword_args(self, nargs: int) -> FuncArgs:
-        kwarg_names = self.pop_value().downcast(PyTuple)
+        kwarg_names = self.pop_value().downcast(pytuple.PyTuple)
         args = self.pop_multiple(nargs)
-        kwarg_names = [pyobj._.as_(pystr.PyStr) for pyobj in kwarg_names._.elements]
+        kwarg_names = [pyobj._.as_str() for pyobj in kwarg_names._.elements]
         return fn.FuncArgs.with_kwargs_names(args, kwarg_names)
 
     def collect_ex_args(self, vm: VirtualMachine, has_kwargs: bool) -> FuncArgs:

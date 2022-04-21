@@ -46,6 +46,8 @@ import vm.stdlib.builtins as std_builtins
 import vm.stdlib.sys as std_sys
 import vm.codecs as codecs
 import vm.builtins.module as pymodule
+import vm.builtins.pystr as pystr
+import vm.builtins.code as pycode
 import vm.frame as vm_frame
 import vm.exceptions as vm_exceptions
 import vm.function_ as vm_function_
@@ -54,7 +56,7 @@ import vm.builtins.module as pymodule
 import vm.builtins.int as pyint
 import vm.signal as vm_signal
 
-from bytecode.bytecode import CodeObject, FrozenModule
+from bytecode.bytecode import CodeObject, ConstantData, FrozenModule
 from common.error import PyImplBase, PyImplError, PyImplException
 from common.hash import HashSecret
 from compiler.compile import CompileError, CompileErrorType, CompileOpts
@@ -497,10 +499,6 @@ class VirtualMachine:
         )
 
         if not weird:
-            print(
-                "import_inner",
-                # [x._.as_str() for x in self.sys_module.dict_()._.get_keys()],
-            )
             sys_modules = self.sys_module.get_attr(self.ctx.new_str("modules"), self)
             cached_module = sys_modules.get_item(module, self)
             if self.is_none(cached_module):
@@ -907,9 +905,18 @@ class VirtualMachine:
         else:
             return None
 
-    def map_codeobj(self, code: CodeObject) -> CodeObject:
-        # FIXME
-        return code
+    # TODO: move
+    def new_code(self, c: CodeObject[ConstantData, str]) -> PyRef[PyCode]:
+        import vm.builtins.code as pycode
+
+        return prc.PyRef.new_ref(
+            pycode.PyCode(self.map_codeobj(c)), self.ctx.types.code_type, None
+        )
+
+    def map_codeobj(
+        self, code: CodeObject[ConstantData, str]
+    ) -> CodeObject[pycode.PyConstant, pystr.PyStrRef]:
+        return code.map_bag(pycode.PyObjBag(self))
 
     # original name: `__module_set_attr`
     def module_set_attr(

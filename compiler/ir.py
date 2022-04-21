@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Generic, Iterable, Optional, TypeVar
+from typing import TYPE_CHECKING, Generic, Iterable, Optional, TypeVar
+
+if TYPE_CHECKING:
+    from vm.builtins.code import PyConstant
 
 from bytecode import instruction
 from bytecode.bytecode import (
     CodeFlags,
     CodeObject,
     ConstantData,
-    ConstantProtocol,
 )
 from bytecode.instruction import Instruction
 from indexset import IndexSet
@@ -32,25 +34,22 @@ class Block:
     next: BlockIdx = MAX_LABEL
 
 
-C = TypeVar("C", bound=ConstantProtocol)
-
-
 @dataclass
-class CodeInfo(Generic[C]):
+class CodeInfo:
     flags: CodeFlags
     posonlyarg_count: int
     arg_count: int
     kwonlyarg_count: int
-    source_path: C.Name  # type: ignore
+    source_path: str
     first_line_number: int
-    obj_name: C.Name  # type: ignore
+    obj_name: str
     blocks: list[Block]
     current_block: BlockIdx
-    constants: IndexSet[C]
-    name_cache: IndexSet[C.Name]  # type: ignore
-    varname_cache: IndexSet[C.Name]  # type: ignore
-    cellvar_cache: IndexSet[C.Name]  # type: ignore
-    freevar_cache: IndexSet[C.Name]  # type: ignore
+    constants: IndexSet[ConstantData]
+    name_cache: IndexSet[str]
+    varname_cache: IndexSet[str]
+    cellvar_cache: IndexSet[str]
+    freevar_cache: IndexSet[str]
 
     def max_stacksize(self) -> int:
         maxdepth = 0
@@ -123,7 +122,7 @@ class CodeInfo(Generic[C]):
             if last_instr is not None:
                 del block.instructions[last_instr + 1 :]
 
-    def finalize_code(self, optimize: int) -> CodeObject:
+    def finalize_code(self, optimize: int) -> CodeObject[ConstantData, str]:
         max_stacksize = self.max_stacksize()
         cell2arg = self.cell2arg()
         if optimize > 0:
@@ -180,7 +179,10 @@ def iter_blocks(blocks: list[Block]) -> Iterable[tuple[BlockIdx, Block]]:
 
 
 def stackdepth_push(
-    stack: list[instruction.Label], startdepths: list[int], target: instruction.Label, depth: int
+    stack: list[instruction.Label],
+    startdepths: list[int],
+    target: instruction.Label,
+    depth: int,
 ) -> None:
     block_depth = startdepths[target.value]
     if block_depth == MAX_LABEL.value or depth > block_depth:

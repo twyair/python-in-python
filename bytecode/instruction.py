@@ -279,7 +279,7 @@ class StoreLocal(Instruction):
     ) -> Optional[ExecutionResult]:
         name = frame.code._.code.names[self.idx]
         value = frame.pop_value()
-        frame.locals.mapping().ass_subscript_(vm.mk_str(name), value, vm)
+        frame.locals.mapping().ass_subscript_(name, value, vm)
 
 
 @final
@@ -294,7 +294,7 @@ class StoreGlobal(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
-        frame.globals.set_item(vm.mk_str(frame.code._.code.names[self.idx]), value, vm)
+        frame.globals.set_item(frame.code._.code.names[self.idx], value, vm)
 
 
 @final
@@ -473,7 +473,7 @@ class LoadConst(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        frame.push_value(frame.code._.code.constants[self.idx].value.to_pyobj(vm))
+        frame.push_value(frame.code._.code.constants[self.idx].value)
 
 
 @final
@@ -834,7 +834,7 @@ class GetAwaitable(Instruction):
         else:
             await_method = vm.get_method_or_type_error(
                 awaited_obj,
-                vm.mk_str("__await__"),
+                "__await__",
                 lambda: f"object {awaited_obj.class_()._.name()} can't be used in 'await' expression",
             )
             awaitable = vm.invoke(await_method, FuncArgs.empty())
@@ -1170,7 +1170,7 @@ class LoadMethod(Instruction):
     ) -> Optional[ExecutionResult]:
         obj = frame.pop_value()
         method_name = frame.code._.code.names[self.idx]
-        method = po.PyMethod.get(obj, vm.mk_str(method_name), vm)
+        method = po.PyMethod.get(obj, method_name, vm)
         if isinstance(method, po.PyMethodFunction):
             target, is_method, func = method.target, True, method.func
         elif isinstance(method, po.PyMethodAttribute):

@@ -147,13 +147,15 @@ COMPILE_ERROR_TYPE_TO_MSG = {
 
 def with_compiler(
     source_path: str, opts: CompileOpts, f: Callable[[Compiler], None]
-) -> CodeObject:
+) -> CodeObject[ConstantData, str]:
     compiler = Compiler.new(opts, source_path, "<module>")
     f(compiler)
     return compiler.pop_code_object()
 
 
-def compile_top(ast_: ast.mod, source_path: str, opts: CompileOpts) -> CodeObject:
+def compile_top(
+    ast_: ast.mod, source_path: str, opts: CompileOpts
+) -> CodeObject[ConstantData, str]:
     if isinstance(ast_, ast.Module):
         return compile_program(ast_.body, source_path, opts)
     elif isinstance(ast_, ast.Interactive):
@@ -170,8 +172,10 @@ T_AST = TypeVar("T_AST")
 def compile_impl(
     make_symbol_table: Callable[[T_AST], SymbolTable],
     compile: Callable[[Compiler, T_AST, SymbolTable], None],
-) -> Callable[[T_AST, str, CompileOpts], CodeObject]:
-    def inner(ast_: T_AST, source_path: str, opts: CompileOpts) -> CodeObject:
+) -> Callable[[T_AST, str, CompileOpts], CodeObject[ConstantData, str]]:
+    def inner(
+        ast_: T_AST, source_path: str, opts: CompileOpts
+    ) -> CodeObject[ConstantData, str]:
         symbol_table = make_symbol_table(ast_)
         # TODO: .into_compile_error(source_path)
         return with_compiler(
@@ -183,7 +187,7 @@ def compile_impl(
 
 def compile_program(
     ast_: list[ast.stmt], source_path: str, opts: CompileOpts
-) -> CodeObject:
+) -> CodeObject[ConstantData, str]:
     return compile_impl(
         make_symbol_table,
         Compiler.compile_program,
@@ -192,7 +196,7 @@ def compile_program(
 
 def compile_program_single(
     ast_: list[ast.stmt], source_path: str, opts: CompileOpts
-) -> CodeObject:
+) -> CodeObject[ConstantData, str]:
     return compile_impl(
         make_symbol_table,
         Compiler.compile_program_single,
@@ -201,7 +205,7 @@ def compile_program_single(
 
 def compile_expression(
     ast_: ast.expr, source_path: str, opts: CompileOpts
-) -> CodeObject:
+) -> CodeObject[ConstantData, str]:
     return compile_impl(
         make_symbol_table_expr,
         Compiler.compile_eval,
@@ -330,7 +334,7 @@ class Compiler:
         )
         self.code_stack.append(info)
 
-    def pop_code_object(self) -> CodeObject:
+    def pop_code_object(self) -> CodeObject[ConstantData, str]:
         table = self.symbol_table_stack.pop()
         assert not table.sub_tables
         return self.code_stack.pop().finalize_code(self.opts.optimize)
@@ -926,7 +930,7 @@ class Compiler:
 
         self.store_name(name)
 
-    def build_closure(self, code: CodeObject) -> bool:
+    def build_closure(self, code: CodeObject[ConstantData, str]) -> bool:
         if not code.freevars:
             return False
         for var in code.freevars:
@@ -1853,7 +1857,7 @@ class Compiler:
 
     def emit_constant(self, constant: ConstantData) -> None:
         info = self.current_codeinfo()
-        idx = info.constants.insert_full(PyConstant(constant))[0]
+        idx = info.constants.insert_full(constant)[0]
         self.emit(instruction.LoadConst(idx))
 
     def emit_none(self) -> None:
@@ -1992,7 +1996,7 @@ def ast2str(a: ast.AST) -> str:
     return ast.unparse(a)
 
 
-def test_compile_exec(source: str) -> CodeObject:
+def test_compile_exec(source: str) -> CodeObject[ConstantData, str]:
     compiler = Compiler.new(CompileOpts(0), "source_path", "<module>")
     body = ast.parse(source).body
     symbol_scope = make_symbol_table(body)

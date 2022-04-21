@@ -4,6 +4,7 @@ from abc import abstractmethod, ABC
 import enum
 from dataclasses import dataclass
 from typing import (
+    Any,
     ClassVar,
     Generic,
     Optional,
@@ -14,11 +15,15 @@ from typing import (
     Union,
 )
 
+from vm.builtins.pystr import PyStrRef
+
 
 if TYPE_CHECKING:
     from bytecode.instruction import Instruction, Label
     from vm.vm import VirtualMachine
     from vm.pyobjectrc import PyObjectRef
+    from vm.builtins.pystr import PyStrRef
+    from vm.builtins.code import PyConstant
 
 
 @dataclass
@@ -43,6 +48,10 @@ class ConstantData(ABC):
     @abstractmethod
     def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
         ...
+
+    # TODO: types
+    def map_constant(self, bag: Any) -> Any:
+        return bag.make_constant(self)
 
 
 @dataclass
@@ -103,10 +112,10 @@ class ConstantDataBytes(ConstantData):
 
 @dataclass
 class ConstantDataCode(ConstantData):
-    value: CodeObject
+    value: CodeObject[ConstantData, str]
 
     def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
-        return vm.ctx.new_code(self.value)
+        return vm.new_code(self.value)
 
 
 @dataclass
@@ -144,44 +153,46 @@ class BasicBag:
         return name
 
 
-class ConstantProtocol(Protocol):
-    Name: ClassVar[Type]
+# class ConstantProtocol(Protocol):
+#     Name: ClassVar[Type]
 
 
-C = TypeVar("C", bound=ConstantProtocol)
+C = TypeVar("C", "PyConstant", ConstantData)
+NA = TypeVar("NA", str, "PyStrRef")
 
 
 @dataclass
-class CodeObject(Generic[C]):
+class CodeObject(Generic[C, NA]):
     instructions: list[Instruction]
     locations: list[Location]
     flags: CodeFlags
     posonlyarg_count: int
     arg_count: int
     kwonlyarg_count: int
-    source_path: C.Name  # type: ignore
+    source_path: NA
     first_line_number: int
     max_stacksize: int
-    obj_name: C.Name  # type: ignore
+    obj_name: NA
     cell2arg: Optional[list[int]]
     constants: list[C]
-    names: list[C.Name]  # type: ignore
-    varnames: list[C.Name]  # type: ignore
-    cellvars: list[C.Name]  # type: ignore
-    freevars: list[C.Name]  # type: ignore
+    names: list[NA]
+    varnames: list[NA]
+    cellvars: list[NA]
+    freevars: list[NA]
 
     def arg_names(self) -> Arguments:
+        varnames = [x if isinstance(x, str) else x._.as_str() for x in self.varnames]
         varargpos = self.arg_count + self.kwonlyarg_count
-        posonlyargs = self.varnames[: self.posonlyarg_count]
-        args = self.varnames[: self.arg_count]
-        kwonlyargs = self.varnames[self.arg_count : varargpos]
+        posonlyargs = varnames[: self.posonlyarg_count]
+        args = varnames[: self.arg_count]
+        kwonlyargs = varnames[self.arg_count : varargpos]
         vararg = None
         if CodeFlags.HAS_VARARGS in self.flags:
-            vararg = self.varnames[varargpos]
+            vararg = varnames[varargpos]
             varargpos += 1
         varkwarg = None
         if CodeFlags.HAS_VARKEYWORDS in self.flags:
-            varkwarg = self.varnames[varargpos]
+            varkwarg = varnames[varargpos]
         return Arguments(
             posonlyargs=posonlyargs,
             args=args,
@@ -196,6 +207,35 @@ class CodeObject(Generic[C]):
             if (l := instruction.label_arg()) is not None:
                 targets.add(l)
         return targets
+
+    # TODO: types
+    def map_bag(self, bag: Any) -> CodeObject[Any, Any]:
+        def map_names(names: list[NA]) -> list[Any]:
+            return [map_name(x, bag) for x in names]
+
+        return CodeObject(
+            constants=[x.map_constant(bag) for x in self.constants],
+            names=map_names(self.names),
+            varnames=map_names(self.varnames),
+            cellvars=map_names(self.cellvars),
+            freevars=map_names(self.freevars),
+            source_path=map_name(self.source_path, bag),
+            obj_name=map_name(self.obj_name, bag),
+            instructions=self.instructions,
+            locations=self.locations,
+            flags=self.flags,
+            posonlyarg_count=self.posonlyarg_count,
+            arg_count=self.arg_count,
+            kwonlyarg_count=self.kwonlyarg_count,
+            first_line_number=self.first_line_number,
+            max_stacksize=self.max_stacksize,
+            cell2arg=self.cell2arg,
+        )
+
+
+# TODO: types
+def map_name(name: Any, bag: Any) -> Any:
+    return bag.make_name(name)
 
 
 class CodeFlags(enum.Flag):
@@ -231,6 +271,6 @@ class Arguments:
 
 
 @dataclass
-class FrozenModule(Generic[C]):
-    code: CodeObject[C]
+class FrozenModule(Generic[C, NA]):
+    code: CodeObject[C, NA]
     package: bool

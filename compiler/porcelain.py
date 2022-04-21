@@ -1,10 +1,13 @@
 from __future__ import annotations
-from bytecode.bytecode import CodeObject
+from bytecode.bytecode import CodeObject, ConstantData
 from compiler.compile import CompileError, CompileOpts, compile_top
 from compiler.mode import Mode
 import ast
 
-def compile(source: str, mode: Mode, source_path: str, opts: CompileOpts) -> CodeObject:
+
+def compile(
+    source: str, mode: Mode, source_path: str, opts: CompileOpts
+) -> CodeObject[ConstantData, str]:
     try:
         ast_ = ast.parse(source, mode=mode.value)
     except SyntaxError as e:

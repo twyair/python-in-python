@@ -257,7 +257,7 @@ class builtins(po.PyModuleImpl):
             code = vm.ctx.new_int(0)
         vm.new_exception(vm.ctx.exceptions.system_exit, [code])
 
-    # TODO: del
+    # TODO? del?
     @pyfunction
     @staticmethod
     def pdebug(arg: PyObjectRef, *, vm: VirtualMachine) -> None:

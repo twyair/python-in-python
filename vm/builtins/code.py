@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 if TYPE_CHECKING:
 
@@ -23,17 +23,26 @@ from common.deco import pymethod, pyproperty, pyslot
 
 @dataclass
 class PyConstant:
-    value: ConstantData
+    value: prc.PyObjectRef
 
-    Name: ClassVar = pystr.PyStrRef
+    # TODO: types
+    def map_constant(self, bag: Any) -> Any:
+        return bag.make_constant(self.value)
 
 
-FrozenModule: TypeAlias = bytecode.FrozenModule["PyConstant"]
+FrozenModule: TypeAlias = bytecode.FrozenModule["PyConstant", pystr.PyStrRef]
 
 
 @dataclass
 class PyObjBag:
     value: VirtualMachine
+
+    def make_constant(self, constant: ConstantData) -> PyConstant:
+        return PyConstant(constant.to_pyobj(self.value))
+
+    def make_name(self, name: str) -> pystr.PyStrRef:
+        # TODO: `return self.value.intern_string(name)`
+        return self.value.ctx.new_str(name)
 
 
 # TODO: impl ConstantBag for PyObjBag
@@ -43,7 +52,7 @@ class PyObjBag:
 @po.pyclass("code")
 @dataclass
 class PyCode(po.PyClassImpl):
-    code: CodeObject[PyConstant]
+    code: CodeObject[PyConstant, pystr.PyStrRef]
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
@@ -60,7 +69,7 @@ class PyCode(po.PyClassImpl):
     @staticmethod
     def i__repr__(zelf: PyRef[PyCode], vm: VirtualMachine) -> str:
         code = zelf._.code
-        return f"<code object {code.obj_name} at {zelf.get_id()} file {code.source_path.as_str()}, line {code.first_line_number}>"
+        return f"<code object {code.obj_name} at {zelf.get_id()} file {code.source_path._.as_str()}, line {code.first_line_number}>"
 
     @pyproperty()
     @staticmethod
@@ -90,7 +99,7 @@ class PyCode(po.PyClassImpl):
     @pyproperty()
     @staticmethod
     def get_co_consts(zelf: PyRef[PyCode], *, vm: VirtualMachine) -> PyTupleRef:
-        return vm.ctx.new_tuple([x.value.to_pyobj(vm) for x in zelf._.code.constants])
+        return vm.ctx.new_tuple([x.value for x in zelf._.code.constants])
 
     @pyproperty()
     @staticmethod

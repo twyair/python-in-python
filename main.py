@@ -50,12 +50,12 @@ def do(vm: VirtualMachine) -> None:
         # code_obj = vm.compile("x = 'running' * 3", Mode.Exec, "<embedded>")
         code_obj = vm.compile(
             """
-def foo(x: int) -> float:
-    return x / 2.345
+def foo(x: int, /, *, y: float) -> float:
+    return x / 2.345 * y
 import sys
 pdebug(sys.prefix)
 pdebug(3j * 3 + 5j - 3.0)
-pdebug([3j] + [foo(10)])
+pdebug([3j] + [foo(10, y=3.4)])
 pdebug(foo)
 """,
             Mode.Exec,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, TypeAlias
+from vm.builtins.code import PyConstant
 
 
 if TYPE_CHECKING:
@@ -104,6 +105,7 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
         kw_only_defaults: Optional[PyDictRef],
     ) -> PyFunction:
         name = code._.code.obj_name
+        assert not isinstance(name, str), name
         return PyFunction(
             code=code,
             globals=globals,
@@ -115,7 +117,7 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
     def fill_locals_from_args(
         self, frame: vframe.Frame, func_args: FuncArgs, vm: VirtualMachine
     ) -> None:
-        code = self.code._.code
+        code: bytecode.CodeObject[PyConstant, PyStrRef] = self.code._.code
         nargs = len(func_args.args)
         nexpected_args = code.arg_count
         total_args = code.arg_count + code.kwonlyarg_count
@@ -156,6 +158,7 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
                     p
                     for p, s in enumerate(code.varnames[r.start : r.stop], r.start)
                     if s._.as_str() == name
+                    # if s == name
                 ),
                 None,
             )
@@ -204,7 +207,7 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
             nrequired = code.arg_count - ndefs
 
             missing = [
-                code.varnames[i]
+                code.varnames[i]._.as_str()
                 for i, x in ((i, fastlocals[i]) for i in range(nargs, nrequired))
                 if x is None
             ]
@@ -217,7 +220,7 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
                         and_ = "' and '"
                     else:
                         and_ = "', and '"
-                    right = last._.as_str()
+                    right = last
                 else:
                     right, and_ = "", ""
 
