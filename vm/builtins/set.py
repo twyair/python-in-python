@@ -84,7 +84,9 @@ class PySet(
         return PySet.default().into_pyresult_with_type(vm, class_)
 
     @pymethod(True)
-    def i__init__(self, iterable: Optional[ArgIterable], *, vm: VirtualMachine) -> None:
+    def i__init__(
+        self, iterable: Optional[ArgIterable] = None, *, vm: VirtualMachine
+    ) -> None:
         if self.inner.len() > 0:
             self.inner.clear()
 

@@ -1,10 +1,8 @@
 from __future__ import annotations
-from collections import defaultdict
 from dataclasses import dataclass
 import enum
 import inspect
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeAlias, TypeVar, overload
-import importlib
 
 from common.error import unreachable
 
@@ -14,8 +12,6 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
     from vm.pyobject import PyArithmeticValue, PyValueMixin
-
-# from vm.types.slot import SLOTS
 
 
 def primitive_to_pyobject(
@@ -250,6 +246,7 @@ TYPE2MODULE = {
     "PyStr": "vm.builtins.pystr",
     "PyType": "vm.builtins.pytype",
     "PyInt": "vm.builtins.int",
+    "PyFunction": "vm.builtins.function",
     "SetIterable": "vm.builtins.set",
     "ArgIterable": "vm.function.arguments",
     "ArgMapping": "vm.function.arguments",
@@ -270,29 +267,52 @@ class TypeProxy:
     def from_annotation(annotation: str) -> Optional[TypeProxy]:
         name = annotation
         is_optional = False
-        if name.startswith("Optional["):
-            name = name[len("Optional[") : -1]
-            is_optional = True
-        name = name.rsplit(".", 1)[-1]
+        import ast
+
+        at = ast.parse(annotation, mode="eval").body
+        # print(at.body)
+        if isinstance(at, ast.Subscript):
+            g = ast.unparse(at.value)
+            if g == "Optional":
+                is_optional = True
+            elif g in ("PyRef", "prc.PyRef"):
+                pass
+            else:
+                assert False, g
+            inner = at.slice
+        else:
+            inner = at
+        if isinstance(inner, ast.Name):
+            name = inner.id
+        elif isinstance(inner, ast.Attribute):
+            name = inner.attr
+        else:
+            assert False, (ast.unparse(inner), inner)
+
         if name in ("PyObject", "PyObjectRef", "PyRef"):
             return TypeProxy("PyRef", module="", typ=None, is_optional=is_optional)
-        elif name.startswith("PyRef["):
-            name = name[len("PyRef[") : -1]
-        elif name.endswith("Ref"):
-            name = name[: -len("Ref")]
 
-        assert "[" not in name and "]" not in name, (annotation, name)
+        name = name.removesuffix("Ref")
+
+        # print(name, annotation)
         module = TYPE2MODULE.get(name)
         if module is None:
             return None
         return TypeProxy(name, module=module, typ=None, is_optional=is_optional)
 
     def try_from_object(self, vm: VirtualMachine, obj: PyObjectRef):
+        import vm.pyobjectrc as prc
+
         if self.name == "PyRef":
             return obj
         if self.typ is None:
             self.typ = getattr(__import__(self.module, fromlist=[self.name]), self.name)
-        return self.typ.try_from_object(vm, obj)
+        ret = self.typ.try_from_object(vm, obj)
+        assert isinstance(ret, prc.PyRef), (
+            type(ret),
+            self.typ.try_from_object,
+        )  # TODO: rm
+        return ret
 
 
 def cast_to_int(vm: VirtualMachine, obj: PyObjectRef, /) -> int:

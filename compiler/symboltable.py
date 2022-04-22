@@ -138,12 +138,17 @@ class SymbolTableAnalyzer:
         ):
             return self.analyze_symbol_comprehension(symbol, 0)
         elif symbol.scope == SymbolScope.FREE:
-            if not self.tables:
+            if self.tables:
                 scope_depth = len(self.tables)
                 if (
                     scope_depth < 2
                     or self.found_in_outer_scope(symbol.name) != SymbolScope.FREE
                 ):
+                    # assert False, (
+                    #     scope_depth,
+                    #     self.found_in_outer_scope(symbol.name),
+                    #     symbol,
+                    # )
                     raise SymbolTableError(
                         f"no binding for nonlocal '{symbol.name}' found", None
                     )
@@ -171,7 +176,7 @@ class SymbolTableAnalyzer:
 
     def found_in_outer_scope(self, name: str) -> Optional[SymbolScope]:
         decl_depth: Optional[int] = None
-        for i, (symbols, type) in enumerate(self.tables):
+        for i, (symbols, type) in enumerate(reversed(self.tables)):
             if (
                 type == SymbolTableType.MODULE
                 or type == SymbolTableType.CLASS
@@ -191,16 +196,21 @@ class SymbolTableAnalyzer:
         if decl_depth is None:
             return None
 
-        for (table, type) in reversed(self.tables[-decl_depth:]):
-            if type == SymbolTableType.CLASS:
-                if (free_class := table.get(name)) is not None:
-                    free_class.is_free_class = True
-                else:
-                    symbol = Symbol(name, is_free_class=True, scope=SymbolScope.FREE)
+        if decl_depth > 0:
+            for (table, type) in reversed(self.tables[-decl_depth:]):
+                if type == SymbolTableType.CLASS:
+                    if (free_class := table.get(name)) is not None:
+                        free_class.is_free_class = True
+                    else:
+                        symbol = Symbol(
+                            name, is_free_class=True, scope=SymbolScope.FREE
+                        )
+                        table[name] = symbol
+                        # assert False, (symbol, self.tables)
+                elif name not in table:
+                    symbol = Symbol(name, scope=SymbolScope.FREE)
                     table[name] = symbol
-            elif name not in table:
-                symbol = Symbol(name, scope=SymbolScope.FREE)
-                table[name] = symbol
+                    # assert False, (name, decl_depth, [d.keys() for d, _ in self.tables])
 
         return SymbolScope.FREE
 

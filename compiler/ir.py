@@ -52,6 +52,7 @@ class CodeInfo:
     freevar_cache: IndexSet[str]
 
     def max_stacksize(self) -> int:
+        return 2**32  # FIXME
         maxdepth = 0
         stack: list[instruction.Label] = []
         startdepths = [MAX_LABEL.value] * len(self.blocks)
@@ -142,7 +143,9 @@ class CodeInfo:
             for info in block.instructions:
                 instr = info.instr
                 if (l := instr.label_arg()) is not None:
-                    l.value = block_to_offset[l.value].value
+                    # FIXME!
+                    l.target = block_to_offset[l.value]
+                    # l.value = block_to_offset[l.value].value  # this line caused an 'out of range' error
                 instructions.append(instr)
                 locations.append(info.location)
 

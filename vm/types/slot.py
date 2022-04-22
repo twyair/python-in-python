@@ -553,7 +553,7 @@ class ConstructorMixin(ABC):
     @pyslot
     @classmethod
     def slot_new(
-        cls, class_: PyTypeRef, args: FuncArgs, *, vm: VirtualMachine
+        cls, class_: PyTypeRef, args: FuncArgs, vm: VirtualMachine
     ) -> PyObjectRef:
         return cls.py_new(class_, args, vm)
 
@@ -596,7 +596,7 @@ class GetDescriptorMixin(ABC):
 
     @classmethod
     def _zelf(cls, zelf: PyObjectRef, vm: VirtualMachine) -> PyRef:
-        return cls.try_from_object(vm, zelf).into_ref(vm)  # type: ignore FIXME!!!
+        return cls.try_from_object(vm, zelf)  # type: ignore
 
     @classmethod
     def _unwrap(

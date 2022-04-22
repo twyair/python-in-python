@@ -40,7 +40,7 @@ class PyProperty(po.PyClassImpl, slot.GetDescriptorMixin):
 
     @pymethod(False)
     def i__init__(self, fargs: fn.FuncArgs, *, vm: VirtualMachine) -> None:
-        args = fargs.bind(__init_args).arguments
+        args = fargs.bind(f__init_args).arguments
         self.getter = args["fget"]
         self.setter = args["fset"]
         self.deleter = args["fdel"]
@@ -190,7 +190,7 @@ class PyProperty(po.PyClassImpl, slot.GetDescriptorMixin):
             vm.new_attribute_error("unreadable attribute")
 
 
-def __init_args(
+def f__init_args(
     fget: Optional[PyObjectRef] = None,
     fset: Optional[PyObjectRef] = None,
     fdel: Optional[PyObjectRef] = None,

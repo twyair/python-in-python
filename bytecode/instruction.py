@@ -4,7 +4,8 @@ import enum
 from collections import OrderedDict
 from typing import Optional, final, TYPE_CHECKING
 from abc import ABC, abstractmethod
-from bytecode.bytecode import CodeFlags
+
+# from bytecode.bytecode import CodeFlags
 from common.error import PyImplBase, PyImplError, PyImplException
 from vm.builtins.asyncgenerator import PyAsyncGenWrappedValue
 
@@ -17,7 +18,8 @@ if TYPE_CHECKING:
     # from vm.builtins.set import PySet
 
     from vm.function_ import FuncArgs
-    from bytecode.bytecode import ConversionFlag, RaiseKind
+
+    # from bytecode.bytecode import ConversionFlag, RaiseKind
     from vm.frame import ExecutingFrame, ExecutionResult
     from vm.vm import VirtualMachine
 
@@ -25,6 +27,7 @@ import vm.builtins.pystr as pystr
 import vm.builtins.set as pyset
 import vm.frame as vm_frame
 import vm.pyobject as po
+import bytecode.bytecode as bytecode
 
 
 class PyException(Exception):
@@ -648,7 +651,7 @@ class YieldValue(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
-        if CodeFlags.IS_COROUTINE in frame.code._.code.flags:
+        if bytecode.CodeFlags.IS_COROUTINE in frame.code._.code.flags:
             value = PyAsyncGenWrappedValue(value).into_object(vm)
         return vm_frame.ExecutionResultYield(value)
 
@@ -1288,14 +1291,14 @@ class SetupWith(Instruction):
 @final
 @dataclass
 class Raise(Instruction):
-    kind: RaiseKind
+    kind: bytecode.RaiseKind
 
     def stack_effect(self, jump: bool) -> int:
-        if self.kind == RaiseKind.RERAISE:
+        if self.kind == bytecode.RaiseKind.RERAISE:
             return 0
-        elif self.kind == RaiseKind.RAISE:
+        elif self.kind == bytecode.RaiseKind.RAISE:
             return -1
-        elif self.kind == RaiseKind.RAISE_CAUSE:
+        elif self.kind == bytecode.RaiseKind.RAISE_CAUSE:
             return -2
         else:
             assert False, self.kind
@@ -1515,7 +1518,7 @@ class UnpackEx(Instruction):
 @final
 @dataclass
 class FormatValue(Instruction):
-    conversion: ConversionFlag
+    conversion: bytecode.ConversionFlag
 
     def stack_effect(self, jump: bool) -> int:
         return -1
@@ -1524,13 +1527,13 @@ class FormatValue(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
-        if self.conversion == ConversionFlag.STR:
+        if self.conversion == bytecode.ConversionFlag.STR:
             value = value.str(vm)
-        elif self.conversion == ConversionFlag.REPR:
+        elif self.conversion == bytecode.ConversionFlag.REPR:
             value = value.repr(vm)
-        elif self.conversion == ConversionFlag.ASCII:
+        elif self.conversion == bytecode.ConversionFlag.ASCII:
             raise NotImplementedError
-        elif self.conversion == ConversionFlag.NONE:
+        elif self.conversion == bytecode.ConversionFlag.NONE:
             pass
         else:
             assert False, self.conversion

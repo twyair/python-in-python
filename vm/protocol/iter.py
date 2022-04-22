@@ -7,7 +7,10 @@ from common.error import PyImplBase, PyImplException, PyImplError
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
-    from vm.builtins.iter import PySequenceIterator
+
+    # from vm.builtins.iter import PySequenceIterator
+
+import vm.builtins.iter as pyiter
 
 TR = TypeVar("TR", bound="PyRef")
 
@@ -65,7 +68,7 @@ class PyIter(Generic[TR]):
                 )
         else:
             try:
-                seq_iter = PySequenceIterator.new(obj, vm)
+                seq_iter = pyiter.PySequenceIterator.new(obj, vm)
                 return PyIter(seq_iter.into_object(vm), None)
             except PyImplError as _:
                 vm.new_type_error(f"'{obj.class_()._.name()}' object is not iterable")

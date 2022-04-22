@@ -1,5 +1,7 @@
 from __future__ import annotations
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Optional
+from common import to_opt
 from common.error import PyImplBase
 from common.hash import PyHash
 from vm import extend_module
@@ -8,7 +10,8 @@ from vm.types.slot import PyComparisonOp
 
 if TYPE_CHECKING:
     from vm.vm import VirtualMachine
-    from vm.function_ import FuncArgs
+
+    # from vm.function_ import FuncArgs
     from vm.pyobjectrc import PyObjectRef
 
 import vm.function_ as fn
@@ -19,6 +22,8 @@ import vm.builtins.int as pyint
 import vm.builtins.list as pylist
 import vm.builtins.dict as pydict
 import vm.builtins.iter as pyiter
+import vm.builtins.tuple as pytuple
+import vm.builtins.pytype as pytype
 import vm.builtins.function as pyfunction_
 import vm.builtins.enumerate as pyenumerate
 import vm.protocol.iter as viter
@@ -111,9 +116,9 @@ class builtins(po.PyModuleImpl):
         if format_spec is None:
             format_spec = pystr.PyStr("").into_ref(vm)
 
-        res = vm.call_method(value, "__format__", FuncArgs([format_spec])).downcast_ref(
-            pystr.PyStr
-        )
+        res = vm.call_method(
+            value, "__format__", fn.FuncArgs([format_spec])
+        ).downcast_ref(pystr.PyStr)
         if res is None:
             vm.new_type_error(
                 f"__format__ must return a str, not {value.class_()._.name()}"
@@ -217,18 +222,18 @@ class builtins(po.PyModuleImpl):
 
     @staticmethod
     def _min_or_max(
-        args: FuncArgs, vm: VirtualMachine, func_name: str, op: PyComparisonOp
+        args: fn.FuncArgs, vm: VirtualMachine, func_name: str, op: PyComparisonOp
     ) -> PyObjectRef:
         raise NotImplementedError
 
     @pyfunction(False)
     @staticmethod
-    def max(args: FuncArgs, vm: VirtualMachine):
+    def max(args: fn.FuncArgs, vm: VirtualMachine):
         return builtins._min_or_max(args, vm, "max()", PyComparisonOp.Gt)
 
     @pyfunction(False)
     @staticmethod
-    def min(args: FuncArgs, vm: VirtualMachine):
+    def min(args: fn.FuncArgs, vm: VirtualMachine):
         return builtins._min_or_max(args, vm, "min()", PyComparisonOp.Lt)
 
     @pyfunction
@@ -310,7 +315,7 @@ class builtins(po.PyModuleImpl):
     @staticmethod
     def reversed(obj: PyObjectRef, /, *, vm: VirtualMachine) -> PyObjectRef:
         if (method := vm.get_method(obj, "__reversed__")) is not None:
-            return vm.invoke(method, FuncArgs())
+            return vm.invoke(method, fn.FuncArgs())
         else:
             vm.get_method_or_type_error(
                 obj, "__getitem__", lambda: "argument to reversed() must be a sequence"
@@ -344,7 +349,7 @@ class builtins(po.PyModuleImpl):
 
     @pyfunction(False)
     @staticmethod
-    def i__import__(args: FuncArgs, *, vm: VirtualMachine) -> PyObjectRef:
+    def i__import__(args: fn.FuncArgs, *, vm: VirtualMachine) -> PyObjectRef:
         return vm.invoke(vm.import_func, args)
 
     @pyfunction
@@ -361,17 +366,112 @@ class builtins(po.PyModuleImpl):
             return vm.current_locals().into_object()
 
     # TODO:
-    # @pyfunction
-    # @staticmethod
-    # def __build_class__(
-    #     function: prc.PyRef[pyfunction_.PyFunction],
-    #     qualified_name: pystr.PyStrRef,
-    #     bases: PosArgs,
-    #     kwargs: KwArgs,
-    #     *,
-    #     vm: VirtualMachine,
-    # ) -> PyObjectRef:
-    #     raise NotImplementedError
+    @pyfunction
+    @staticmethod
+    def i__build_class__(
+        function: prc.PyRef[pyfunction_.PyFunction],
+        qualified_name: pystr.PyStrRef,
+        *bases_args: PyObjectRef,
+        vm: VirtualMachine,
+        **kwargs: PyObjectRef,
+    ) -> PyObjectRef:
+        # FIXME: `qualified_name` should be a `PyRef[PyStr]` and not `PyStr`
+        name = qualified_name._.as_str().rsplit(".", 1)[-1]
+        name_obj = vm.ctx.new_str(name)
+
+        new_bases: Optional[list[PyObjectRef]] = None
+        bases_tuple = vm.ctx.new_tuple(list(bases_args))
+        for i, base in enumerate(bases_args):
+            if base.isinstance(vm.ctx.types.type_type):
+                if new_bases is not None:
+                    new_bases.append(base)
+                continue
+            mro_entries = vm.get_attribute_opt(
+                base.class_(), vm.ctx.new_str("__mro_entries__")
+            )
+            if mro_entries is not None:
+                entries = vm.invoke(
+                    mro_entries, fn.FuncArgs([bases_tuple])
+                ).downcast_ref(pytuple.PyTuple)
+                if entries is None:
+                    vm.new_type_error("__mro_entries__ must return a tuple")
+            else:
+                if new_bases is not None:
+                    new_bases.append(base)
+                continue
+            if new_bases is None:
+                new_bases = list(bases_args[:i])
+            new_bases.extend(entries._.as_slice())
+
+        if new_bases is not None:
+            new_bases_tuple = vm.ctx.new_tuple(new_bases)
+            orig_bases = bases_tuple
+            bases = new_bases_tuple
+        else:
+            new_bases_tuple = None
+            orig_bases = None
+            bases = bases_tuple
+
+        meta_name = None
+        if (m := kwargs.get("metaclass")) is not None:
+            metaclass = m.downcast_ref_if_exact(pytype.PyType, vm)
+            if metaclass is None:
+                metaclass = m
+                meta_name = "<metaclass>"
+        else:
+            metaclass = vm.ctx.types.type_type
+
+        if meta_name is None:
+            for base in bases._.as_slice():
+                base_class = base.class_()
+                if base_class._.issubclass(metaclass):
+                    metaclass = base.clone_class()
+                elif not metaclass._.issubclass(base_class):
+                    vm.new_type_error(
+                        "metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases"
+                    )
+            meta_name = metaclass._.slot_name()
+
+        if (
+            prepare := vm.get_attribute_opt(metaclass, vm.ctx.new_str("__prepare__"))
+        ) is not None:
+            namespace = vm.invoke(
+                prepare, fn.FuncArgs([name_obj, bases], OrderedDict(kwargs))
+            )
+        else:
+            namespace = vm.ctx.new_dict()
+
+        try:
+            namespace_mapping = arg.ArgMapping.try_from_object(vm, namespace)
+        except PyImplBase as _:
+            vm.new_type_error(
+                "{}.__prepare__() must return a mapping, not {}".format(
+                    meta_name, namespace.class_()
+                )
+            )
+
+        classcell = to_opt(
+            lambda: pyfunction_.PyCell.try_from_object(
+                vm, function._.invoke_with_locals(fn.FuncArgs(), namespace_mapping, vm)
+            )
+        )
+
+        if orig_bases is not None:
+            namespace_mapping.into_object().set_item(
+                vm.ctx.new_str("__orig_bases__"), orig_bases, vm
+            )
+
+        class_ = vm.invoke(
+            metaclass,
+            fn.FuncArgs(
+                [name_obj, bases, namespace_mapping.into_object()], OrderedDict(kwargs)
+            ),
+        )
+
+        if classcell is not None:
+            classcell._.set(class_)
+
+        return class_
 
 
 def make_module(vm: VirtualMachine, module: PyObjectRef) -> None:

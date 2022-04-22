@@ -79,6 +79,10 @@ class ArgMapping:
             mapping_methods=pydict.PyDict.MAPPING_METHODS,
         )
 
+    @staticmethod
+    def try_from_object(vm: VirtualMachine, obj: PyObjectRef) -> ArgMapping:
+        return ArgMapping(obj, mapping.PyMapping.try_protocol(obj, vm).methods_(vm))
+
     def mapping(self) -> PyMapping:
         return mapping.PyMapping.with_methods(self.obj, self.mapping_methods)
 

@@ -238,7 +238,7 @@ class PyRef(Generic[PyRefT]):
             lambda: pystr.PyStr.try_from_object(
                 vm,
                 vm.call_special_method(self, "__repr__", fn.FuncArgs()),
-            ).into_ref(vm),
+            ),
         )
 
     def ascii(self, vm: VirtualMachine) -> AsciiString:
@@ -250,7 +250,7 @@ class PyRef(Generic[PyRefT]):
         else:
             return PyStr.try_from_object(
                 vm, vm.call_special_method(self, "__str__", fn.FuncArgs())
-            ).into_ref(vm)
+            )
 
     # TODO?
     # def try_into_value(self, t: Type[PT], vm: VirtualMachine) -> PyRef[PT]:
@@ -273,7 +273,7 @@ class PyRef(Generic[PyRefT]):
                 return True
 
             bases = derived.get_attr(vm.mk_str("__bases__"), vm)
-            tuple = PyTuple.try_from_object(vm, bases).intro_ref(vm)
+            tuple = PyTuple.try_from_object(vm, bases)
             n = tuple._.len()
             if n == 0:
                 return False
@@ -365,7 +365,7 @@ class PyRef(Generic[PyRefT]):
         if cls.class_().is_(vm.ctx.types.type_type):
             return self.abstract_isinstance(cls, vm)
         if (tuple := PyTuple.try_from_object(vm, cls)) is not None:
-            for type in tuple.as_slice():
+            for type in tuple._.as_slice():
                 if vm.with_recursion(
                     "in __instancecheck__", lambda: self.is_instance(type, vm)
                 ):
@@ -394,7 +394,7 @@ class PyRef(Generic[PyRefT]):
 
     def abstract_isinstance(self, cls: PyObject, vm: VirtualMachine) -> bool:
         if (type := PyType.try_from_object(vm, cls)) is not None:
-            if self.class_()._.issubclass(type.into_ref(vm)):
+            if self.class_()._.issubclass(type):
                 return True
             elif icls := PyType.try_from_object(
                 vm, self.get_attr(vm.mk_str("__class__"), vm)
@@ -402,7 +402,7 @@ class PyRef(Generic[PyRefT]):
                 if icls.is_(self.class_()):
                     return False
                 else:
-                    return icls.issubclass(type.into_ref(vm))
+                    return icls._.issubclass(type)
             else:
                 return False
         else:
@@ -418,7 +418,7 @@ class PyRef(Generic[PyRefT]):
                 return icls.abstract_issubclass(cls, vm)
 
     def try_into_value(self, t: Type[PT], vm: VirtualMachine) -> PT:
-        return t.try_from_object(vm, self)
+        return t.try_from_object(vm, self)._
 
     def try_bytes_like(self, vm: VirtualMachine, f: Callable[[bytes], R]) -> R:
         import vm.protocol.buffer as buffer
@@ -615,7 +615,9 @@ class PyRef(Generic[PyRefT]):
         return r
 
     def get_iter(self, vm: VirtualMachine) -> PyIter:
-        return PyIter.try_from_object(vm, self)
+        import vm.protocol.iter as viter
+
+        return viter.PyIter.try_from_object(vm, self)
 
     def hash(self, vm: VirtualMachine) -> PyHash:
         hash = self.class_()._.mro_find_map(lambda cls: cls.slots.hash)
@@ -650,7 +652,7 @@ class PTProtocol(Protocol):
     #     ...
 
     @classmethod
-    def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> T:
+    def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> PyRef[T]:
         ...
 
 

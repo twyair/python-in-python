@@ -185,8 +185,10 @@ class PyBuiltinMethod(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixi
         )
 
     @pymethod(True)
-    def i__repr__(self, vm: VirtualMachine) -> str:
-        return f"<method '{self.value.name}' of '{self.klass._.name()}' objects"
+    def i__repr__(self, *, vm: VirtualMachine) -> str:
+        return (
+            f"<method '{self.value.name._.as_str()}' of '{self.klass._.name()}' objects"
+        )
 
     @classmethod
     def call(

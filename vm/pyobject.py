@@ -687,21 +687,33 @@ def make_method(method: MethodData) -> PyNativeFunc:
 
     def func(vm: VirtualMachine, fargs: FuncArgs) -> PyObjectRef:
         # TODO: catch & handle exceptions
-        assert "vm" not in fargs.kwargs
-        bs = sig.bind(*fargs.args, **fargs.kwargs, vm=vm)
 
-        res = method.method(
-            *([get_self_arg(fargs.args[0])] if get_self_arg is not None else []),
-            *[
-                method.casts[n](vm, v) if method.casts is not None else v
-                for n, v in list(zip(bs.arguments, fargs.args))[bool(get_self_arg) :]
-            ],
-            **{
-                k: method.casts[k](vm, v) if method.casts is not None else v
-                for k, v in fargs.kwargs.items()
-            },
-            vm=vm,
-        )
+        first_arg = []
+        if get_self_arg is not None:
+            first_arg.append(get_self_arg(fargs.args[0]))
+
+        if method.casts is not None:
+            assert "vm" not in fargs.kwargs
+            # print([x.class_()._.name() for x in fargs.args], fargs.kwargs.keys(), sig)
+            bs = sig.bind(*fargs.args, **fargs.kwargs, vm=vm)
+            res = method.method(
+                *first_arg,
+                *[
+                    method.casts[n](vm, v) if method.casts is not None else v
+                    for n, v in list(zip(bs.arguments, fargs.args))[
+                        bool(get_self_arg) :
+                    ]
+                ],
+                **{
+                    k: method.casts[k](vm, v) if method.casts is not None else v
+                    for k, v in fargs.kwargs.items()
+                },
+                vm=vm,
+            )
+        else:
+            fargs.args.pop(0)
+
+            res = method.method(*first_arg, fargs, vm=vm)
         return primitive_to_pyobject(res, vm)
 
     return func
@@ -760,18 +772,20 @@ TT = TypeVar("TT", bound=TryFromObjectRequirements)
 
 class TryFromObjectMixin:
     @classmethod
-    def try_from_object(cls: Type[TT], vm: VirtualMachine, obj: PyObjectRef) -> TT:
+    def try_from_object(
+        cls: Type[TT], vm: VirtualMachine, obj: PyObjectRef
+    ) -> PyRef[TT]:
         class_ = cls.class_(vm)
         if obj.isinstance(class_):
             try:
-                return obj.downcast(cls)._
+                return obj.downcast(cls)
             except PyImplError as e:
                 prc.pyref_payload_error(vm, class_, e.obj)
         else:
             r = cls.special_retrieve(vm, obj)
             if r is None:
                 prc.pyref_type_error(vm, class_, obj)
-            return r._
+            return r
 
 
 @dataclass

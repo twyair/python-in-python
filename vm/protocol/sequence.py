@@ -42,6 +42,17 @@ class PySequence:
         # FIXME?
         return PySequence(obj, None)
 
+    def check(self, vm: VirtualMachine) -> bool:
+        return self.methods_(vm).item is not None
+
+    @staticmethod
+    def try_protocol(obj: PyObject, vm: VirtualMachine) -> PySequence:
+        zelf = PySequence.from_pyobj(obj)
+        if zelf.check(vm):
+            return zelf
+        else:
+            vm.new_type_error(f"'{obj.class_()._.name()}' is not a sequence")
+
     def methods_(self, vm: VirtualMachine) -> PySequenceMethods:
         cls = self.obj.class_()
         if not cls.is_(vm.ctx.types.dict_type):

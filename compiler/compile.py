@@ -306,7 +306,7 @@ class Compiler:
         kwonlyarg_count: int,
         obj_name: str,
     ) -> None:
-        table = self.symbol_table_stack[-1].sub_tables.pop()
+        table = self.symbol_table_stack[-1].sub_tables.pop(0)
         cellvar_cache = IndexSet[str].from_seq(
             var for var, s in table.symbols.items() if s.scope == SymbolScope.CELL
         )
@@ -427,6 +427,9 @@ class Compiler:
         self.check_forbidden_name(name, usage)
         symbol_table = self.symbol_table_stack[-1]
         symbol = symbol_table.lookup(name)
+        # # TODO: rm
+        # if symbol is None:
+        #     print([st.lookup(name) for st in self.symbol_table_stack])
         assert (
             symbol is not None
         ), "The symbol must be present in the symbol table, even when it is undefined in python."
@@ -1679,7 +1682,7 @@ class Compiler:
         count = len(args) + len(keywords) + additional_positional
 
         size, unpack = self.gather_elements(additional_positional, args)
-        has_double_star = any(k is None for k in keywords)
+        has_double_star = any(k.arg is None for k in keywords)
 
         for keyword in keywords:
             if keyword.arg is not None:
@@ -1698,6 +1701,7 @@ class Compiler:
                 if keyword.arg is not None:
                     kwarg_names.append(ConstantDataStr(keyword.arg))
                 else:
+                    # assert False, [ast.unparse(a) for a in args + keywords]
                     assert False, "name must be set"
                 self.compile_expression(keyword.value)
             self.emit_constant(ConstantDataTuple(tuple(kwarg_names)))
@@ -1765,7 +1769,7 @@ class Compiler:
             func=FunctionContext.FUNCTION,
         )
 
-        assert not generators
+        assert generators
 
         self.push_output(CodeFlags.NEW_LOCALS | CodeFlags.IS_OPTIMIZED, 1, 1, 0, name)
 
@@ -1962,9 +1966,10 @@ def compile_conversion_flag(c: Optional[int]) -> ConversionFlag:
     # FIXME!
     return {
         None: ConversionFlag.NONE,
-        0: ConversionFlag.STR,
-        1: ConversionFlag.REPR,
-        2: ConversionFlag.ASCII,
+        -1: ConversionFlag.NONE,
+        ord("s"): ConversionFlag.STR,
+        ord("r"): ConversionFlag.REPR,
+        ord("a"): ConversionFlag.ASCII,
     }[c]
 
 

@@ -12,7 +12,7 @@ from common.error import PyImplBase, PyImplError, PyImplException
 from compiler.compile import CompileError
 from compiler.mode import Mode
 from vm.pyobjectrc import PyObjectRef
-from vm.vm import Interpreter, VirtualMachine
+from vm.vm import InitParameter, Interpreter, PySettings, VirtualMachine
 
 
 def repl(vm: VirtualMachine) -> None:
@@ -50,6 +50,7 @@ def do(vm: VirtualMachine) -> None:
         # code_obj = vm.compile("x = 'running' * 3", Mode.Exec, "<embedded>")
         code_obj = vm.compile(
             """
+
 def foo(x: int, /, *, y: float) -> float:
     return x / 2.345 * y
 import sys
@@ -57,6 +58,7 @@ pdebug(sys.prefix)
 pdebug(3j * 3 + 5j - 3.0)
 pdebug([3j] + [foo(10, y=3.4)])
 pdebug(foo)
+import pprint
 """,
             Mode.Exec,
             "<embedded>",
@@ -81,4 +83,8 @@ pdebug(foo)
     )
 
 
-Interpreter.default().enter(do)
+settings = PySettings(dont_write_bytecode=True, no_user_site=True)
+settings.path_list.append("/home/yair/workspace/RustPython/Lib/")
+interpreter = Interpreter.new_with_init(settings, lambda vm: InitParameter.External)
+# Interpreter.default().enter(do)
+interpreter.enter(do)

@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from vm.function_ import FuncArgs
     from vm.protocol.iter import PyIterIter, PyIterReturnReturn
 
+import vm.import_ as import_
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.scope as scope
@@ -157,9 +158,20 @@ class VirtualMachine:
 
         std_builtins.make_module(self, self.builtins)
         std_sys.init_module(self, self.sys_module, self.builtins)
+        # v: PyDictRef = self.sys_module.get_attr(self.ctx.new_str("modules"), self)
+        # assert False, [x._.as_str() for x in v._.get_keys()]
 
-        # TODO:
-        # raise NotImplementedError
+        def inner_init() -> None:
+            # import_.import_builtin(self, "_signal")  # TODO
+            import_.init_importlib(self, initialize_parameter)
+
+            # TODO:
+            # raise NotImplementedError
+
+        try:
+            inner_init()
+        except PyImplException as _:
+            assert False, "initialization failed"
 
         self.initialized = True
 
@@ -173,7 +185,7 @@ class VirtualMachine:
         else:
             prc.pyref_type_error(self, class_, obj)
 
-    # TODO: move
+    # TODO? move?
     def mk_str(self, s: str) -> PyStrRef:
         import vm.builtins.pystr as pystr
 
@@ -500,7 +512,10 @@ class VirtualMachine:
 
         if not weird:
             sys_modules = self.sys_module.get_attr(self.ctx.new_str("modules"), self)
-            cached_module = sys_modules.get_item(module, self)
+            cached_module = to_opt(lambda: sys_modules.get_item(module, self))
+        else:
+            cached_module = None
+        if cached_module is not None:
             if self.is_none(cached_module):
                 self.new_import_error(
                     f"import of {module} halted; None in sys.modules", module
@@ -512,7 +527,7 @@ class VirtualMachine:
                 import_func = self.builtins.get_attr(
                     self.ctx.new_str("__import__"), self
                 )
-            except PyImplBase:
+            except PyImplBase as _:
                 self.new_import_error("__import__ not found", module)
             locals, globals = None, None
             if (frame := self.current_frame()) is not None:
@@ -531,7 +546,7 @@ class VirtualMachine:
                         globals if globals is not None else self.ctx.get_none(),
                         locals.obj if locals is not None else self.ctx.get_none(),
                         from_list_,
-                        PyInt(level).into_ref(self),
+                        pyint.PyInt(level).into_ref(self),
                     ]
                 ),
             )
@@ -595,6 +610,7 @@ class VirtualMachine:
         msg: str,
         attrs: Optional[dict[str, PyObjectRef]] = None,
     ) -> NoReturn:
+        print("exc:", msg)
         self.new_exception(exc_type, [self.ctx.new_str(msg)], attrs)
 
     def new_lookup_error(self, msg: str) -> NoReturn:

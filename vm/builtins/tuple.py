@@ -349,9 +349,9 @@ class PyTupleTyped(Generic[T]):
         t: Type[T], vm: VirtualMachine, obj: PyObjectRef
     ) -> PyTupleTyped[PyRef[T]]:
         tup = PyTuple.try_from_object(vm, obj)
-        for elem in tup.as_slice():
+        for elem in tup._.as_slice():
             vm.check(t, elem)  # type: ignore
-        return PyTupleTyped(tup.into_ref(vm))
+        return PyTupleTyped(tup)
 
     def __len__(self) -> int:
         return len(self.tuple._.elements)

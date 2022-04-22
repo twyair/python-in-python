@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObject, PyObjectRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+import vm.protocol.sequence as sequence
 
 T = TypeVar("T")
 
@@ -120,7 +121,9 @@ class PySequenceIterator(po.PyClassImpl):
 
     @staticmethod
     def new(obj: PyObjectRef, vm: VirtualMachine) -> PySequenceIterator:
-        raise NotImplementedError
+        seq = sequence.PySequence.try_protocol(obj, vm)
+        seq_methods = seq.methods_(vm)
+        return PySequenceIterator(seq_methods, PositionIterInternal.new(obj, 0))
 
     def into_object(self, vm: VirtualMachine) -> PyObjectRef:
         raise NotImplementedError

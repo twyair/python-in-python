@@ -44,12 +44,14 @@ import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.function_ as fn
 import vm.builtins.code as pycode
+import vm.builtins.dict as pydict
 import vm.builtins.function as pyfunction
 import vm.types.slot as slot
 import vm.builtins.int as pyint
 import vm.builtins.tuple as pytuple
 import vm.builtins.pystr as pystr
 import bytecode.instruction as instruction
+import vm.protocol.iter as viter
 
 
 @dataclass
@@ -455,7 +457,7 @@ class ExecutingFrame:
         except PyImplBase as _:
             from_list = None
         level = pyint.PyInt.try_from_object(vm, self.pop_value())
-        self.push_value(vm.import_(module, from_list, level.as_int()))
+        self.push_value(vm.import_(module, from_list, level._.as_int()))
         return None
 
     def import_from(self, vm: VirtualMachine, idx: instruction.NameIdx) -> PyObjectRef:
@@ -481,8 +483,8 @@ class ExecutingFrame:
                 filter_pred = lambda name: name.startswith("_")
             for k, v in module.dict.d._.entries.items():
                 k = pystr.PyStr.try_from_object(vm, k)
-                if filter_pred(k.as_str()):
-                    self.locals.mapping().ass_subscript_(k.into_ref(vm), v, vm)
+                if filter_pred(k._.as_str()):
+                    self.locals.mapping().ass_subscript_(k, v, vm)
         else:
             return None
 
@@ -756,7 +758,7 @@ class ExecutingFrame:
     def execute_for_iter(
         self, vm: VirtualMachine, target: Label
     ) -> Optional[ExecutionResult]:
-        top_of_stack = PyIter.new(self.last_value(), None)
+        top_of_stack = viter.PyIter.new(self.last_value(), None)
 
         try:
             next_obj = top_of_stack.next(vm)
@@ -764,9 +766,9 @@ class ExecutingFrame:
             self.pop_value()
             raise
 
-        if isinstance(next_obj, PyIterReturnReturn):
+        if isinstance(next_obj, viter.PyIterReturnReturn):
             self.push_value(next_obj.value)
-        elif isinstance(next_obj, PyIterReturnStopIteration):
+        elif isinstance(next_obj, viter.PyIterReturnStopIteration):
             self.pop_value()
             self.jump(target)
         else:
@@ -787,7 +789,7 @@ class ExecutingFrame:
                 "second to top value on the stack must be a code object"
             )
         if instruction.MakeFunctionFlags.CLOSURE in flags:
-            closure = PyTupleTyped.try_from_object(
+            closure = pytuple.PyTupleTyped.try_from_object(
                 pyfunction.PyCell, vm, self.pop_value()
             )
         else:
@@ -798,13 +800,13 @@ class ExecutingFrame:
             annotations = vm.ctx.new_dict().into_pyobj(vm)
 
         if instruction.MakeFunctionFlags.KW_ONLY_DEFAULTS in flags:
-            kw_only_defaults = self.pop_value().downcast(PyDict)
+            kw_only_defaults = self.pop_value().downcast(pydict.PyDict)
             # TODO: .expect("Stack value for keyword only defaults expected to be a dict"),
         else:
             kw_only_defaults = None
 
         if instruction.MakeFunctionFlags.DEFAULTS in flags:
-            defaults = self.pop_value().downcast(PyTuple)
+            defaults = self.pop_value().downcast(pytuple.PyTuple)
             # TODO .expect("Stack value for defaults expected to be a tuple"),
         else:
             defaults = None
