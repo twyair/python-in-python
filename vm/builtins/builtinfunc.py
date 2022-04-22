@@ -60,7 +60,7 @@ class PyNativeFuncDef:
 
 @po.tp_flags(has_dict=True)
 @po.pyimpl(callable=True, constructor=False)
-@po.pyclass(name="builtin_function_or_method")
+@po.pyclass("builtin_function_or_method")
 @dataclass
 class PyBuiltinFunction(po.PyClassImpl, slot.CallableMixin):
     value: PyNativeFuncDef
@@ -130,7 +130,7 @@ class PyBuiltinFunction(po.PyClassImpl, slot.CallableMixin):
 
 @po.tp_flags(method_descr=True)
 @po.pyimpl(get_descriptor=True, callable=True, constructor=False)
-@po.pyclass(name="method_descriptor")
+@po.pyclass("method_descriptor")
 @dataclass
 class PyBuiltinMethod(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
     value: PyNativeFuncDef

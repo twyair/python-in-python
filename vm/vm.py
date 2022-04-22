@@ -48,8 +48,11 @@ import vm.stdlib.sys as std_sys
 import vm.codecs as codecs
 import vm.builtins.module as pymodule
 import vm.builtins.pystr as pystr
+import vm.builtins.tuple as pytuple
+import vm.builtins.list as pylist
 import vm.builtins.code as pycode
 import vm.frame as vm_frame
+import vm.protocol.iter as viter
 import vm.exceptions as vm_exceptions
 import vm.function_ as vm_function_
 import vm.builtins.object as pyobject
@@ -147,9 +150,11 @@ class VirtualMachine:
         vm.state.frozen = dict(frozen.map_frozen(vm, frozen.get_module_inits()))
 
         vm.builtins._.init_module_dict(
-            vm.ctx.new_str("builtins"), vm.ctx.get_none(), vm
+            vm.builtins, vm.ctx.new_str("builtins"), vm.ctx.get_none(), vm
         )
-        vm.sys_module._.init_module_dict(vm.ctx.new_str("sys"), vm.ctx.get_none(), vm)
+        vm.sys_module._.init_module_dict(
+            vm.sys_module, vm.ctx.new_str("sys"), vm.ctx.get_none(), vm
+        )
 
         return vm
 
@@ -371,9 +376,13 @@ class VirtualMachine:
     ) -> list[R]:
         cls = value.class_()
         if cls.is_(self.ctx.types.tuple_type):
-            return [func(obj) for obj in value.payload_unchecked(PyTuple).as_slice()]
+            return [
+                func(obj) for obj in value.payload_unchecked(pytuple.PyTuple).as_slice()
+            ]
         elif cls.is_(self.ctx.types.list_type):
-            return [func(obj) for obj in value.payload_unchecked(PyList).elements]
+            return [
+                func(obj) for obj in value.payload_unchecked(pylist.PyList).elements
+            ]
         else:
             return self.map_pyiter(value, func)
 
@@ -841,7 +850,7 @@ class VirtualMachine:
         self, haystack: PyObjectRef, needle: PyObjectRef
     ) -> PyIntRef:
         iter = haystack.get_iter(self)
-        while isinstance((v := iter.next(self)), PyIterReturnReturn):
+        while isinstance((v := iter.next(self)), viter.PyIterReturnReturn):
             if self.bool_eq(needle, v.value):
                 return self.ctx.new_bool(True)
             else:
@@ -850,7 +859,7 @@ class VirtualMachine:
 
     def _membership(self, haystack: PyObjectRef, needle: PyObjectRef) -> PyObjectRef:
         try:
-            method = PyMethod.get_special(haystack, "__contains__", self)
+            method = po.PyMethod.get_special(haystack, "__contains__", self)
         except PyImplError as err:
             return self._membership_iter_search(err.obj, needle)
         else:
@@ -945,6 +954,7 @@ class VirtualMachine:
             pymodule.PyModule(), self.ctx.types.module_type, dict
         )
         module._.init_module_dict(
+            module,
             self.mk_str(name),
             self.mk_str(doc) if doc is not None else self.ctx.get_none(),
             self,

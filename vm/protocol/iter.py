@@ -61,7 +61,7 @@ class PyIter(Generic[TR]):
         if getiter is not None:
             iter = getiter(obj, vm)
             if PyIter.check(iter):
-                return PyIter(obj, None)
+                return PyIter(iter, None)
             else:
                 vm.new_type_error(
                     f"iter() returned non-iterator of type '{iter.class_()._.name()}'"

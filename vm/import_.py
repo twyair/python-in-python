@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 
 def init_importlib(vm: VirtualMachine, initialize_parameter: InitParameter) -> None:
+    from vm.vm import InitParameter
+
     # #[cfg(all(feature = "threading", not(target_os = "wasi")))]
     # import_builtin(vm, "_thread")?;
     # import_builtin(vm, "_warnings")
@@ -35,7 +37,9 @@ def init_importlib(vm: VirtualMachine, initialize_parameter: InitParameter) -> N
     vm.import_func = importlib.get_attr(vm.ctx.new_str("__import__"), vm)
 
     if initialize_parameter == InitParameter.External:
-        raise NotImplementedError
+        pass
+        # TODO
+        # raise NotImplementedError
 
 
 def import_frozen(vm: VirtualMachine, module_name: str) -> PyObjectRef:

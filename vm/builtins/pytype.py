@@ -84,6 +84,10 @@ class PyType(
     attributes: PyAttributes
     slots: PyTypeSlots
 
+    # TODO: del
+    def __post_init__(self) -> None:
+        assert self.slots.name is not None
+
     def into_ref(self: PyType, vm: VirtualMachine) -> PyTypeRef:
         return prc.PyRef.new_ref(self, vm.ctx.types.type_type, None)
 
@@ -92,12 +96,12 @@ class PyType(
         return vm.ctx.types.type_type
 
     @staticmethod
-    def new_simple_ref(name: str, base: PyTypeRef):
+    def new_simple_ref(name: str, base: PyTypeRef) -> PyTypeRef:
         return PyType.new_ref(
             name,
-            [base.clone()],
+            [base],
             po.PyAttributes(),
-            PyTypeSlots.default(),
+            slot.PyTypeSlots.default(),
             PyType.static_type().clone(),
         )
 
@@ -109,9 +113,7 @@ class PyType(
         slots: PyTypeSlots,
         metaclass: PyTypeRef,
     ) -> PyTypeRef:
-        return PyType.new_verbose_ref(
-            name, bases[0].clone(), bases, attrs, slots, metaclass
-        )
+        return PyType.new_verbose_ref(name, bases[0], bases, attrs, slots, metaclass)
 
     @staticmethod
     def new_verbose_ref(
@@ -154,6 +156,7 @@ class PyType(
 
         return new_type
 
+    # TODO
     # original name: "__new__"
     @staticmethod
     def s__new__(
@@ -285,6 +288,9 @@ class PyType(
     def call(
         cls, zelf: PyRef[PyType], args: FuncArgs, vm: VirtualMachine
     ) -> PyObjectRef:
+        # FIXME!
+        if zelf.is_(vm.ctx.types.type_type) and len(args.args) == 1 and not args.kwargs:
+            return args.args[0].class_()
         obj = call_slot_new(zelf, zelf, args, vm)
 
         if (

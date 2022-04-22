@@ -13,6 +13,7 @@ from typing import (
     TypeVar,
     final,
 )
+from common import to_opt
 from common.error import PyImplBase, PyImplError, PyImplException
 from common.hash import PyHash
 
@@ -102,6 +103,7 @@ class PyRef(Generic[PyRefT]):
 
     def get_attr(self, attr_name: PyStrRef, vm: VirtualMachine) -> PyObjectRef:
         getattro = self.class_()._.mro_find_map(lambda cls: cls.slots.getattro)
+        # print("getattro", getattro)
         assert getattro is not None
         return getattro(self, attr_name, vm)
 
@@ -393,10 +395,12 @@ class PyRef(Generic[PyRefT]):
         raise NotImplementedError
 
     def abstract_isinstance(self, cls: PyObject, vm: VirtualMachine) -> bool:
-        if (type := PyType.try_from_object(vm, cls)) is not None:
+        import vm.builtins.pytype as pytype
+
+        if (type := to_opt(lambda: pytype.PyType.try_from_object(vm, cls))) is not None:
             if self.class_()._.issubclass(type):
                 return True
-            elif icls := PyType.try_from_object(
+            elif icls := pytype.PyType.try_from_object(
                 vm, self.get_attr(vm.mk_str("__class__"), vm)
             ):
                 if icls.is_(self.class_()):
@@ -668,6 +672,8 @@ def init_type_hierarchy() -> tuple[PyTypeRef, PyTypeRef, PyTypeRef]:
     import vm.builtins.pytype as pytype
     import vm.builtins.object as oo
 
+    # type_payload = pytype.PyType.new_simple_ref("type", None)
+    # object_payload = pytype.PyType.new_simple_ref("object", None)
     type_payload = pytype.PyType(
         base=None,
         bases=[],

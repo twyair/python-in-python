@@ -81,13 +81,13 @@ class PyFloat(
         other: PyObject,
         op: slot.PyComparisonOp,
         vm: VirtualMachine,
-    ) -> slot.PyComparisonValue:
+    ) -> po.PyComparisonValue:
         if (val := other.payload_if_subclass(PyFloat, vm)) is not None:
             ret = op.eval_(zelf._.value, val.value)
         elif val := other.payload_if_subclass(pyint.PyInt, vm):
             ret = op.eval_(zelf._.value, val.as_int())
         else:
-            return slot.PyComparisonValue(None)
+            return po.PyComparisonValue(None)
         return po.PyComparisonValue(ret)
 
     @classmethod

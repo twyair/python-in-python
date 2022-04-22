@@ -46,20 +46,12 @@ def print_exception(exc: PyImplBase) -> None:
 
 def do(vm: VirtualMachine) -> None:
     scope = vm.new_scope_with_builtins()
+    with open("prog.py") as f:
+        prog = f.read()
     try:
         # code_obj = vm.compile("x = 'running' * 3", Mode.Exec, "<embedded>")
         code_obj = vm.compile(
-            """
-
-def foo(x: int, /, *, y: float) -> float:
-    return x / 2.345 * y
-import sys
-pdebug(sys.prefix)
-pdebug(3j * 3 + 5j - 3.0)
-pdebug([3j] + [foo(10, y=3.4)])
-pdebug(foo)
-import pprint
-""",
+            prog,
             Mode.Exec,
             "<embedded>",
         )

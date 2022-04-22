@@ -12,6 +12,7 @@ from typing import (
     TypeVar,
     final,
 )
+from common import debug_repr
 
 if TYPE_CHECKING:
     from bytecode.bytecode import CodeFlags, Label, Location, RaiseKind
@@ -422,6 +423,7 @@ class ExecutingFrame:
     def execute_instruction(
         self, instruction: instruction.Instruction, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
+        print(instruction)
         vm.check_signals()
 
         return instruction.execute(self, vm)
@@ -431,7 +433,7 @@ class ExecutingFrame:
     ) -> PyObjectRef:
         r = self.globals._.get_chain(self.builtins._, name, vm)
         if r is None:
-            vm.new_name_error(f"name '{name}' is not defined", name)
+            vm.new_name_error(f"name '{name._.as_str()}' is not defined", name)
         return r
 
     def get_elements(
@@ -564,9 +566,14 @@ class ExecutingFrame:
         return None
 
     def push_value(self, obj: PyObjectRef) -> None:
+
+        from vm.pyobjectrc import PyRef
+
+        assert isinstance(obj, PyRef)
         if len(self.state.stack) >= self.code._.code.max_stacksize:
             self.fatal("tried to push value onto stack but overflowed max_stacksize")
         self.state.stack.append(obj)
+        # print([debug_repr(x) for x in self.state.stack])
 
     def pop_value(self) -> PyObjectRef:
         return self.state.stack.pop()
@@ -759,6 +766,7 @@ class ExecutingFrame:
         self, vm: VirtualMachine, target: Label
     ) -> Optional[ExecutionResult]:
         top_of_stack = viter.PyIter.new(self.last_value(), None)
+        # top_of_stack = viter.PyIter.try_from_object(vm, self.last_value())  # FIXME?
 
         try:
             next_obj = top_of_stack.next(vm)
@@ -767,6 +775,13 @@ class ExecutingFrame:
             raise
 
         if isinstance(next_obj, viter.PyIterReturnReturn):
+            # TODO: del
+            from vm.pyobjectrc import PyRef
+
+            assert isinstance(next_obj.value, PyRef), (
+                type(next_obj.value),
+                type(top_of_stack.value._),
+            )
             self.push_value(next_obj.value)
         elif isinstance(next_obj, viter.PyIterReturnStopIteration):
             self.pop_value()

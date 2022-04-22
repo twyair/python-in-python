@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Optional
-from common import to_opt
+from common import debug_repr, to_opt
 from common.error import PyImplBase
 from common.hash import PyHash
 from vm import extend_module
@@ -184,6 +184,7 @@ class builtins(po.PyModuleImpl):
     def isinstance(
         obj: PyObjectRef, typ: PyObjectRef, /, *, vm: VirtualMachine
     ) -> bool:
+        print(debug_repr(obj), debug_repr(typ))
         return obj.is_instance(typ, vm)
 
     @pyfunction

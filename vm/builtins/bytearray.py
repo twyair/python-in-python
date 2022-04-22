@@ -227,14 +227,14 @@ class PyByteArray(
         other: PyObject,
         op: slot.PyComparisonOp,
         vm: VirtualMachine,
-    ) -> slot.PyComparisonValue:
+    ) -> po.PyComparisonValue:
         if (res := op.identical_optimization(zelf, other)) is not None:
-            return slot.PyComparisonValue(res)
+            return po.PyComparisonValue(res)
         try:
             res = other.try_bytes_like(vm, lambda value: op.eval_(zelf._.inner, value))
         except PyImplBase as _:
-            return slot.PyComparisonValue(None)
-        return slot.PyComparisonValue(res)
+            return po.PyComparisonValue(None)
+        return po.PyComparisonValue(res)
 
     @classmethod
     def as_sequence(

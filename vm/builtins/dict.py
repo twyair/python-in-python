@@ -1,7 +1,8 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Iterator, Optional, TypeAlias
+from typing import TYPE_CHECKING, ClassVar, Iterator, Optional, Type, TypeAlias, TypeVar
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
@@ -11,6 +12,8 @@ if TYPE_CHECKING:
 
 import vm.function_ as vm_function_
 import vm.protocol.mapping as mapping
+import vm.protocol.sequence as sequence
+import vm.builtins.iter as pyiter
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
@@ -25,7 +28,7 @@ from common.deco import pymethod
 )
 @po.pyclass("dict")
 @dataclass
-class PyDict(po.PyClassImpl, slot.AsMappingMixin):
+class PyDict(po.PyClassImpl, slot.AsMappingMixin, slot.IterableMixin):
     entries: DictContentType
 
     MAPPING_METHODS: ClassVar = mapping.PyMappingMethods(
@@ -169,21 +172,61 @@ class PyDict(po.PyClassImpl, slot.AsMappingMixin):
     ) -> mapping.PyMappingMethods:
         return cls.MAPPING_METHODS
 
+    @classmethod
+    def iter(cls, zelf: PyRef[PyDict], vm: VirtualMachine) -> PyObjectRef:
+        return PyDictKeyIterator.new(zelf).into_ref(vm)
+
 
 PyDictRef: TypeAlias = "PyRef[PyDict]"
+
+
+class DictViewMixin(ABC):
+    @abstractmethod
+    def dict_(self) -> PyDictRef:
+        ...
+
+    def len(self) -> int:
+        return self.dict_()._.len()
+
+
+class DictIterNextMixin(slot.IterNextMixin, slot.IterNextIterableMixin):
+    iterator: Iterator
+    # @abstractmethod
+    # def iterator_(self) -> Iterator:
+    #     ...
+
+    @classmethod
+    @abstractmethod
+    def next_to_pyobj(cls, nv, vm: VirtualMachine) -> PyObjectRef:
+        ...
+
+    @classmethod
+    def next(cls: Type[TV], zelf: PyRef[TV], vm: VirtualMachine) -> pyiter.PyIterReturn:
+        try:
+            item = next(zelf._.iterator, None)
+        except RuntimeError as e:
+            # TODO: find a better way to do this
+            vm.new_runtime_error("dictionary changed size during iteration")
+        if item is None:
+            return pyiter.PyIterReturnStopIteration(None)
+        else:
+            return pyiter.PyIterReturnReturn(cls.next_to_pyobj(item, vm))
+
+
+TV = TypeVar("TV", bound="DictIterNextMixin")
 
 
 @po.pyimpl(
     view_set_opts=True,
     dict_view=True,
-    constructor=True,
+    constructor=False,
     comparable=True,
     iterable=True,
     as_sequence=True,
 )
 @po.pyclass("dict_keys")
 @dataclass
-class PyDictKeys(po.PyClassImpl):
+class PyDictKeys(po.PyClassImpl, slot.IterableMixin):
     dict: PyDictRef
 
     @classmethod
@@ -194,23 +237,44 @@ class PyDictKeys(po.PyClassImpl):
     def new(dict: PyDictRef) -> PyDictKeys:
         return PyDictKeys(dict)
 
+    # TODO: impl as_sequence, ...
+    @classmethod
+    def iter(cls, zelf: PyRef[PyDictKeys], vm: VirtualMachine) -> PyObjectRef:
+        return PyDictKeyIterator.new(zelf._.dict).into_ref(vm)
 
-@po.pyimpl(constructor=True, iter_next=True)
+
+@po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("dict_keyiterator")
 @dataclass
-class PyDictKeyIterator(po.PyClassImpl):
+class PyDictKeyIterator(po.PyClassImpl, DictIterNextMixin):
+    size: int
+    internal: pyiter.PositionIterInternal[PyDictRef]
+    iterator: Iterator[tuple[PyObjectRef, PyObjectRef]]
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_keyiterator_type
 
+    @staticmethod
+    def new(dict: PyDictRef) -> PyDictKeyIterator:
+        return PyDictKeyIterator(
+            size=dict._.len(), internal="TODO", iterator=iter(dict._.entries.keys())
+        )  # TODO
 
-@po.pyimpl(constructor=True, iter_next=True)
+    @classmethod
+    def next_to_pyobj(cls, nv: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
+        return nv
+
+
+@po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("dict_reversekeyiterator")
 @dataclass
 class PyDictReverseKeyIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_reversekeyiterator_type
+
+    # TODO: impl iter_next, ...
 
 
 @po.pyimpl(dict_view=True, constructor=True, iterable=True, as_sequence=True)
@@ -227,6 +291,8 @@ class PyDictValues(po.PyClassImpl):
     def new(dict: PyDictRef) -> PyDictValues:
         return PyDictValues(dict)
 
+    # TODO: impl as_sequence, ...
+
 
 @po.pyimpl(constructor=True, iter_next=True)
 @po.pyclass("dict_valueiterator")
@@ -235,6 +301,8 @@ class PyDictValueIterator(po.PyClassImpl):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_valueiterator_type
+
+    # TODO: impl iter_next, ...
 
 
 @po.pyimpl(constructor=True, iter_next=True)
@@ -245,19 +313,30 @@ class PyDictReverseValueIterator(po.PyClassImpl):
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.dict_reversevalueiterator_type
 
+    # TODO: impl iter_next, ...
+
 
 @po.pyimpl(
     view_set_opts=True,
     dict_view=True,
-    constructor=True,
+    constructor=False,
     comparable=True,
     iterable=True,
     as_sequence=True,
 )
 @po.pyclass("dict_items")
 @dataclass
-class PyDictItems(po.PyClassImpl):
+class PyDictItems(
+    po.PyClassImpl, slot.AsSequenceMixin, DictViewMixin, slot.IterableMixin
+):
     dict: PyDictRef
+
+    SEQUENCE_METHODS: ClassVar[sequence.PySequenceMethods] = sequence.PySequenceMethods(
+        length=lambda s, vm: PyDictItems.sequence_downcast(s)._.len(),
+        contains=lambda s, target, vm: PyDictItems.sequence_downcast(
+            s
+        )._.dict._.entries.contains(vm, target),
+    )
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
@@ -267,14 +346,45 @@ class PyDictItems(po.PyClassImpl):
     def new(dict: PyDictRef) -> PyDictItems:
         return PyDictItems(dict)
 
+    def dict_(self) -> PyDictRef:
+        return self.dict
 
-@po.pyimpl(constructor=True, iter_next=True)
+    @classmethod
+    def iter(cls, zelf: PyRef[PyDictItems], vm: VirtualMachine) -> PyObjectRef:
+        return PyDictItemIterator.new(zelf._.dict).into_ref(vm)
+
+    @classmethod
+    def as_sequence(
+        cls, zelf: PyRef[PyDictItems], vm: VirtualMachine
+    ) -> sequence.PySequenceMethods:
+        return cls.SEQUENCE_METHODS
+
+
+@po.pyimpl(constructor=False, iter_next=True)
 @po.pyclass("dict_itemiterator")
 @dataclass
-class PyDictItemIterator(po.PyClassImpl):
+class PyDictItemIterator(po.PyClassImpl, DictIterNextMixin):
+    size: int
+    internal: pyiter.PositionIterInternal[PyDictRef]
+    iterator: Iterator[tuple[PyObjectRef, PyObjectRef]]
+
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
-        return vm.ctx.types.dict_keys_type
+        return vm.ctx.types.dict_itemiterator_type
+
+    @staticmethod
+    def new(dict: PyDictRef) -> PyDictItemIterator:
+        return PyDictItemIterator(
+            dict._.len(),
+            pyiter.PositionIterInternal.new(dict, 0),
+            iterator=iter(dict._.entries.items()),
+        )
+
+    @classmethod
+    def next_to_pyobj(
+        cls, nv: tuple[PyObjectRef, PyObjectRef], vm: VirtualMachine
+    ) -> PyObjectRef:
+        return vm.ctx.new_tuple(list(nv))
 
 
 @po.pyimpl(constructor=True, iter_next=True)

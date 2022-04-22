@@ -45,10 +45,11 @@ class PyModule(po.PyClassImpl):
     # def dict(self) -> PyDictRef:
     #     return self
 
+    @staticmethod
     def init_module_dict(
-        self, name: PyObjectRef, doc: PyObjectRef, vm: VirtualMachine
+        zelf: PyRef[PyModule], name: PyObjectRef, doc: PyObjectRef, vm: VirtualMachine
     ) -> None:
-        dict_ = self.into_ref(vm).dict
+        dict_ = zelf.dict
         assert dict_ is not None
         for attr, value in [
             ("name", name),

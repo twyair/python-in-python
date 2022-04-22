@@ -1206,6 +1206,9 @@ class CallMethodEx(Instruction):
 class ForIter(Instruction):
     target: Label
 
+    def label_arg(self) -> Optional[Label]:
+        return self.target
+
     def stack_effect(self, jump: bool) -> int:
         if jump:
             return -1
@@ -1221,7 +1224,7 @@ class ForIter(Instruction):
 @final
 @dataclass
 class SetupLoop(Instruction):
-    break_target: Label
+    target: Label
 
     def stack_effect(self, jump: bool) -> int:
         return 0
@@ -1229,13 +1232,13 @@ class SetupLoop(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        frame.push_block(vm_frame.BlockLoop(self.break_target))
+        frame.push_block(vm_frame.BlockLoop(self.target))
 
 
 @final
 @dataclass
 class SetupFinally(Instruction):
-    handler: Label
+    target: Label
 
     def stack_effect(self, jump: bool) -> int:
         return 0
@@ -1243,13 +1246,13 @@ class SetupFinally(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        frame.push_block(vm_frame.BlockFinally(self.handler))
+        frame.push_block(vm_frame.BlockFinally(self.target))
 
 
 @final
 @dataclass
 class SetupExcept(Instruction):
-    handler: Label
+    target: Label
 
     def stack_effect(self, jump: bool) -> int:
         if jump:
@@ -1260,13 +1263,13 @@ class SetupExcept(Instruction):
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        frame.push_block(vm_frame.BlockTryExcept(self.handler))
+        frame.push_block(vm_frame.BlockTryExcept(self.target))
 
 
 @final
 @dataclass
 class SetupWith(Instruction):
-    end: Label
+    target: Label
 
     def stack_effect(self, jump: bool) -> int:
         if jump:
@@ -1284,7 +1287,7 @@ class SetupWith(Instruction):
         enter_res = vm.call_special_method(
             context_manager, "__enter__", FuncArgs.empty()
         )
-        frame.push_block(vm_frame.BlockFinally(self.end))
+        frame.push_block(vm_frame.BlockFinally(self.target))
         frame.push_value(enter_res)
 
 
@@ -1482,6 +1485,8 @@ class UnpackSequence(Instruction):
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
         try:
+            # from vm.pyobjectrc import PyRef
+            # assert isinstance(value, PyRef)
             elements = vm.extract_elements_as_pyobjects(value)
         except PyImplException as e:
             if e.exception.class_().is_(vm.ctx.exceptions.type_error):
@@ -1560,7 +1565,7 @@ class Reverse(Instruction):
 @final
 @dataclass
 class SetupAsyncWith(Instruction):
-    end: Label
+    target: Label
 
     def stack_effect(self, jump: bool) -> int:
         if jump:
@@ -1572,7 +1577,7 @@ class SetupAsyncWith(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         enter_res = frame.pop_value()
-        frame.push_block(vm_frame.BlockFinally(self.end))
+        frame.push_block(vm_frame.BlockFinally(self.target))
         frame.push_value(enter_res)
 
 

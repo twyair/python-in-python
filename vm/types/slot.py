@@ -223,6 +223,7 @@ class GetAttrMixin(ABC):
         try:
             zelf = obj.downcast(cls)  # type: ignore FIXME
         except PyImplBase as _:
+            print(type(obj._), obj._, cls)
             vm.new_type_error("unexpected payload for __getattribute__")
         else:
             return cls.getattro(zelf, name, vm)  # type: ignore FIXME

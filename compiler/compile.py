@@ -158,6 +158,8 @@ def compile_top(
 ) -> CodeObject[ConstantData, str]:
     if isinstance(ast_, ast.Module):
         return compile_program(ast_.body, source_path, opts)
+        # print(r)
+        # return r
     elif isinstance(ast_, ast.Interactive):
         return compile_program_single(ast_.body, source_path, opts)
     elif isinstance(ast_, ast.Expression):

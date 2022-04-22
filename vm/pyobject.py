@@ -441,6 +441,7 @@ def pyimpl(
         if impl is None:
             impl = cls.pyimpl_at = PyClassImplData()  # type: ignore
         # assert isinstance(impl, PyClassImplData)
+        impl.slots.name = cls.TP_NAME
         ms = [
             (mem, getattr(mem, "pyimpl_at"))
             for _, mem in inspect.getmembers(cls)
@@ -819,6 +820,9 @@ class PyClassImpl(PyClassDef, StaticTypeMixin, PyValueMixin, TryFromObjectMixin)
             # FIXME?
             class_._.set_str_attr(prop.name, getset)
 
+        class_._.slots = cls.pyimpl_at.slots
+        class_._.slots.flags = cls.TP_FLAGS
+
     @classmethod
     def extend_class(cls, ctx: PyContext, class_: PyTypeRef) -> None:
         import vm.builtins.function as pyfunction
@@ -857,6 +861,7 @@ class PyClassImpl(PyClassDef, StaticTypeMixin, PyValueMixin, TryFromObjectMixin)
 
     @classmethod
     def make_slots(cls) -> PyTypeSlots:
+        assert isinstance(cls.TP_NAME, str)
         return cls.pyimpl_at.slots.with_(
             flags=cls.TP_FLAGS, name=cls.TP_NAME, doc=cls.DOC
         )

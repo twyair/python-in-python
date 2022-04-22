@@ -333,7 +333,7 @@ def generic_setattr(
                 return
     else:
         vm.new_attribute_error(
-            f"'{obj.class_()._.name()}' object has no attribute '{attr_name}'"
+            f"'{obj.class_()._.name()}' object has no attribute '{attr_name._.as_str()}'"
         )
 
 

@@ -144,7 +144,7 @@ class CodeInfo:
                 instr = info.instr
                 if (l := instr.label_arg()) is not None:
                     # FIXME!
-                    l.target = block_to_offset[l.value]
+                    instr.target = block_to_offset[l.value]
                     # l.value = block_to_offset[l.value].value  # this line caused an 'out of range' error
                 instructions.append(instr)
                 locations.append(info.location)

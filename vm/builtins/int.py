@@ -343,11 +343,11 @@ class PyInt(
         other: PyObject,
         op: slot.PyComparisonOp,
         vm: VirtualMachine,
-    ) -> slot.PyComparisonValue:
+    ) -> po.PyComparisonValue:
         if (r := other.payload_if_subclass(PyInt, vm)) is not None:
-            return slot.PyComparisonValue(op.eval_(zelf._.value, r.value))
+            return po.PyComparisonValue(op.eval_(zelf._.value, r.value))
         else:
-            return slot.PyComparisonValue(None)
+            return po.PyComparisonValue(None)
 
     @classmethod
     def hash(cls, zelf: PyRef[PyInt], vm: VirtualMachine) -> PyHash:
