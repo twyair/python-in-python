@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+from common.deco import pymethod
 from common.error import PyImplBase, PyImplErrorStr
 
 if TYPE_CHECKING:
@@ -11,13 +12,17 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+import vm.types.slot as slot
+import vm.builtins.pystr as pystr
+import vm.builtins.list as pylist
+import vm.function_ as fn
 
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl(get_attr=True)
 @po.pyclass("module")
 @dataclass
-class PyModule(po.PyClassImpl):
+class PyModule(po.PyClassImpl, slot.GetAttrMixin):
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.module_type
@@ -74,8 +79,46 @@ class PyModule(po.PyClassImpl):
     ) -> PyObjectRef:
         return PyModule.getattr_inner(zelf, name, vm)
 
-    # TODO: impl PyModule @ 27
-    # TODO: (inherit from mixin) impl GetAttr for PyModule
+    @staticmethod
+    def slot_new(class_: PyTypeRef, fargs: FuncArgs, vm: VirtualMachine) -> PyObjectRef:
+        return PyModule().into_pyresult_with_type(vm, class_)
+
+    @pymethod(False)
+    @staticmethod
+    def i__init__(
+        zelf: PyRef[PyModule], fargs: FuncArgs, *, vm: VirtualMachine
+    ) -> None:
+        args = fargs.bind(args__init__).arguments
+        PyModule.init_module_dict(
+            zelf, args["name"], vm.unwrap_or_none(args["doc"]), vm
+        )
+
+    @staticmethod
+    def name_(zelf: PyRef[PyModule], vm: VirtualMachine) -> Optional[PyStrRef]:
+        v = vm.generic_getattribute_opt(zelf, vm.ctx.new_str("__name__"), None)
+        if v is None:
+            return None
+        else:
+            return v.downcast_ref(pystr.PyStr)
+
+    @pymethod(True)
+    @staticmethod
+    def i__repr__(zelf: PyRef[PyModule], *, vm: VirtualMachine) -> PyObjectRef:
+        importlib = vm.import_(vm.ctx.new_str("_frozen_importlib"), None, 0)
+        module_repr = importlib.get_attr(vm.ctx.new_str("_module_repr"), vm)
+        return vm.invoke(module_repr, fn.FuncArgs([zelf]))
+
+    @pymethod(True)
+    @staticmethod
+    def i__dir__(zelf: PyRef[PyModule], *, vm: VirtualMachine) -> pylist.PyListRef:
+        dict_ = zelf.dict_()
+        if dict_ is None:
+            vm.new_value_error("module has no dict")
+        return vm.ctx.new_list(dict_._.entries.keys())
+
+
+def args__init__(name: PyObjectRef, doc: Optional[PyObjectRef] = None):
+    ...
 
 
 def init(context: PyContext) -> None:
