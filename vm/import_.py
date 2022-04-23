@@ -1,25 +1,27 @@
 from __future__ import annotations
+import random
 from typing import TYPE_CHECKING
+from common import to_opt
+from common.error import PyImplBase
 
 from compiler.compile import CompileError
 from compiler.mode import Mode
 import compiler.porcelain
 from vm.exceptions import PyBaseExceptionRef
-from vm.function_ import FuncArgs
+import vm.function_ as fn
 from vm.scope import Scope
 import vm.builtins.code as pycode
+import vm.builtins.list as pylist
 import vm.vm as vm_
 
-# from vm.vm import enter_vm
 
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
     from vm.builtins.pystr import PyStrRef
-    from vm.vm import VirtualMachine, InitParameter
+    from vm.vm import VirtualMachine
 
 
-def init_importlib(vm: VirtualMachine, initialize_parameter: InitParameter) -> None:
-    from vm.vm import InitParameter
+def init_importlib(vm: VirtualMachine, initialize_parameter: vm_.InitParameter) -> None:
 
     # #[cfg(all(feature = "threading", not(target_os = "wasi")))]
     # import_builtin(vm, "_thread")?;
@@ -30,16 +32,45 @@ def init_importlib(vm: VirtualMachine, initialize_parameter: InitParameter) -> N
         importlib = import_frozen(vm, "_frozen_importlib")
         impmod = import_builtin(vm, "_imp")
         install = importlib.get_attr(vm.ctx.new_str("_install"), vm)
-        vm.invoke(install, FuncArgs([vm.sys_module, impmod]))
+        vm.invoke(install, fn.FuncArgs([vm.sys_module, impmod]))
         return importlib
 
     importlib = vm_.enter_vm(vm, do)
     vm.import_func = importlib.get_attr(vm.ctx.new_str("__import__"), vm)
 
-    if initialize_parameter == InitParameter.External:
-        pass
-        # TODO
-        # raise NotImplementedError
+    if initialize_parameter == vm_.InitParameter.External:
+
+        def init_external() -> None:
+            import_builtin(vm, "_io")
+            return
+            import_builtin(vm, "marshal")
+
+            install_external = importlib.get_attr(
+                vm.ctx.new_str("_install_external_importers"), vm
+            )
+            vm.invoke(install_external, fn.FuncArgs())
+
+            importlib_external = vm.import_(
+                vm.ctx.new_str("_frozen_importlib_external"), None, 0
+            )
+            magic_bytes = b""  # TODO: `get_git_revision()[:4]`
+            if len(magic_bytes) != 4:
+                magic_bytes = random.randbytes(4)
+            magic = vm.ctx.new_bytes(magic_bytes)
+            importlib_external.set_attr(vm.ctx.new_str("MAGIC_NUMBER"), magic, vm)
+            try:
+                zipimport = vm.import_(vm.ctx.new_str("zipimport"), None, 0)
+                zipimporter = zipimport.get_attr(vm.ctx.new_str("zipimporter"), vm)
+                path_hooks = pylist.PyList.try_from_object(
+                    vm, vm.sys_module.get_attr(vm.ctx.new_str("path_hooks"), vm)
+                )
+                path_hooks._.insert(0, zipimporter, vm=vm)
+            except PyImplBase as _:
+                pass
+                # TODO:
+                # warn("couldn't init zipimport")
+
+        vm_.enter_vm(vm, init_external)
 
 
 def import_frozen(vm: VirtualMachine, module_name: str) -> PyObjectRef:

@@ -61,7 +61,7 @@ class PyCell(po.PyClassImpl, slot.ConstructorMixin):
     def set_cell_contents(self, x: PyObjectRef, *, vm: VirtualMachine) -> None:
         self.set(x)
 
-    # TODO: uncomment
+    # TODO: uncomment when del properties are implemented
     # @pyproperty()
     # def del_cell_contents(self, *, vm: VirtualMachine) -> None:
     #     self.set(None)
@@ -373,7 +373,11 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
         class_: Optional[PyObjectRef],
         vm: VirtualMachine,
     ) -> PyObjectRef:
-        raise NotImplementedError
+        zelf_, obj_ = PyFunction._unwrap(zelf, obj, vm)
+        if vm.is_none(obj_) and PyFunction._cls_is(class_, obj_.class_()):
+            return zelf_
+        else:
+            return PyBoundMethod.new_ref(obj_, zelf_, vm.ctx)
 
     @classmethod
     def call(
@@ -386,7 +390,13 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
 @po.pyimpl(callable=True, comparable=True, get_attr=True, constructor=True)
 @po.pyclass("method")
 @dataclass
-class PyBoundMethod(po.PyClassImpl, slot.CallableMixin):
+class PyBoundMethod(
+    po.PyClassImpl,
+    slot.CallableMixin,
+    slot.ConstructorMixin,
+    slot.ComparableMixin,
+    slot.GetAttrMixin,
+):
     object: PyObjectRef
     function: PyObjectRef
 
@@ -414,10 +424,90 @@ class PyBoundMethod(po.PyClassImpl, slot.CallableMixin):
         args.prepend_arg(zelf._.object)
         return vm.invoke(zelf._.function, args)
 
-    # TODO: impl Comparable for PyBoundMethod
-    # TODO: impl GetAttr for PyBoundMethod
-    # TODO: impl Constructor for PyBoundMethod
-    # TODO: impl PyBoundMethod @ 506
+    @classmethod
+    def cmp(
+        cls,
+        zelf: PyRef[PyBoundMethod],
+        other: PyObjectRef,
+        op: slot.PyComparisonOp,
+        vm: VirtualMachine,
+    ) -> po.PyComparisonValue:
+        def do():
+            value = other.downcast_ref(PyBoundMethod)
+            if value is None:
+                return po.PyComparisonValue(None)
+            else:
+                return po.PyComparisonValue(
+                    zelf._.function.is_(value._.function)
+                    and zelf._.object.is_(value._.object)
+                )
+
+        return op.eq_only(do)
+
+    @classmethod
+    def py_new(
+        cls, class_: PyTypeRef, fargs: FuncArgs, /, vm: VirtualMachine
+    ) -> PyObjectRef:
+        args = fargs.bind(args_bound_method_py_new).arguments
+        return PyBoundMethod.new(
+            args["object"], args["function"]
+        ).into_pyresult_with_type(vm, class_)
+
+    @classmethod
+    def getattro(
+        cls, zelf: PyRef[PyBoundMethod], name: PyStrRef, vm: VirtualMachine
+    ) -> PyObjectRef:
+        if (obj := zelf.get_class_attr(name._.as_str())) is not None:
+            return vm.call_if_get_descriptor(obj, zelf)
+        else:
+            return zelf._.function.get_attr(name, vm)
+
+    @pymethod(True)
+    def i__repr__(self, *, vm: VirtualMachine) -> str:
+        if (
+            qname := vm.get_attribute_opt(self.function, vm.ctx.new_str("__qualname__"))
+        ) is not None:
+            funcname = qname
+        else:
+            funcname = vm.get_attribute_opt(self.function, vm.ctx.new_str("__name__"))
+        if funcname is None:
+            name = "?"
+        else:
+            name = funcname.downcast(pystr.PyStr)._.as_str()
+        return "<bound method {} of {}>".format(name, self.object.repr(vm)._.as_str())
+
+    @pyproperty()
+    def get___doc__(self, *, vm: VirtualMachine) -> PyObjectRef:
+        return self.function.get_attr(vm.ctx.new_str("__doc__"), vm)
+
+    @pyproperty()
+    def get___func__(self, *, vm: VirtualMachine) -> PyObjectRef:
+        return self.function
+
+    @pyproperty()
+    def get___self__(self, *, vm: VirtualMachine) -> PyObjectRef:
+        return self.object
+
+    @pyproperty()
+    def get___module__(self, *, vm: VirtualMachine) -> Optional[PyObjectRef]:
+        return self.function.get_attr(vm.ctx.new_str("__module__"), vm)
+
+    @pyproperty()
+    def get___qualname__(self, *, vm: VirtualMachine) -> PyObjectRef:
+        if self.function.isinstance(vm.ctx.types.builtin_function_or_method_type):
+            if (
+                v := vm.get_attribute_opt(self.object, vm.ctx.new_str("__qualname__"))
+            ) is not None:
+                obj_name = v.downcast(pystr.PyStr)._.as_str()
+            else:
+                obj_name = "?"
+            return vm.ctx.new_str(f"{obj_name}.__new__")
+        else:
+            return self.function.get_attr(vm.ctx.new_str("__qualname__"), vm)
+
+
+def args_bound_method_py_new(object, function, /):
+    ...
 
 
 def init(context: PyContext) -> None:
