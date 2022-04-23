@@ -38,7 +38,9 @@ T = TypeVar("T")
 
 
 def bool_get_value(obj: PyObject) -> bool:
-    return obj._.as_(PyInt).value != 0
+    import vm.builtins.int as pyint
+
+    return obj.payload_(pyint.PyInt).value != 0
 
 
 @dataclass
@@ -452,12 +454,14 @@ class PyRef(Generic[PyRefT]):
         return None
 
     def try_to_bool(self, vm: VirtualMachine) -> bool:
+        import vm.builtins.int as pyint
+
         if self.is_(vm.ctx.true_value):
             return True
         if self.is_(vm.ctx.false_value):
             return False
         if (method := vm.get_method(self, "__bool__")) is not None:
-            bool_obj = vm.invoke(method, FuncArgs([], OrderedDict()))
+            bool_obj = vm.invoke(method, fn.FuncArgs([], OrderedDict()))
             if not bool_obj.isinstance(vm.ctx.types.bool_type):
                 vm.new_type_error(
                     f"__bool__ should return bool, returned type {bool_obj.class_()._.name()}"
@@ -465,8 +469,8 @@ class PyRef(Generic[PyRefT]):
             return bool_get_value(bool_obj)
         else:
             if (method := vm.get_method(self, "__len__")) is not None:
-                bool_obj = vm.invoke(method, FuncArgs([], OrderedDict()))
-                int_obj: PyInt = bool_obj._.as_(PyInt)
+                bool_obj = vm.invoke(method, fn.FuncArgs([], OrderedDict()))
+                int_obj = bool_obj.downcast_exact(pyint.PyInt, vm)._
                 len_val = int_obj.value
                 if len_val < 0:
                     vm.new_value_error("__len__() should return >= 0")
@@ -663,8 +667,6 @@ class PTProtocol(Protocol):
 PyObject = PyRef[Any]
 PT = TypeVar("PT", bound=PTProtocol)
 PyObjectRef = PyObject
-
-# class_or_notimplemented is a macro
 
 
 def init_type_hierarchy() -> tuple[PyTypeRef, PyTypeRef, PyTypeRef]:

@@ -184,7 +184,6 @@ class builtins(po.PyModuleImpl):
     def isinstance(
         obj: PyObjectRef, typ: PyObjectRef, /, *, vm: VirtualMachine
     ) -> bool:
-        print(debug_repr(obj), debug_repr(typ))
         return obj.is_instance(typ, vm)
 
     @pyfunction

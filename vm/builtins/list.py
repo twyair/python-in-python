@@ -439,7 +439,7 @@ class PyListIterator(po.PyClassImpl, slot.IterNextIterableMixin, slot.IterNextMi
         cls, zelf: PyRef[PyListIterator], vm: VirtualMachine
     ) -> viter.PyIterReturn:
         return zelf._.internal.next(
-            lambda l, pos: viter.PyIterReturn.from_pyresult(
+            lambda l, pos: viter.PyIterReturn.from_getitem_result(
                 lambda: l._.get_item_by_index(vm, pos), vm
             )
         )

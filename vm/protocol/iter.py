@@ -98,7 +98,17 @@ class PyIterReturn(Generic[TR]):
     def from_getitem_result(
         result: Callable[[], PyObjectRef], vm: VirtualMachine
     ) -> PyIterReturn:
-        raise NotImplementedError
+        try:
+            return PyIterReturnReturn(result())
+        except PyImplException as err:
+            if err.exception.isinstance(vm.ctx.exceptions.index_error):
+                return PyIterReturnStopIteration(None)
+            elif err.exception.isinstance(vm.ctx.exceptions.stop_iteration):
+                return PyIterReturnStopIteration(
+                    err.exception._.get_arg(0)
+                )  # FIXME: type
+            else:
+                raise
 
     def into_async_pyresult(self, vm: VirtualMachine) -> PyObjectRef:
         raise NotImplementedError

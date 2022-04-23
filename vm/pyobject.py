@@ -33,7 +33,8 @@ if TYPE_CHECKING:
     from vm.builtins.getset import PyGetSet, PyGetterFunc, PySetterFunc
     from vm.builtins.int import PyInt, PyIntRef
     from vm.builtins.list import PyList, PyListRef
-    from vm.builtins.object import object_get_dict, object_set_dict
+
+    # from vm.builtins.object import object_get_dict, object_set_dict
     from vm.builtins.pystr import PyStr, PyStrRef
     from vm.builtins.pytype import PyType, PyTypeRef
     from vm.builtins.set import PyFrozenSet
@@ -826,6 +827,7 @@ class PyClassImpl(PyClassDef, StaticTypeMixin, PyValueMixin, TryFromObjectMixin)
     @classmethod
     def extend_class(cls, ctx: PyContext, class_: PyTypeRef) -> None:
         import vm.builtins.function as pyfunction
+        import vm.builtins.object as pyobject
 
         if cls.TP_FLAGS.has_feature(slot.PyTypeFlags.HAS_DICT):
             class_._.set_str_attr(
@@ -833,8 +835,8 @@ class PyClassImpl(PyClassDef, StaticTypeMixin, PyValueMixin, TryFromObjectMixin)
                 ctx.new_getset(
                     "__dict__",
                     class_,
-                    lambda vm, obj: object_get_dict(obj, vm),
-                    lambda vm, obj, value: object_set_dict(obj, value, vm),
+                    lambda vm, obj: pyobject.object_get_dict(obj, vm),
+                    lambda vm, obj, value: pyobject.object_set_dict(obj, value, vm),
                 ),
             )
         cls.impl_extend_class(ctx, class_)

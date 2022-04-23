@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Iterable, Optional
+
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
     from vm.vm import VirtualMachine
@@ -114,6 +115,9 @@ class Dict:
     def keys(self) -> list[PyObjectRef]:
         return [x.value for x in self.inner]
 
+    def values(self) -> list[PyObjectRef]:
+        return [x.value for x in self.inner.values()]
+
     def pop(self, vm: VirtualMachine, key: PyObjectRef) -> Optional[PyObjectRef]:
         self._sw(vm)
         item = self.inner.pop(self._mk(key), None)
@@ -121,6 +125,8 @@ class Dict:
             return None
         return item.value
 
-    def items(self) -> Iterable[tuple[PyObjectRef, PyObjectRef]]:
-        for item in self.inner.values():
-            yield (item.key, item.value)
+    def items(self) -> list[tuple[PyObjectRef, PyObjectRef]]:
+        return [(item.key, item.value) for item in self.inner.values()]
+
+    def clone(self) -> Dict:
+        return Dict(inner=self.inner.copy())

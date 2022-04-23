@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional, TypeAlias
+from common.error import PyImplError
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
@@ -8,6 +9,7 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
+import vm.types.slot as slot
 
 # TODO: impl IntoPyGetterFunc, ...
 
@@ -22,7 +24,7 @@ PyDeleterFunc: TypeAlias = Callable[["VirtualMachine", "PyObjectRef"], None]
 @po.pyimpl(get_descriptor=True, constructor=True)
 @po.pyclass("getset_descriptor")
 @dataclass
-class PyGetSet(po.PyClassImpl):
+class PyGetSet(po.PyClassImpl, slot.GetDescriptorMixin):
     name: str
     klass: PyTypeRef
     getter: Optional[PyGetterFunc]
@@ -49,7 +51,28 @@ class PyGetSet(po.PyClassImpl):
         self.deleter = deleter
         return self
 
-    # TODO: impl GetDescriptor for PyGetSet
+    @classmethod
+    def descr_get(
+        cls,
+        zelf: PyObjectRef,
+        obj: Optional[PyObjectRef],
+        class_: Optional[PyObjectRef],
+        vm: VirtualMachine,
+    ) -> PyObjectRef:
+        # assert False, (zelf._.name, type(zelf._), cls, type(obj))
+        try:
+            zelf_, obj_ = cls._check(zelf, obj, vm)
+        except PyImplError as err:
+            return err.obj
+        if (f := zelf_._.getter) is not None:
+            return f(vm, obj_)
+        else:
+            vm.new_attribute_error(
+                "attribute '{}' of '{}' objects is not readable".format(
+                    zelf_._.name, cls.class_(vm)._.name()
+                )
+            )
+
     # TODO? impl Unconstructible for PyGetSet
 
 

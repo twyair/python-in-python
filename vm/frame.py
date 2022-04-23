@@ -423,7 +423,7 @@ class ExecutingFrame:
     def execute_instruction(
         self, instruction: instruction.Instruction, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        print(instruction)
+        # print(instruction)
         vm.check_signals()
 
         return instruction.execute(self, vm)
@@ -787,7 +787,7 @@ class ExecutingFrame:
             self.pop_value()
             self.jump(target)
         else:
-            assert False, next_obj
+            assert False, debug_repr(next_obj)
 
     def execute_make_function(
         self, vm: VirtualMachine, flags: instruction.MakeFunctionFlags
