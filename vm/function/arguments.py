@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from vm.types.slot import IterFunc
     from vm.vm import VirtualMachine
     from vm.protocol.iter import PyIterIter
+    from vm.function_ import FuncArgs
 
 
 import vm.builtins.iter as pyiter
@@ -30,6 +31,9 @@ class ArgCallable:
             return ArgCallable(obj)
         else:
             vm.new_type_error(f"'{obj.class_()._.name()}' object is not callable")
+
+    def invoke(self, args: FuncArgs, vm: VirtualMachine) -> PyObjectRef:
+        return vm.invoke(self.obj, args)
 
 
 T = TypeVar("T")

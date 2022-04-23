@@ -1,7 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
-from vm.protocol.iter import PyIterReturn, PyIterReturnReturn, PyIterReturnStopIteration
 
 if TYPE_CHECKING:
     from vm.builtins.int import PyInt
@@ -10,10 +9,15 @@ if TYPE_CHECKING:
     from vm.function.arguments import ArgCallable
     from vm.protocol.sequence import PySequenceMethods
     from vm.pyobject import PyContext
-    from vm.pyobjectrc import PyObject, PyObjectRef
+    from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.vm import VirtualMachine
 import vm.pyobject as po
 import vm.protocol.sequence as sequence
+import vm.function_ as fn
+
+# from vm.protocol.iter import PyIterReturn, PyIterReturnReturn, PyIterReturnStopIteration
+import vm.protocol.iter as viter
+import vm.types.slot as slot
 
 T = TypeVar("T")
 
@@ -65,26 +69,26 @@ class PositionIterInternal(Generic[T]):
 
     def _next(
         self,
-        f: Callable[[T, int], PyIterReturn],
+        f: Callable[[T, int], viter.PyIterReturn],
         op: Callable[[PositionIterInternal], None],
-    ) -> PyIterReturn:
+    ) -> viter.PyIterReturn:
         if isinstance(self.status, IterStatusActive):
             ret = f(self.status.value, self.position)
-            if isinstance(ret, PyIterReturnReturn):
+            if isinstance(ret, viter.PyIterReturnReturn):
                 op(self)
             else:
                 self.status = IterStatusExhausted()
             return ret
         else:
-            return PyIterReturnStopIteration(None)
+            return viter.PyIterReturnStopIteration(None)
 
-    def next(self, f: Callable[[T, int], PyIterReturn]) -> PyIterReturn:
+    def next(self, f: Callable[[T, int], viter.PyIterReturn]) -> viter.PyIterReturn:
         def inc_pos(zelf: PositionIterInternal) -> None:
             zelf.position += 1
 
         return self._next(f, inc_pos)
 
-    def rev_next(self, f: Callable[[T, int], PyIterReturn]) -> PyIterReturn:
+    def rev_next(self, f: Callable[[T, int], viter.PyIterReturn]) -> viter.PyIterReturn:
         def do(zelf: PositionIterInternal) -> None:
             if zelf.position == 0:
                 zelf.status = IterStatusExhausted()
@@ -111,7 +115,9 @@ def builtins_reversed(vm: VirtualMachine) -> PyObject:
 @po.pyimpl(iter_next=True)
 @po.pyclass("iterator")
 @dataclass
-class PySequenceIterator(po.PyClassImpl):
+class PySequenceIterator(
+    po.PyClassImpl, slot.IterNextMixin, slot.IterNextIterableMixin
+):
     seq_methods: PySequenceMethods
     internal: PositionIterInternal[PyObjectRef]
 
@@ -125,17 +131,26 @@ class PySequenceIterator(po.PyClassImpl):
         seq_methods = seq.methods_(vm)
         return PySequenceIterator(seq_methods, PositionIterInternal.new(obj, 0))
 
-    def into_object(self, vm: VirtualMachine) -> PyObjectRef:
-        raise NotImplementedError
-
-    # TODO: impl IterNextIterable for PySequenceIterator
-    # TODO: impl IterNext for PySequenceIterator
+    @classmethod
+    def next(
+        cls, zelf: PyRef[PySequenceIterator], vm: VirtualMachine
+    ) -> viter.PyIterReturn:
+        return zelf._.internal.next(
+            lambda obj, pos: viter.PyIterReturn.from_getitem_result(
+                lambda: sequence.PySequence.with_methods(
+                    obj, zelf._.seq_methods
+                ).get_item(pos, vm),
+                vm,
+            )
+        )
 
 
 @po.pyimpl(iter_next=True)
 @po.pyclass("callable_iterator")
 @dataclass
-class PyCallableIterator(po.PyClassImpl):
+class PyCallableIterator(
+    po.PyClassImpl, slot.IterNextMixin, slot.IterNextIterableMixin
+):
     sentinel: PyObjectRef
     status: IterStatusActive[ArgCallable] | IterStatusExhausted
 
@@ -147,9 +162,20 @@ class PyCallableIterator(po.PyClassImpl):
     def new(callable: ArgCallable, sentinel: PyObjectRef) -> PyCallableIterator:
         return PyCallableIterator(sentinel, IterStatusActive(callable))
 
-    # TODO: impl PyCallableIterator
-    # TODO: impl IterNextIterable for PyCallableIterator
-    # TODO: impl IterNext for PyCallableIterator
+    @classmethod
+    def next(
+        cls, zelf: PyRef[PyCallableIterator], vm: VirtualMachine
+    ) -> viter.PyIterReturn:
+        status = zelf._.status
+        if isinstance(status, IterStatusActive):
+            ret = status.value.invoke(fn.FuncArgs(), vm)
+            if vm.bool_eq(ret, zelf._.sentinel):
+                zelf._.status = IterStatusExhausted()
+                return viter.PyIterReturnStopIteration(None)
+            else:
+                return viter.PyIterReturnReturn(ret)
+        else:
+            return viter.PyIterReturnStopIteration(None)
 
 
 def init(context: PyContext) -> None:

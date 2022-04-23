@@ -46,6 +46,10 @@ class PySequence:
         return self.methods_(vm).item is not None
 
     @staticmethod
+    def with_methods(obj: PyObjectRef, methods: PySequenceMethods) -> PySequence:
+        return PySequence(obj, methods)
+
+    @staticmethod
     def try_protocol(obj: PyObject, vm: VirtualMachine) -> PySequence:
         zelf = PySequence.from_pyobj(obj)
         if zelf.check(vm):
@@ -84,6 +88,15 @@ class PySequence:
         return f(self, key, vm)
 
     # TODO: impl: repeat, item, ass_item, concat, inplace_concat, inplace_repeat
+
+    def get_item(self, pos: int, vm: VirtualMachine) -> PyObjectRef:
+        if (f := self.methods_(vm).item) is not None:
+            return f(self, pos, vm)
+        vm.new_type_error(
+            "'{}' is not a sequence or does not support indexing".format(
+                self.obj.class_()
+            )
+        )
 
     def extract_cloned(
         self, f: Callable[[PyObjectRef], R], vm: VirtualMachine

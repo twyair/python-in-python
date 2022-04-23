@@ -6,6 +6,8 @@
 - [ ] impl `vm.protocol.mapping`
 - [X] impl `vm.builtins.module`
 - [ ] impl `vm.builtins.bytearray`
+- [ ] impl `vm.builtins.genericalias`
+- [ ] impl `vm.builtins.getset`
 - [ ] impl `vm.stdlib.io`
 - [ ] impl `vm.builtins.pyunion`
 - [ ] impl `collection_repr`

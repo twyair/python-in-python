@@ -13,7 +13,6 @@ import vm.types.slot as slot
 
 # TODO: impl IntoPyGetterFunc, ...
 
-# TODO: py_dyn_fn!(...)
 PyGetterFunc: TypeAlias = Callable[["VirtualMachine", "PyObjectRef"], "PyObjectRef"]
 PySetterFunc: TypeAlias = Callable[
     ["VirtualMachine", "PyObjectRef", "PyObjectRef"], None
@@ -21,7 +20,7 @@ PySetterFunc: TypeAlias = Callable[
 PyDeleterFunc: TypeAlias = Callable[["VirtualMachine", "PyObjectRef"], None]
 
 
-@po.pyimpl(get_descriptor=True, constructor=True)
+@po.pyimpl(get_descriptor=True, constructor=False)
 @po.pyclass("getset_descriptor")
 @dataclass
 class PyGetSet(po.PyClassImpl, slot.GetDescriptorMixin):
@@ -72,8 +71,6 @@ class PyGetSet(po.PyClassImpl, slot.GetDescriptorMixin):
                     zelf_._.name, cls.class_(vm)._.name()
                 )
             )
-
-    # TODO? impl Unconstructible for PyGetSet
 
 
 def init(context: PyContext) -> None:
