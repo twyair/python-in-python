@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, Iterable, Optional, TypeVar
-
-if TYPE_CHECKING:
-    from vm.builtins.code import PyConstant
+from typing import Iterable, Optional
 
 from bytecode import instruction
 from bytecode.bytecode import (
@@ -13,7 +10,7 @@ from bytecode.bytecode import (
     CodeObject,
     ConstantData,
 )
-from bytecode.instruction import Instruction
+from bytecode.instruction import Instruction, LabelArgMixin
 from indexset import IndexSet
 
 from compiler.symboltable import Location
@@ -142,9 +139,10 @@ class CodeInfo:
         for _, block in iter_blocks(self.blocks):
             for info in block.instructions:
                 instr = info.instr
-                if (l := instr.label_arg()) is not None:
+                if isinstance(instr, LabelArgMixin):
+                    instr.set_label(block_to_offset[instr.get_label().value])
                     # FIXME!
-                    instr.target = block_to_offset[l.value]
+                    # instr.target = block_to_offset[l.value]
                     # l.value = block_to_offset[l.value].value  # this line caused an 'out of range' error
                 instructions.append(instr)
                 locations.append(info.location)

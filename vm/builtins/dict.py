@@ -16,6 +16,7 @@ import vm.builtins.set as pyset
 import vm.function_ as vm_function_
 import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
+import vm.protocol.iter as viter
 import vm.builtins.iter as pyiter
 import vm.pyobject as po
 import vm.pyobjectrc as prc
@@ -409,16 +410,16 @@ class DictIterNextMixin(slot.IterNextMixin, slot.IterNextIterableMixin):
         return nv
 
     @classmethod
-    def next(cls: Type[TV], zelf: PyRef[TV], vm: VirtualMachine) -> pyiter.PyIterReturn:
+    def next(cls: Type[TV], zelf: PyRef[TV], vm: VirtualMachine) -> viter.PyIterReturn:
         try:
             item = next(zelf._.iterator, None)
         except RuntimeError as e:
             # TODO: find a better way to do this
             vm.new_runtime_error("dictionary changed size during iteration")
         if item is None:
-            return pyiter.PyIterReturnStopIteration(None)
+            return viter.PyIterReturnStopIteration(None)
         else:
-            return pyiter.PyIterReturnReturn(cls.next_to_pyobj(item, vm))
+            return viter.PyIterReturnReturn(cls.next_to_pyobj(item, vm))
 
 
 class ViewSetOps(DictViewMixin, slot.ComparableMixin):

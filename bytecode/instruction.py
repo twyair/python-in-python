@@ -87,11 +87,18 @@ class UnaryOperator(enum.Enum):
     Plus = enum.auto()
 
 
+class LabelArgMixin(ABC):
+    target: Label
+
+    def get_label(self) -> Label:
+        return self.target
+
+    def set_label(self, label: Label) -> None:
+        self.target = label
+
+
 @dataclass
 class Instruction(ABC):
-    def label_arg(self) -> Optional[Label]:
-        return None
-
     @abstractmethod
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
@@ -942,14 +949,11 @@ class EndFinally(Instruction):
 
 @final
 @dataclass
-class Continue(Instruction):
+class Continue(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
         return 0
-
-    def label_arg(self) -> Optional[Label]:
-        return self.target
 
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
@@ -959,14 +963,11 @@ class Continue(Instruction):
 
 @final
 @dataclass
-class Jump(Instruction):
+class Jump(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
         return 0
-
-    def label_arg(self) -> Optional[Label]:
-        return self.target
 
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
@@ -976,14 +977,11 @@ class Jump(Instruction):
 
 @final
 @dataclass
-class JumpIfTrue(Instruction):
+class JumpIfTrue(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
         return -1
-
-    def label_arg(self) -> Optional[Label]:
-        return self.target
 
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
@@ -996,14 +994,11 @@ class JumpIfTrue(Instruction):
 
 @final
 @dataclass
-class JumpIfFalse(Instruction):
+class JumpIfFalse(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
         return -1
-
-    def label_arg(self) -> Optional[Label]:
-        return self.target
 
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
@@ -1016,7 +1011,7 @@ class JumpIfFalse(Instruction):
 
 @final
 @dataclass
-class JumpIfTrueOrPop(Instruction):
+class JumpIfTrueOrPop(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
@@ -1024,9 +1019,6 @@ class JumpIfTrueOrPop(Instruction):
             return 0
         else:
             return -1
-
-    def label_arg(self) -> Optional[Label]:
-        return self.target
 
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
@@ -1041,7 +1033,7 @@ class JumpIfTrueOrPop(Instruction):
 
 @final
 @dataclass
-class JumpIfFalseOrPop(Instruction):
+class JumpIfFalseOrPop(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
@@ -1049,9 +1041,6 @@ class JumpIfFalseOrPop(Instruction):
             return 0
         else:
             return -1
-
-    def label_arg(self) -> Optional[Label]:
-        return self.target
 
     def execute(
         self, frame: ExecutingFrame, vm: VirtualMachine
@@ -1203,11 +1192,8 @@ class CallMethodEx(Instruction):
 
 @final
 @dataclass
-class ForIter(Instruction):
+class ForIter(Instruction, LabelArgMixin):
     target: Label
-
-    def label_arg(self) -> Optional[Label]:
-        return self.target
 
     def stack_effect(self, jump: bool) -> int:
         if jump:
@@ -1223,7 +1209,7 @@ class ForIter(Instruction):
 
 @final
 @dataclass
-class SetupLoop(Instruction):
+class SetupLoop(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
@@ -1237,7 +1223,7 @@ class SetupLoop(Instruction):
 
 @final
 @dataclass
-class SetupFinally(Instruction):
+class SetupFinally(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
@@ -1251,7 +1237,7 @@ class SetupFinally(Instruction):
 
 @final
 @dataclass
-class SetupExcept(Instruction):
+class SetupExcept(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
@@ -1268,7 +1254,7 @@ class SetupExcept(Instruction):
 
 @final
 @dataclass
-class SetupWith(Instruction):
+class SetupWith(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:
@@ -1485,8 +1471,6 @@ class UnpackSequence(Instruction):
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
         try:
-            # from vm.pyobjectrc import PyRef
-            # assert isinstance(value, PyRef)
             elements = vm.extract_elements_as_pyobjects(value)
         except PyImplException as e:
             if e.exception.class_().is_(vm.ctx.exceptions.type_error):
@@ -1564,7 +1548,7 @@ class Reverse(Instruction):
 
 @final
 @dataclass
-class SetupAsyncWith(Instruction):
+class SetupAsyncWith(Instruction, LabelArgMixin):
     target: Label
 
     def stack_effect(self, jump: bool) -> int:

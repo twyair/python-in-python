@@ -60,7 +60,7 @@ class PyMappingProxy(
     def get_inner(self, key: PyObjectRef, vm: VirtualMachine) -> Optional[PyObjectRef]:
         if isinstance(self.mapping, MappingProxyClass):
             return self.mapping.value._.attributes.get(
-                pystr.PyStr.try_from_object(vm, key).as_str(), None
+                pystr.PyStr.try_from_object(vm, key)._.as_str(), None
             )
         else:
             return to_opt(lambda: self.mapping.value.get_item(key, vm))
@@ -154,7 +154,7 @@ class PyMappingProxy(
     def py_new(
         cls, class_: PyTypeRef, fargs: fn.FuncArgs, /, vm: VirtualMachine
     ) -> PyObjectRef:
-        arg: PyObjectRef = fargs.bind(__py_new_args).arguments["mapping"]
+        arg: PyObjectRef = fargs.bind(args_py_new).arguments["mapping"]
         if (
             not vmapping.PyMapping.from_pyobj(arg).check(vm)
             or arg.payload_if_subclass(pylist.PyList, vm) is not None
@@ -172,7 +172,7 @@ class PyMappingProxy(
         return zelf._.__get_obj(vm).get_iter(vm).into_pyobject(vm)
 
 
-def __py_new_args(mapping: PyObjectRef, /):
+def args_py_new(mapping: PyObjectRef, /):
     ...
 
 

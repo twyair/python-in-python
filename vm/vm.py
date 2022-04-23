@@ -326,7 +326,9 @@ class VirtualMachine:
                 return descr_get(attr, obj, obj_cls, self)
             else:
                 return attr
-        elif getter := obj_cls.get_attr(self.mk_str("__getattr__"), self):
+        elif (
+            getter := to_opt(lambda: obj_cls.get_attr(self.mk_str("__getattr__"), self))
+        ) is not None:
             return self.invoke(getter, vm_function_.FuncArgs([obj, name_str]))
         else:
             return None
@@ -334,7 +336,9 @@ class VirtualMachine:
     def generic_getattribute(self, obj: PyObjectRef, name: PyStrRef) -> PyObjectRef:
         res = self.generic_getattribute_opt(obj, name, None)
         if res is None:
-            self.new_attribute_error(f"{obj} has no attribute '{name}'")
+            self.new_attribute_error(
+                f"{obj.class_()._.name()} has no attribute '{name._.as_str()}'"
+            )
         return res
 
     def invoke(self, func: PyObject, args: FuncArgs) -> PyObjectRef:
@@ -619,7 +623,7 @@ class VirtualMachine:
         msg: str,
         attrs: Optional[dict[str, PyObjectRef]] = None,
     ) -> NoReturn:
-        print("exc:", msg)
+        # print("exc:", msg)
         self.new_exception(exc_type, [self.ctx.new_str(msg)], attrs)
 
     def new_lookup_error(self, msg: str) -> NoReturn:

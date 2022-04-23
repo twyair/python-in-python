@@ -17,12 +17,20 @@ import vm.pyobject as po
 class PyTraceback(po.PyClassImpl):
     next: Optional[PyTracebackRef]
     frame: FrameRef
+    lasti: int
+    lineno: int
 
     @classmethod
     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
         return vm.ctx.types.traceback_type
 
     # TODO: impl PyTraceback @ 22
+
+    @staticmethod
+    def new(
+        next: Optional[PyRef[PyTraceback]], frame: FrameRef, lasti: int, lineno: int
+    ) -> PyTraceback:
+        return PyTraceback(next=next, frame=frame, lasti=lasti, lineno=lineno)
 
 
 PyTracebackRef: TypeAlias = "PyRef[PyTraceback]"

@@ -1,17 +1,6 @@
-# import compiler.symboltable as symboltable
-# import ast
-
-# a = ast.parse(open("compiler/symboltable.py").read())
-
-# stb = symboltable.SymbolTableBuilder.new()
-# stb.scan_statements(a.body)
-# st = stb.finish()
-# print(st)
-
 from common.error import PyImplBase, PyImplError, PyImplException
 from compiler.compile import CompileError
 from compiler.mode import Mode
-from vm.pyobjectrc import PyObjectRef
 from vm.vm import InitParameter, Interpreter, PySettings, VirtualMachine
 
 
@@ -38,6 +27,8 @@ def repl(vm: VirtualMachine) -> None:
 
 def print_exception(exc: PyImplBase) -> None:
     if isinstance(exc, PyImplException):
+        if (tr := exc.exception._.traceback) is not None:
+            print("TRACEBACK: line =", tr._.lineno)
         name = str(exc.exception.class_()._.name())[2:]
         print(f"{name}: ...")
     elif isinstance(exc, PyImplError):
@@ -49,7 +40,6 @@ def do(vm: VirtualMachine) -> None:
     with open("prog.py") as f:
         prog = f.read()
     try:
-        # code_obj = vm.compile("x = 'running' * 3", Mode.Exec, "<embedded>")
         code_obj = vm.compile(
             prog,
             Mode.Exec,
@@ -59,20 +49,20 @@ def do(vm: VirtualMachine) -> None:
         vm.new_syntax_error(e)
 
     try:
-        res = vm.run_code_object(code_obj, scope)
+        vm.run_code_object(code_obj, scope)
     except PyImplBase as e:
         print_exception(e)
         raise
-    try:
-        repr_ = res.repr(vm)._.as_str()
-    except PyImplBase as e:
-        print_exception(e)
-        raise
+    # try:
+    #     repr_ = res.repr(vm)._.as_str()
+    # except PyImplBase as e:
+    #     print_exception(e)
+    #     raise
 
-    print(
-        res.class_()._.name(),
-        repr_,
-    )
+    # print(
+    #     res.class_()._.name(),
+    #     repr_,
+    # )
 
 
 settings = PySettings(dont_write_bytecode=True, no_user_site=True)

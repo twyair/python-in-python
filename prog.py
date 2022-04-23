@@ -5,6 +5,12 @@ import sys
 pdebug = pdebug  # type: ignore
 
 
+try:
+    pdebug.doesnt_exist
+except AttributeError as e:
+    pdebug(e)
+
+
 def _wrap(new, old):
     """Simple substitute for functools.update_wrapper."""
     for replace in ["__module__", "__name__", "__qualname__", "__doc__"]:
@@ -33,19 +39,19 @@ pdebug(bar.__name__)
 
 
 # pdebug(sys.prefix)
-# pdebug(3j * 3 + 5j - 3.0)
+pdebug(3j * 3 + 5j - 3.0)
 # pdebug([3j] + [foo(10, y=3.4)])
 # pdebug(foo)
 # pdebug(isinstance(5, int))
 # pdebug(type(5))
 # pdebug(int)
 # pdebug(int is type(5))
-# module_type = type(sys)
-# pdebug(sys)
-# pdebug(module_type)
-# pdebug(isinstance(sys.modules["sys"], module_type))
-# for name, module in sys.modules.items():
-#     pdebug(name)
-#     pdebug(isinstance(module, module_type))
+module_type = type(sys)
+pdebug(sys)
+pdebug(module_type)
+pdebug(isinstance(sys.modules["sys"], module_type))
+for name, module in sys.modules.items():
+    pdebug(name)
+    pdebug(isinstance(module, module_type))
 
 # import pprint

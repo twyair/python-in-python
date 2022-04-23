@@ -18,6 +18,7 @@ from typing import (
     Type,
     TypeVar,
 )
+from common import to_opt
 
 
 if TYPE_CHECKING:
@@ -963,10 +964,14 @@ class PyMethod(ABC):
                 return PyMethodAttribute(descr_get(attr, obj, cls.into_pyobj(vm), vm))
             else:
                 return PyMethodAttribute(attr)
-        elif (getter := cls.get_attr(vm.mk_str("__getattr__"), vm)) is not None:
+        elif (
+            getter := to_opt(lambda: cls.get_attr(vm.mk_str("__getattr__"), vm))
+        ) is not None:
             return PyMethodAttribute(vm.invoke(getter, FuncArgs([obj, name])))
         else:
-            vm.new_attribute_error(f"'{cls._.name()}' object has no attribute '{name}'")
+            vm.new_attribute_error(
+                f"'{cls._.name()}' object has no attribute '{name._.as_str()}'"
+            )
             # TODO: vm.set_attribute_error_context(&exc, obj.clone(), name);
 
     @staticmethod

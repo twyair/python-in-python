@@ -39,7 +39,7 @@ class PyMap(
     def py_new(
         cls, class_: PyTypeRef, fargs: fn.FuncArgs, /, vm: VirtualMachine
     ) -> PyObjectRef:
-        args = fargs.bind(__py_new).arguments
+        args = fargs.bind(args_py_new).arguments
         return PyMap(
             mapper=args["mapper"], iterators=list(args["iterators"])
         ).into_pyresult_with_type(vm, class_)
@@ -61,7 +61,7 @@ class PyMap(
         )
 
 
-def __py_new(mapper, /, *iterators):
+def args_py_new(mapper, /, *iterators):
     ...
 
 

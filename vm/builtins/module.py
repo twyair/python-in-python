@@ -44,7 +44,7 @@ class PyModule(po.PyClassImpl, slot.GetAttrMixin):
                 return vm.invoke(getattr_, FuncArgs([name]))
             except:
                 pass
-        vm.new_attribute_error(f"module has no attribute '{name}'")
+        vm.new_attribute_error(f"module has no attribute '{name._.as_str()}'")
 
     # # FIXME?
     # def dict(self) -> PyDictRef:

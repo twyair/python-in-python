@@ -73,10 +73,14 @@ class sys(po.PyModuleImpl):
     def argv(vm: VirtualMachine) -> pylist.PyListRef:
         return vm.ctx.new_list([vm.ctx.new_str(x) for x in vm.state.settings.argv])
 
-    # @pyattr
-    # @staticmethod
-    # def builtin_module_names(vm: VirtualMachine) -> pytuple.PyTupleRef:
-    #     raise NotImplementedError
+    @pyattr
+    @staticmethod
+    def builtin_module_names(vm: VirtualMachine) -> pytuple.PyTupleRef:
+        module_names = list(vm.state.module_inits.keys())
+        module_names.append("sys")
+        module_names.append("builtins")
+        module_names.sort()
+        return vm.ctx.new_tuple([vm.ctx.new_str(x) for x in module_names])
 
     # @pyattr
     # @staticmethod

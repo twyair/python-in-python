@@ -18,6 +18,7 @@ import vm.builtins.tuple as pytuple
 import vm.builtins.genericalias as pygenericalias
 import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
+import vm.sequence as vm_sequence
 import vm.protocol.iter as viter
 import vm.sliceable as sliceable
 
@@ -41,7 +42,7 @@ class PyList(
     slot.IterableMixin,
     slot.AsMappingMixin,
     slot.AsSequenceMixin,
-    sequence.MutObjectSequenceOpMixin,
+    vm_sequence.MutObjectSequenceOpMixin,
 ):
     elements: list[PyObjectRef]
 

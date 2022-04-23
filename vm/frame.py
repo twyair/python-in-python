@@ -45,6 +45,7 @@ import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.function_ as fn
 import vm.builtins.code as pycode
+import vm.builtins.traceback as pytraceback
 import vm.builtins.dict as pydict
 import vm.builtins.function as pyfunction
 import vm.types.slot as slot
@@ -379,7 +380,7 @@ class ExecutingFrame:
 
     def run(self, vm: VirtualMachine) -> ExecutionResult:
         instrs = self.code._.code.instructions
-        print(instrs)
+        # print(instrs)
         while 1:
             idx = self.get_lasti()
             self.update_lasti(lambda i: i + 1)
@@ -394,11 +395,18 @@ class ExecutingFrame:
                     continue
                 return result
             except PyImplException as e:
-                print("abc", repr(e))
-                raise
-            # except:
-            #     # TODO: handle exceptions
-            #     raise
+                loc = self.code._.code.locations[idx]
+                next_ = e.exception._.traceback  # TODO
+                new_traceback = pytraceback.PyTraceback.new(
+                    next_, self.object, self.get_lasti(), loc.row
+                )
+                e.exception._.traceback = new_traceback.into_ref(vm)
+                vm.contextualize_exception(e.exception)
+                result = self.unwind_blocks(vm, UnwindRaising(e.exception))
+                if result is None:
+                    continue
+                else:
+                    return result
         assert False
 
     def yield_from_target(self) -> Optional[PyObject]:
@@ -423,7 +431,7 @@ class ExecutingFrame:
     def execute_instruction(
         self, instruction: instruction.Instruction, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
-        # print(instruction)
+        # print(instruction, getattr(self.current_block(), "type", None))
         vm.check_signals()
 
         return instruction.execute(self, vm)
@@ -524,7 +532,7 @@ class ExecutingFrame:
                 vm.set_exception(block.type.prev_exc)
 
         if isinstance(reason, UnwindRaising):
-            raise PyImplError(reason.exception)
+            raise PyImplException(reason.exception)
         elif isinstance(reason, UnwindReturning):
             return ExecutionResultReturn(reason.value)
         elif isinstance(reason, (UnwindBreak, UnwindContinue)):
@@ -787,7 +795,7 @@ class ExecutingFrame:
             self.pop_value()
             self.jump(target)
         else:
-            assert False, debug_repr(next_obj)
+            assert False, debug_repr(next_obj.value)
 
     def execute_make_function(
         self, vm: VirtualMachine, flags: instruction.MakeFunctionFlags

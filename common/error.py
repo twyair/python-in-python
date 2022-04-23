@@ -1,8 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, NoReturn, Optional
 
+
 if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
+    from vm.exceptions import PyBaseExceptionRef
 
 
 class PyImplBase(Exception):
@@ -30,9 +32,9 @@ class PyImplException(PyImplBase):
     an exception representing an actual python exception
     """
 
-    exception: PyObjectRef
+    exception: PyBaseExceptionRef
 
-    def __init__(self, exception: PyObjectRef) -> None:
+    def __init__(self, exception: PyBaseExceptionRef) -> None:
         self.exception = exception
         super().__init__()
 
