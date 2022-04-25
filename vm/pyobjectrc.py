@@ -19,10 +19,9 @@ from common.hash import PyHash
 
 if TYPE_CHECKING:
     from vm.builtins.genericalias import PyGenericAlias
-    from vm.builtins.int import PyInt
-    from vm.builtins.pytype import PyType, PyTypeRef
+    from vm.builtins.pytype import PyTypeRef
     from vm.builtins.dict import PyDict, PyDictRef
-    from vm.builtins.pystr import PyStr, PyStrRef
+    from vm.builtins.pystr import PyStrRef
     from vm.builtins.tuple import PyTuple
     from vm.function_ import FuncArgs
     from vm.protocol.iter import PyIter
@@ -40,7 +39,9 @@ T = TypeVar("T")
 def bool_get_value(obj: PyObject) -> bool:
     import vm.builtins.int as pyint
 
-    return obj.payload_(pyint.PyInt).value != 0
+    p = obj.payload_(pyint.PyInt)
+    assert p is not None
+    return p.value != 0
 
 
 @dataclass
@@ -249,10 +250,12 @@ class PyRef(Generic[PyRefT]):
         raise NotImplementedError
 
     def str(self, vm: VirtualMachine) -> PyStrRef:
+        import vm.builtins.pystr as pystr
+
         if self.class_().is_(vm.ctx.types.str_type):
-            return self.downcast(PyStr)
+            return self.downcast(pystr.PyStr)
         else:
-            return PyStr.try_from_object(
+            return pystr.PyStr.try_from_object(
                 vm, vm.call_special_method(self, "__str__", fn.FuncArgs())
             )
 

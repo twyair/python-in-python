@@ -9,14 +9,14 @@ def repl(vm: VirtualMachine) -> None:
     while True:
         line = input(">>> ")
         try:
-            code_obj = vm.compile(line, Mode.Eval, "<repl>")
-            # code_obj = vm.compile(line, Mode.Single, "<repl>")
+            # code_obj = vm.compile(line, Mode.Eval, "<repl>")
+            code_obj = vm.compile(line, Mode.Single, "<repl>")
         except CompileError as e:
             vm.new_syntax_error(e)
         try:
             res = vm.run_code_object(code_obj, scope)
         except PyImplBase as e:
-            print(f"exception: {type(e)}")
+            print_exception(e)
         except BaseException:
             raise
         else:

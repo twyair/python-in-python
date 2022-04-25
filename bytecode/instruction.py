@@ -13,13 +13,7 @@ if TYPE_CHECKING:
     from vm.builtins.coroutine import PyCoroutine
     from vm.builtins.dict import PyDict
     from vm.builtins.list import PyList
-
-    # from vm.builtins.pystr import PyStr
-    # from vm.builtins.set import PySet
-
     from vm.function_ import FuncArgs
-
-    # from bytecode.bytecode import ConversionFlag, RaiseKind
     from vm.frame import ExecutingFrame, ExecutionResult
     from vm.vm import VirtualMachine
 
@@ -28,6 +22,7 @@ import vm.builtins.set as pyset
 import vm.frame as vm_frame
 import vm.pyobject as po
 import bytecode.bytecode as bytecode
+import vm.function_ as fn
 
 
 class PyException(Exception):
@@ -798,7 +793,7 @@ class PrintExpr(Instruction):
         except PyImplBase:
             vm.new_runtime_error("lost sys.displayhook")
 
-        vm.invoke(displayhook, FuncArgs([expr]))
+        vm.invoke(displayhook, fn.FuncArgs([expr]))
 
 
 @final

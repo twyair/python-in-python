@@ -15,7 +15,7 @@ import vm.builtins.namespace as pynamespace
 from vm import extend_module
 from common.deco import pyfunction, pymodule, pyattr
 from common.error import PyImplBase
-from common import CHAR_MAX, ISIZE_MAX
+from common import CHAR_MAX, ISIZE_MAX, debug_repr
 
 
 def option_env(s: str) -> Optional[str]:
@@ -168,7 +168,9 @@ class sys(po.PyModuleImpl):
     @pyfunction
     @staticmethod
     def displayhook(obj: PyObjectRef, *, vm: VirtualMachine) -> None:
-        raise NotImplementedError
+        # TODO
+        print(debug_repr(obj))
+        # raise NotImplementedError
 
     @pyfunction
     @staticmethod
