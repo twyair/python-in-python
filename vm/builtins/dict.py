@@ -18,6 +18,7 @@ import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
 import vm.protocol.iter as viter
 import vm.builtins.iter as pyiter
+import vm.builtins.pystr as pystr
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
@@ -115,6 +116,12 @@ class PyDict(
 
     def inner_delitem(self, key: PyObjectRef, vm: VirtualMachine) -> None:
         self.entries.delete(vm, key)
+
+    def to_attributes(self) -> po.PyAttributes:
+        attrs = po.PyAttributes()
+        for key, value in self.entries.items():
+            attrs[key.downcast(pystr.PyStr)._.as_str()] = value
+        return attrs
 
     def get_item_opt(
         self, key: PyObjectRef, vm: VirtualMachine

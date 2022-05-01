@@ -25,18 +25,65 @@ def option_env(s: str) -> Optional[str]:
 
 @pymodule
 class sys(po.PyModuleImpl):
-    attr_multiarch: None = None  # TODO
-    attr_abiflags: str = ""
-    attr_api_version: int = 0x0
-    attr_copyright: str = ""
-    attr_float_repr_style: str = "short"
-    attr__framework: str = ""
-    attr_hexversion: int = 0  # TODO: `version.VERSION_HEX`
-    attr_maxsize: int = ISIZE_MAX
-    attr_maxunicode: int = CHAR_MAX
-    attr_platform: str = "unknown"  # TODO
-    attr_ps1: str = ">>>>> "
-    attr_ps2: str = "..... "
+    @pyattr
+    @staticmethod
+    def multiarch(vm: VirtualMachine):
+        return None  # TODO
+
+    @pyattr
+    @staticmethod
+    def abiflags(vm: VirtualMachine) -> str:
+        return ""
+
+    @pyattr
+    @staticmethod
+    def api_version(vm: VirtualMachine) -> int:
+        return 0x0
+
+    @pyattr
+    @staticmethod
+    def copyright(vm: VirtualMachine) -> str:
+        return ""
+
+    @pyattr
+    @staticmethod
+    def float_repr_style(vm: VirtualMachine) -> str:
+        return "short"
+
+    @pyattr
+    @staticmethod
+    def _framework(vm: VirtualMachine) -> str:
+        return ""
+
+    @pyattr
+    @staticmethod
+    def hexversion(vm: VirtualMachine) -> int:
+        return 0  # TODO: version.VERSION_HEX`
+
+    @pyattr
+    @staticmethod
+    def maxsize(vm: VirtualMachine) -> int:
+        return ISIZE_MAX
+
+    @pyattr
+    @staticmethod
+    def maxunicode(vm: VirtualMachine) -> int:
+        return CHAR_MAX
+
+    @pyattr
+    @staticmethod
+    def platform(vm: VirtualMachine) -> str:
+        return "unknown"  # TODO
+
+    @pyattr
+    @staticmethod
+    def ps1(vm: VirtualMachine) -> str:
+        return ">>>>> "
+
+    @pyattr
+    @staticmethod
+    def ps2(vm: VirtualMachine) -> str:
+        return "..... "
 
     @pyattr
     @staticmethod

@@ -72,10 +72,13 @@ def pyproperty() -> Callable[[CT], CT]:
         else:
             assert False, name
         name = name[4:]
-        method.pyimpl_at = PropertyData(
-            MethodData.from_method(method, ImplMethodType.INSTANCE, cast=False),
-            name,
-            type,
+        method_set_data(
+            method,
+            PropertyData(
+                MethodData.from_method(method, ImplMethodType.INSTANCE, cast=True),
+                name,
+                type,
+            ),
         )
 
         return method
@@ -223,8 +226,7 @@ def pymodule(cls):
             if name.startswith("attr_"):
                 name = name[len("attr_") :]
                 assert name not in attrs, name
-                loc = mem
-                attrs[name] = lambda vm: primitive_to_pyobject(loc, vm)
+                attrs[name] = mem
             else:
                 continue
         else:
@@ -246,6 +248,8 @@ TYPE2MODULE = {
     "PyStr": "vm.builtins.pystr",
     "PyType": "vm.builtins.pytype",
     "PyInt": "vm.builtins.int",
+    "PyTuple": "vm.builtins.tuple",
+    "PyDict": "vm.builtins.dict",
     "PyFunction": "vm.builtins.function",
     "SetIterable": "vm.builtins.set",
     "ArgIterable": "vm.function.arguments",

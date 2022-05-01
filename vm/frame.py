@@ -15,23 +15,15 @@ from typing import (
 from common import debug_repr
 
 if TYPE_CHECKING:
-    from bytecode.bytecode import CodeFlags, Label, Location, RaiseKind
+    from bytecode.bytecode import CodeFlags, Label, Location
 
     from vm.builtins.dict import PyDict, PyDictRef
 
-    # from vm.builtins.function import PyCell, PyFunction
     from vm.builtins.pytype import PyTypeRef
-    from vm.builtins.slice import PySlice
-    from vm.builtins.tuple import PyTuple, PyTupleTyped
-    from vm.exceptions import ExceptionCtor, PyBaseExceptionRef
+    from vm.exceptions import PyBaseExceptionRef
     from vm.function.arguments import ArgMapping
     from vm.function_ import FuncArgs
-    from vm.protocol.iter import (
-        PyIter,
-        PyIterReturn,
-        PyIterReturnReturn,
-        PyIterReturnStopIteration,
-    )
+    from vm.protocol.iter import PyIterReturn
 
     from vm.pyobjectrc import PyObject, PyObjectRef, PyRef
     from vm.scope import Scope
@@ -53,7 +45,10 @@ import vm.builtins.int as pyint
 import vm.builtins.tuple as pytuple
 import vm.builtins.pystr as pystr
 import bytecode.instruction as instruction
+import bytecode.bytecode as bytecode
 import vm.protocol.iter as viter
+import vm.builtins.slice as pyslice
+import vm.exceptions as exceptions
 
 
 @dataclass
@@ -658,7 +653,9 @@ class ExecutingFrame:
         start = self.pop_value()
 
         obj = prc.PyRef.new_ref(
-            PySlice(start=start, stop=stop, step=step_), vm.ctx.types.slice_type, None
+            pyslice.PySlice(start=start, stop=stop, step=step_),
+            vm.ctx.types.slice_type,
+            None,
         )
         self.push_value(obj)
 
@@ -685,7 +682,7 @@ class ExecutingFrame:
                     vm.new_type_error("keywords must be strings")
                 kwargs[key.as_str()] = value
         args = vm.extract_elements_as_pyobjects(self.pop_value())
-        return FuncArgs(args, kwargs)
+        return fn.FuncArgs(args, kwargs)
 
     def execute_call(self, args: FuncArgs, vm: VirtualMachine) -> FrameResult:
         func_ref = self.pop_value()
@@ -703,25 +700,27 @@ class ExecutingFrame:
         value = method.invoke(args, vm)
         self.push_value(value)
 
-    def execute_raise(self, vm: VirtualMachine, kind: RaiseKind) -> FrameResult:
+    def execute_raise(
+        self, vm: VirtualMachine, kind: bytecode.RaiseKind
+    ) -> FrameResult:
         cause = None
-        if kind == RaiseKind.RAISE_CAUSE:
+        if kind == bytecode.RaiseKind.RAISE_CAUSE:
             val = self.pop_value()
             if not vm.is_none(val):
                 try:
-                    ctor = ExceptionCtor.try_from_object(vm, val)
+                    ctor = exceptions.ExceptionCtor.try_from_object(vm, val)
                 except PyImplError as _:
                     vm.new_type_error("exception causes must derive from BaseException")
                 cause = ctor.instantiate(vm)
-        if kind == RaiseKind.RERAISE:
+        if kind == bytecode.RaiseKind.RERAISE:
             exception = vm.topmost_exception()
             if exception is None:
                 vm.new_runtime_error("No active exception to reraise")
         else:
-            exception = ExceptionCtor.try_from_object(vm, self.pop_value()).instantiate(
-                vm
-            )
-        if kind == RaiseKind.RAISE_CAUSE:
+            exception = exceptions.ExceptionCtor.try_from_object(
+                vm, self.pop_value()
+            ).instantiate(vm)
+        if kind == bytecode.RaiseKind.RAISE_CAUSE:
             exception._.set_cause(cause)
         raise PyImplException(exception)
 

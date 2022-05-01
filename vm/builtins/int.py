@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from typing import TYPE_CHECKING, Callable, Optional, TypeAlias
+from common import to_opt
 
 
 if TYPE_CHECKING:
@@ -13,6 +14,9 @@ if TYPE_CHECKING:
     from vm.builtins.pystr import PyStrRef
 import vm.pyobject as po
 import vm.types.slot as slot
+import vm.builtins.pystr as pystr
+
+import vm.function_ as fn
 from common.deco import pymethod, pyproperty
 from common.error import PyImplError
 from common.hash import PyHash
@@ -357,7 +361,7 @@ class PyInt(
     def py_new(
         cls, class_: PyTypeRef, fargs: FuncArgs, vm: VirtualMachine
     ) -> PyObjectRef:
-        args = fargs.bind(__int_options)
+        args = fargs.bind(args_int_options)
         value: PyObjectRef = args.arguments["value"]
         base_arg: PyObjectRef = args.arguments["base"]
         if value is not None:
@@ -388,7 +392,7 @@ class PyInt(
 PyIntRef: TypeAlias = "PyRef[PyInt]"
 
 
-def __int_options(
+def args_int_options(
     value: Optional[PyObjectRef] = None, /, base: Optional[PyObjectRef] = None
 ):
     ...
@@ -456,12 +460,69 @@ def get_value(obj: PyObject) -> int:
     return r.value
 
 
+def bytes_to_int(lit: bytes, base: int) -> Optional[int]:
+    try:
+        return int(lit, base)
+    except ValueError as _:
+        return None
+
+
 def try_int_radix(obj: PyObjectRef, base: int, vm: VirtualMachine) -> int:
-    raise NotImplementedError
+    import vm.builtins.bytes as pybytes
+    import vm.builtins.bytearray as pybytearray
+
+    assert base == 0 or 2 <= base <= 36
+
+    if (s := obj.payload_(pystr.PyStr)) is not None:
+        opt = bytes_to_int(s.as_str().encode(), base)
+    elif (s := obj.payload_(pybytes.PyBytes)) is not None:
+        opt = bytes_to_int(s.inner, base)
+    elif (s := obj.payload_(pybytearray.PyByteArray)) is not None:
+        opt = bytes_to_int(s.inner, base)
+    else:
+        vm.new_type_error("int() can't convert non-string with explicit base")
+    if opt is not None:
+        return opt
+    else:
+        vm.new_value_error(
+            "invalid literal for int() with base {}: {}".format(base, "TODO")
+        )  # `obj.repr(vm)`
 
 
 def try_int(obj: PyObject, vm: VirtualMachine) -> int:
-    raise NotImplementedError
+    def try_convert(obj: PyObject, lit: bytes, vm: VirtualMachine) -> int:
+        base = 10
+        if (i := bytes_to_int(lit, base)) is not None:
+            return i
+        else:
+            vm.new_value_error(
+                "invalid literal for int() with base {}: {}".format(
+                    base, "TODO"
+                )  # TODO: `obj.repr(vm))`
+            )
+
+    if (s := obj.downcast_ref(pystr.PyStr)) is not None:
+        return try_convert(obj, s._.as_str().encode(), vm)
+
+    if (
+        r := to_opt(lambda: obj.try_bytes_like(vm, lambda b: try_convert(obj, b, vm)))
+    ) is not None:
+        return r
+
+    if (i := obj.payload_if_exact(PyInt, vm)) is not None:
+        return i.as_int()
+
+    if (method := vm.get_method(obj, "__int__")) is not None:
+        result = vm.invoke(method, fn.FuncArgs())
+        if (i := result.payload_(PyInt)) is not None:
+            return i.as_int()
+        else:
+            vm.new_type_error(
+                "__int__ returned non-int (type '{}')".format(result.class_()._.name())
+            )
+
+    # TODO
+    raise NotImplementedError(obj.class_()._.name(), obj.debug_repr())
 
 
 def try_bigint_to_f64(i: int, vm: VirtualMachine) -> float:

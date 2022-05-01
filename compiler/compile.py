@@ -43,7 +43,6 @@ from compiler.symboltable import (
     mangle_name,
 )
 from indexset import IndexSet
-from vm.builtins.code import PyConstant
 
 
 class NameUsage(enum.Enum):
@@ -1025,7 +1024,7 @@ class Compiler:
         self.compile_statements(new_body)
 
         classcell_idx = self.code_stack[-1].cellvar_cache.position(
-            lambda var: var == "__class___"
+            lambda var: var == "__class__"
         )
 
         if classcell_idx is not None:

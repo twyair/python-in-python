@@ -51,7 +51,7 @@ class PyBaseObject(po.PyClassImpl):
                 if unimplemented_abstract_method_count > 0:
                     vm.new_type_error("You must implement the abstract methods")
 
-        return prc.PyRef.new_ref(PyBaseObject, class_, dict_)
+        return prc.PyRef.new_ref(PyBaseObject(), class_, dict_)
 
     @pyslot
     @staticmethod

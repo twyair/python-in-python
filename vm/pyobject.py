@@ -237,6 +237,9 @@ class PyContext:
     # TODO: move
     def new_int(self, i: int) -> PyIntRef:
         # TODO: use self.int_cache_pool
+        if INT_CACHE_POOL_MIN <= i <= INT_CACHE_POOL_MAX:
+            return self.int_cache_pool[i - INT_CACHE_POOL_MIN]
+
         import vm.builtins.int as pyint
 
         return prc.PyRef.new_ref(pyint.PyInt(i), self.types.int_type, None)
@@ -449,13 +452,13 @@ def pyimpl(
             for _, mem in inspect.getmembers(cls)
             if hasattr(mem, "pyimpl_at")
         ]
-
         for mem, data in ms:
             if isinstance(data, MethodData):
                 data.method = mem
                 impl.methods[data.name] = data
             elif isinstance(data, PropertyData):
                 data.method_data.method = mem
+                # print(cls.TP_NAME, data.name)
                 if data.name not in impl.properties:
                     impl.properties[data.name] = ImplProperty(data.name)
                 prop = impl.properties[data.name]
@@ -656,9 +659,13 @@ class PyClassImplData:
 
 
 def make_getter(getter: MethodData) -> PyGetterFunc:
+    import vm.function_ as fn
+
+    method = make_method(getter)
+
     def foo(vm: VirtualMachine, obj: PyObjectRef) -> PyObjectRef:
         # TODO: catch & handle exceptions
-        return getter.method(obj._, vm=vm)
+        return method(vm, fn.FuncArgs([obj]))
         # return res.into_ref(vm)
 
     return foo
@@ -819,6 +826,7 @@ class PyClassImpl(PyClassDef, StaticTypeMixin, PyValueMixin, TryFromObjectMixin)
                     assert False, prop
             else:
                 assert False, prop
+            # print(class_._.name(), prop.name)
             # FIXME?
             class_._.set_str_attr(prop.name, getset)
 
@@ -979,6 +987,7 @@ class PyMethod(ABC):
         obj_cls = obj.class_()
         func = obj_cls._.get_attr(name)
         if func is None:
+            print(obj_cls._.name())
             raise PyImplError(obj)
         if func.class_()._.slots.flags.has_feature(slot.PyTypeFlags.METHOD_DESCR):
             return PyMethodFunction(target=obj, func=func)

@@ -37,7 +37,7 @@ def print_exception(exc: PyImplBase) -> None:
 
 def do(vm: VirtualMachine) -> None:
     scope = vm.new_scope_with_builtins()
-    with open("prog.py") as f:
+    with open("test_int.py") as f:
         prog = f.read()
     try:
         code_obj = vm.compile(

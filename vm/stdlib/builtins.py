@@ -471,6 +471,13 @@ class builtins(po.PyModuleImpl):
         if classcell is not None:
             classcell._.set(class_)
 
+        # print(
+        #     "475:",
+        #     meta_name,
+        #     type(metaclass._),
+        #     class_.class_(vm)._.name(),
+        #     metaclass._.class_(vm)._.name(),
+        # )
         return class_
 
 

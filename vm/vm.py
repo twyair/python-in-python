@@ -4,7 +4,6 @@ import enum
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import (
-    Any,
     Callable,
     NoReturn,
     Optional,
@@ -14,6 +13,7 @@ from typing import (
     TypeVar,
     TYPE_CHECKING,
 )
+
 from common import to_opt
 
 
@@ -22,18 +22,18 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PT, PyObject, PyObjectRef, PyRef
     from vm.builtins.code import PyCode
     from vm.builtins.dict import PyDictRef
-    from vm.builtins.int import PyInt, PyIntRef
+    from vm.builtins.int import PyIntRef
     from vm.builtins.list import PyList
     from vm.builtins.module import PyModule
     from vm.builtins.pystr import PyStr, PyStrRef
     from vm.builtins.pytype import PyType, PyTypeRef
-    from vm.builtins.tuple import PyTuple, PyTupleRef, PyTupleTyped
+    from vm.builtins.tuple import PyTupleRef, PyTupleTyped
     from vm.codecs import CodecsRegistry
     from vm.exceptions import PyBaseException, PyBaseExceptionRef
     from vm.frame import ExecutionResult, FrameRef
     from vm.function.arguments import ArgMapping
     from vm.function_ import FuncArgs
-    from vm.protocol.iter import PyIterIter, PyIterReturnReturn
+    from vm.protocol.iter import PyIterIter
 
 import vm.import_ as import_
 import vm.pyobject as po
@@ -336,6 +336,7 @@ class VirtualMachine:
     def generic_getattribute(self, obj: PyObjectRef, name: PyStrRef) -> PyObjectRef:
         res = self.generic_getattribute_opt(obj, name, None)
         if res is None:
+            # print(f"{obj.class_()._.name()} has no attribute '{name._.as_str()}'")
             self.new_attribute_error(
                 f"{obj.class_()._.name()} has no attribute '{name._.as_str()}'"
             )

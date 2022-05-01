@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Optional, TypeAlias
+from common.error import unreachable
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
@@ -15,6 +16,7 @@ import vm.function_ as fn
 import vm.protocol.iter as protocol_iter
 import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
+import vm.protocol.buffer as buffer
 import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.sliceable as sliceable
@@ -43,7 +45,7 @@ class PyBytes(
     slot.AsSequenceMixin,
     slot.HashableMixin,
     slot.ComparableMixin,
-    # slot.AsBufferMixin,  # TODO
+    slot.AsBufferMixin,
     slot.IterableMixin,
 ):
     inner: bytes
@@ -81,7 +83,7 @@ class PyBytes(
 
     @staticmethod
     def new_ref(value: bytes, ctx: PyContext) -> PyBytesRef:
-        return prc.PyRef.new_ref(PyBytes(value), ctx.types.tuple_type, None)
+        return prc.PyRef.new_ref(PyBytes(value), ctx.types.bytes_type, None)
 
     def _concat(self, other: PyObjectRef, vm: VirtualMachine) -> bytes:
         return other.try_bytes_like(vm, lambda v: self.inner + v)
@@ -275,6 +277,20 @@ class PyBytes(
             return po.PyComparisonValue(
                 other.try_bytes_like(vm, lambda v: op.eval_(zelf._.inner, v))
             )
+
+    @classmethod
+    def as_buffer(cls, zelf: PyRef[PyBytes], vm: VirtualMachine) -> buffer.PyBuffer:
+        return buffer.PyBuffer(
+            zelf, buffer.BufferDescriptor.simple(zelf._._len(), True), BUFFER_METHODS
+        )
+
+
+BUFFER_METHODS = buffer.BufferMethods(
+    obj_bytes=lambda buffer: buffer.obj.downcast_unchecked_ref(PyBytes)._.inner,
+    obj_bytes_mut=lambda _: unreachable(),
+    release=lambda _: None,
+    retain=lambda _: None,
+)
 
 
 @po.pyimpl(iter_next=True)

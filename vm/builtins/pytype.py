@@ -11,8 +11,9 @@ from typing import (
     TypeAlias,
     TypeVar,
 )
-from common.deco import pyproperty
-from common.error import unreachable
+from common.deco import pyproperty, pyslot
+from common.error import PyImplException, unreachable
+
 
 if TYPE_CHECKING:
     from vm.builtins.pystr import PyStrRef
@@ -22,6 +23,8 @@ if TYPE_CHECKING:
     from vm.types.slot import PyTypeSlots
     from vm.vm import VirtualMachine
     from vm.pyobject import PyAttributes
+    from vm.builtins.dict import PyDictRef
+    from vm.builtins.tuple import PyTupleRef
 
 import vm.types.slot as slot
 import vm.pyobject as po
@@ -178,7 +181,9 @@ class PyType(
         if (r := f(self)) is not None:
             return r
         else:
-            return next((f(cls._) for cls in self.mro_), None)
+            return next(
+                (r for r in (f(cls._) for cls in self.mro_) if r is not None), None
+            )
 
     def set_str_attr(self, attr_name: str, value: PyObjectRef) -> None:
         self.attributes[attr_name] = value
@@ -268,6 +273,45 @@ class PyType(
 
     # TODO: impl PyType @ 216
 
+    @pyslot
+    @staticmethod
+    def slot_new(
+        metatype: PyTypeRef, fargs: FuncArgs, vm: VirtualMachine
+    ) -> PyObjectRef:
+        is_type_type = metatype.is_(vm.ctx.types.type_type)
+        if is_type_type and len(fargs.args) == 1 and not fargs.kwargs:
+            return fargs.args[0].clone_class()
+        if len(fargs.args) != 3:
+            return vm.new_type_error("TODO")
+        args = fargs.bind(args_slot_new)
+        name: PyStrRef = args.arguments["name"]
+        bases_tuple: PyTupleRef = args.arguments["bases"]
+        dict_: PyDictRef = args.arguments["dict"]
+        # kwargs = args.kwargs
+        bases = bases_tuple._.as_slice()
+        if not bases:
+            base = vm.ctx.types.object_type
+            bases = [base]
+        else:
+            # print([b.class_()._.name() for b in bases])
+            # FIXME
+            base = bases[0]
+            # raise NotImplementedError
+        attributes = dict_._.to_attributes()
+        # print(attributes.inner.keys())
+        # TODO!
+        slots = slot.PyTypeSlots.from_flags(
+            slot.PyTypeFlags.heap_type_flags() | slot.PyTypeFlags.HAS_DICT
+        )
+        try:
+            typ = PyType.new_verbose_ref(
+                name._.as_str(), base, bases, attributes, slots, metatype
+            )
+        except PyImplErrorStr as e:
+            vm.new_type_error(e.msg)
+        # TODO!
+        return typ
+
     @pyproperty()
     def get___qualname__(self, *, vm: VirtualMachine) -> PyObjectRef:
         v = self.attributes.get("__qualname__", None)
@@ -291,6 +335,7 @@ class PyType(
         # FIXME!
         if zelf.is_(vm.ctx.types.type_type) and len(args.args) == 1 and not args.kwargs:
             return args.args[0].class_()
+        # assert isinstance(zelf._, PyType), zelf._
         obj = call_slot_new(zelf, zelf, args, vm)
 
         if (
@@ -370,6 +415,10 @@ class PyType(
 
 
 PyTypeRef: TypeAlias = "PyRef[PyType]"
+
+
+def args_slot_new(name: PyStrRef, bases: PyTupleRef, dict: PyDictRef, **kwargs):
+    ...
 
 
 def call_slot_new(

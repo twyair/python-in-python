@@ -12,3 +12,10 @@
 - [ ] impl `vm.builtins.pyunion`
 - [ ] impl `collection_repr`
 - [ ] impl `ReprGuard`
+- [ ] make the following work:
+
+    ```python
+    pdebug(issubclass(TypeError, Exception))
+    pdebug(isinstance(TypeError(), Exception))
+    pdebug(TypeError.mro)
+    ```

@@ -1523,7 +1523,7 @@ class FormatValue(Instruction):
             assert False, self.conversion
 
         spec = frame.pop_value()
-        formatted = vm.call_special_method(value, "__format__", FuncArgs([spec]))
+        formatted = vm.call_special_method(value, "__format__", fn.FuncArgs([spec]))
         frame.push_value(formatted)
 
 

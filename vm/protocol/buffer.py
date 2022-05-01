@@ -45,6 +45,12 @@ class BufferDescriptor:
     format: str
     dim_desc: list[tuple[int, int, int]]
 
+    @staticmethod
+    def simple(len: int, readonly: bool) -> BufferDescriptor:
+        return BufferDescriptor(
+            len=len, readonly=readonly, itemsize=1, format="B", dim_desc=[(len, 1, 0)]
+        )
+
     def is_contiguous(self) -> bool:
         if self.len == 0:
             return True

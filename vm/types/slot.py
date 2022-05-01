@@ -94,6 +94,10 @@ class PyTypeFlags(enum.Flag):
     def default() -> PyTypeFlags:
         return PyTypeFlags.EMPTY
 
+    @staticmethod
+    def heap_type_flags() -> PyTypeFlags:
+        return PyTypeFlags.HEAPTYPE | PyTypeFlags.BASETYPE
+
     def has_feature(self, flag: PyTypeFlags):
         return flag in self
 
@@ -223,7 +227,7 @@ class GetAttrMixin(ABC):
         try:
             zelf = obj.downcast(cls)  # type: ignore FIXME
         except PyImplBase as _:
-            print(type(obj._), obj._, cls)
+            # print(type(obj._), obj._, cls)
             vm.new_type_error("unexpected payload for __getattribute__")
         else:
             return cls.getattro(zelf, name, vm)  # type: ignore FIXME
@@ -278,6 +282,18 @@ class SetAttrMixin(ABC):
     @classmethod
     def i__delattr__(cls, zelf: PyRef, name: PyStrRef, vm: VirtualMachine) -> None:
         cls.setattro(zelf, name, None, vm)
+
+
+class AsBufferMixin(ABC):
+    @pyslot
+    @classmethod
+    def slot_as_buffer(cls, zelf: PyObject, vm: VirtualMachine) -> PyBuffer:
+        return cls.as_buffer(zelf, vm)
+
+    @classmethod
+    @abstractmethod
+    def as_buffer(cls, zelf: PyRef, vm: VirtualMachine) -> PyBuffer:
+        ...
 
 
 # TODO: when intersection types are available change bound to `AsMappingMixin & PyValueMixin`
@@ -347,10 +363,12 @@ class CallableMixin(ABC):
     def slot_call(
         cls, zelf: PyObject, args: FuncArgs, vm: VirtualMachine
     ) -> PyObjectRef:
-        r = zelf.downcast_ref(cls)  # type: ignore FIXME?
-        if r is None:
-            vm.new_type_error("unexpected payload for __call__")
-        return cls.call(r, args, vm)  # type: ignore FIXME?
+        # FIXME!
+        # r = zelf.downcast_ref(cls)  # type: ignore FIXME?
+        # if r is None:
+        #     vm.new_type_error("unexpected payload for __call__")
+        # return cls.call(r, args, vm)  # type: ignore FIXME?
+        return cls.call(zelf, args, vm)
 
     @pymethod(False)
     @classmethod

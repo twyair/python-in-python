@@ -17,6 +17,7 @@ import vm.pyobject as po
 import vm.pyobjectrc as prc
 import vm.types.slot as slot
 
+import vm.builtins.tuple as pytuple
 import vm.builtins.iter as pyiter
 import vm.protocol.mapping as mapping
 import vm.protocol.sequence as sequence
@@ -140,7 +141,7 @@ class PyStr(
     def py_new(
         cls, class_: PyTypeRef, fargs: FuncArgs, /, vm: VirtualMachine
     ) -> prc.PyObjectRef:
-        args = fargs.bind(__str_args)
+        args = fargs.bind(args_str)
         object_: Optional[PyObjectRef] = args.arguments["object"]
         encoding: Optional[PyStrRef] = args.arguments["encoding"]
         errors: Optional[PyStrRef] = args.arguments["errors"]
@@ -257,14 +258,14 @@ class PyStr(
     # TODO: test
     @pymethod(False)
     def split(self, fargs: FuncArgs, *, vm: VirtualMachine) -> PyListRef:
-        sep, maxsplit = __split_args_make(fargs)
+        sep, maxsplit = args_split_make(fargs)
         return vm.ctx.new_list(
             [PyStr.from_str(s, vm.ctx) for s in self.value.split(sep, maxsplit)]
         )
 
     @pymethod(False)
     def rsplit(self, fargs: FuncArgs, *, vm: VirtualMachine) -> PyListRef:
-        sep, maxsplit = __split_args_make(fargs)
+        sep, maxsplit = args_split_make(fargs)
         return vm.ctx.new_list(
             [PyStr.from_str(s, vm.ctx) for s in self.value.rsplit(sep, maxsplit)]
         )
@@ -287,7 +288,17 @@ class PyStr(
 
     @pymethod(False)
     def startswith(self, fargs: FuncArgs, *, vm: VirtualMachine) -> bool:
-        raise NotImplementedError
+        if (opt := args_starts_ends_with_make(self, fargs)) is not None:
+            substr, prefix = opt
+        else:
+            return False
+        if (s := prefix.payload_(PyStr)) is not None:
+            return substr.startswith(s.as_str())
+        elif (s := prefix.payload_(pytuple.PyTuple)) is not None:
+            raise NotImplementedError
+        else:
+            # type error
+            raise NotImplementedError
 
     @pymethod(True)
     def removeprefix(self, pref: PyStrRef, /, *, vm: VirtualMachine) -> str:
@@ -487,7 +498,7 @@ class PyStr(
     def encode(
         zelf: PyRef[PyStr], fargs: FuncArgs, *, vm: VirtualMachine
     ) -> PyBytesRef:
-        args = fargs.bind(__encode_args).arguments
+        args = fargs.bind(args_encode).arguments
         return encode_string(zelf, args["encoding"], args["error"], vm)
 
 
@@ -495,12 +506,34 @@ class PyStr(
 PyStrRef: TypeAlias = "PyRef[PyStr]"
 
 
-def __split_args(sep: Optional[PyStrRef] = None, maxsplit: Optional[PyIntRef] = None):
+def args_starts_ends_with(
+    affix: PyObjectRef, start: Optional[PyIntRef] = None, end: Optional[PyIntRef] = None
+):
     ...
 
 
-def __split_args_make(fargs: FuncArgs) -> tuple[str, int]:
-    args = fargs.bind(__split_args).arguments
+def args_starts_ends_with_make(
+    s: PyStr, fargs: FuncArgs
+) -> Optional[tuple[str, PyObjectRef]]:
+    args = fargs.bind(args_starts_ends_with).arguments
+    start: Optional[int] = args["start"]
+    end: Optional[int] = args["end"]
+    len_ = s._len()
+    if start is None:
+        start = 0
+    if end is None:
+        end = len_
+    if not (0 <= start <= end <= len_):
+        return None
+    return s.as_str()[start:end], args["affix"]
+
+
+def args_split(sep: Optional[PyStrRef] = None, maxsplit: Optional[PyIntRef] = None):
+    ...
+
+
+def args_split_make(fargs: FuncArgs) -> tuple[str, int]:
+    args = fargs.bind(args_split).arguments
     if (s := args["sep"]) is not None:
         sep = s._.as_str()
     else:
@@ -512,7 +545,7 @@ def __split_args_make(fargs: FuncArgs) -> tuple[str, int]:
     return sep, maxsplit
 
 
-def __str_args(
+def args_str(
     object: Optional[PyObjectRef] = None,
     encoding: Optional[PyStrRef] = None,
     errors: Optional[PyStrRef] = None,
@@ -520,9 +553,7 @@ def __str_args(
     ...
 
 
-def __encode_args(
-    encoding: Optional[PyStrRef] = None, errors: Optional[PyStrRef] = None
-):
+def args_encode(encoding: Optional[PyStrRef] = None, errors: Optional[PyStrRef] = None):
     ...
 
 

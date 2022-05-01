@@ -107,7 +107,11 @@ class PyRef(Generic[PyRefT]):
     def get_attr(self, attr_name: PyStrRef, vm: VirtualMachine) -> PyObjectRef:
         getattro = self.class_()._.mro_find_map(lambda cls: cls.slots.getattro)
         # print("getattro", getattro)
-        assert getattro is not None
+        assert getattro is not None, (
+            self.class_()._.name(),
+            [c._.name() for c in self.class_()._.mro_],
+            [c._.slots.getattro is None for c in self.class_()._.mro_],
+        )
         return getattro(self, attr_name, vm)
 
     def set_dict(self, dict: PyDictRef) -> None:
@@ -367,11 +371,13 @@ class PyRef(Generic[PyRefT]):
         return self.class_()._.issubclass(cls)
 
     def is_instance(self, cls: PyObject, vm: VirtualMachine) -> bool:
+        import vm.builtins.tuple as pytuple
+
         if self.class_().is_(cls):
             return True
         if cls.class_().is_(vm.ctx.types.type_type):
             return self.abstract_isinstance(cls, vm)
-        if (tuple := PyTuple.try_from_object(vm, cls)) is not None:
+        if (tuple := pytuple.PyTuple.try_from_object(vm, cls)) is not None:
             for type in tuple._.as_slice():
                 if vm.with_recursion(
                     "in __instancecheck__", lambda: self.is_instance(type, vm)
@@ -382,7 +388,7 @@ class PyRef(Generic[PyRefT]):
         if (meth := vm.get_special_method(cls, "__instancecheck__")) is not None:
             ret = vm.with_recursion(
                 "in __instancecheck__",
-                lambda: meth.invoke(FuncArgs([self], OrderedDict()), vm),
+                lambda: meth.invoke(fn.FuncArgs([self]), vm),
             )
             return ret.try_to_bool(vm)
 
