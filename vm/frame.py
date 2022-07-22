@@ -304,7 +304,7 @@ class Frame(po.PyClassImpl):
 
     @pyproperty()
     def get_f_lineno(self, *, vm: VirtualMachine) -> int:
-        return self.current_location().row
+        return self.current_location().row()
 
     @pyproperty()
     def get_f_trace(self, *, vm: VirtualMachine) -> PyObjectRef:
@@ -393,7 +393,7 @@ class ExecutingFrame:
                 loc = self.code._.code.locations[idx]
                 next_ = e.exception._.traceback  # TODO
                 new_traceback = pytraceback.PyTraceback.new(
-                    next_, self.object, self.get_lasti(), loc.row
+                    next_, self.object, self.get_lasti(), loc.row()
                 )
                 e.exception._.traceback = new_traceback.into_ref(vm)
                 vm.contextualize_exception(e.exception)

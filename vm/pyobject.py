@@ -938,6 +938,11 @@ class PyMethod(ABC):
         #     drop(cls);
         #     return obj.get_attr(name, vm).map(Self::Attribute);
         # }
+        from vm.builtins.object import PyBaseObject
+
+        if getattro is not PyBaseObject.slot_getattro:
+            return PyMethodAttribute(obj.get_attr(name, vm))
+
         is_method = False
         if (descr := cls._.get_attr(name._.as_str())) is not None:
             descr_cls = descr.class_()

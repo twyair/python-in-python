@@ -3,11 +3,14 @@ from __future__ import annotations
 import enum
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from pathlib import Path
+import sys
 from typing import (
     Callable,
     NoReturn,
     Optional,
     Sequence,
+    Set,
     Type,
     TypeAlias,
     TypeVar,
@@ -15,6 +18,7 @@ from typing import (
 )
 
 from common import to_opt
+from vm.builtins.traceback import PyTraceback
 
 
 if TYPE_CHECKING:
@@ -176,6 +180,10 @@ class VirtualMachine:
         try:
             inner_init()
         except PyImplException as e:
+            traceback = e.exception._.traceback
+            while traceback is not None:
+                print(traceback._.lineno)
+                traceback = traceback._.next
             assert False, (
                 "initialization failed",
                 e,
@@ -1025,6 +1033,67 @@ class VirtualMachine:
                 return [get_repr(arg)]
         else:
             return [get_repr(a) for a in args]
+
+    def print_exception(self, exc: PyBaseExceptionRef) -> None:
+        # TODO
+        self._write_exception(sys.stderr, exc)
+
+    def _write_exception(self, output, exc: PyBaseExceptionRef) -> None:
+        self._write_exception_recursive(output, exc, set())
+
+    def _write_exception_recursive(
+        self, output, exc: PyBaseExceptionRef, seen: Set[int]
+    ) -> None:
+        seen.add(exc.get_id())
+        cause_or_context = exc._.cause or exc._.context
+        if cause_or_context is not None:
+            id_ = cause_or_context.get_id()
+            if id_ not in seen:
+                self._write_exception_recursive(output, cause_or_context, seen)
+                if exc._.cause is not None:
+                    output.write(
+                        "\nThe above exception was the direct cause of the following exception:\n\n"
+                    )
+                elif exc._.context is not None:
+                    output.write(
+                        "\nDuring handling of the above exception, another exception occurred:\n\n"
+                    )
+        self._write_exception_inner(output, exc)
+
+    def _write_exception_inner(self, output, exc: PyBaseExceptionRef) -> None:
+        if (tb := exc._.traceback) is not None:
+            output.write("Traceback (most recent call last):\n")
+            for tb in tb._:
+                self._write_traceback_entry(output, tb)
+
+        varargs = exc._.args
+        args_repr = self.exception_args_as_string(varargs, True)
+        exc_class = exc.class_()
+        exc_name = exc_class._.name()
+        match args_repr:
+            case []:
+                output.write(f"{exc_name}\n")
+            case [a]:
+                output.write(f"{exc_name}: {a._.value}\n")
+            case args:
+                output.write(f"{exc_name} ({', '.join(a._.value for a in args)})\n")
+
+    @staticmethod
+    def _write_traceback_entry(output, tb_entry: PyTraceback):
+        code = tb_entry.frame._.code._.code
+        filename = code.source_path._.value
+        obj_name = code.obj_name._.value
+        output.write(f'  File "{filename}", line {tb_entry.lineno}, in {obj_name}\n')
+        VirtualMachine._print_source_line(output, filename, tb_entry.lineno)
+
+    @staticmethod
+    def _print_source_line(output, filename: str, lineno: int) -> None:
+        path = Path(filename)
+        if not path.exists():
+            return
+        with path.open() as fh:
+            line = list(zip(fh, range(lineno)))[-1][0]
+        output.write(f"    {line.strip()}\n")
 
 
 R = TypeVar("R")

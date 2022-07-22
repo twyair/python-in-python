@@ -1,7 +1,6 @@
 from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
-from common import to_opt
 from common.error import PyImplBase
 
 from compiler.compile import CompileError
@@ -23,17 +22,16 @@ if TYPE_CHECKING:
 
 def init_importlib(vm: VirtualMachine, initialize_parameter: vm_.InitParameter) -> None:
 
-    # #[cfg(all(feature = "threading", not(target_os = "wasi")))]
-    # import_builtin(vm, "_thread")?;
-    # import_builtin(vm, "_warnings")
-    # import_builtin(vm, "_weakref")
+    import_builtin(vm, "_thread")
+    import_builtin(vm, "_warnings")
+    import_builtin(vm, "_weakref")
 
     def do() -> PyObjectRef:
         importlib = import_frozen(vm, "_frozen_importlib")
         impmod = import_builtin(vm, "_imp")
         install = importlib.get_attr(vm.ctx.new_str("_install"), vm)
         # FIXME
-        # vm.invoke(install, fn.FuncArgs([vm.sys_module, impmod]))
+        vm.invoke(install, fn.FuncArgs([vm.sys_module, impmod]))
         return importlib
 
     importlib = vm_.enter_vm(vm, do)

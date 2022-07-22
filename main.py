@@ -29,9 +29,11 @@ def repl(vm: VirtualMachine) -> None:
 
 def print_exception(exc: PyImplBase) -> None:
     if isinstance(exc, PyImplException):
-        if (tr := exc.exception._.traceback) is not None:
+        tr = exc.exception._.traceback
+        if tr is not None:
             print("TRACEBACK: line =", tr._.lineno)
-        name = str(exc.exception.class_()._.name())[2:]
+            tr = tr._.next
+        name = str(exc.exception.class_()._.name())
         print(f"{name}: ...")
     elif isinstance(exc, PyImplError):
         print(f"PyImplError: obj-type = {exc.obj.class_()._.name()}")
@@ -45,26 +47,18 @@ def do(vm: VirtualMachine) -> None:
         code_obj = vm.compile(
             prog,
             Mode.Exec,
-            "<embedded>",
+            "prog.py",
         )
     except CompileError as e:
         vm.new_syntax_error(e)
 
     try:
         vm.run_code_object(code_obj, scope)
-    except PyImplBase as e:
-        print_exception(e)
+    except PyImplException as e:
+        vm.print_exception(e.exception)
+    except PyImplError as e:
+        print(f"PyImplError: obj-type = {e.obj.class_()._.name()}")
         raise
-    # try:
-    #     repr_ = res.repr(vm)._.as_str()
-    # except PyImplBase as e:
-    #     print_exception(e)
-    #     raise
-
-    # print(
-    #     res.class_()._.name(),
-    #     repr_,
-    # )
 
 
 settings = PySettings(dont_write_bytecode=True, no_user_site=True)

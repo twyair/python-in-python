@@ -20,10 +20,10 @@ class Location:
     @staticmethod
     def from_ast(a: ast.AST, /) -> Location:
         return Location(
-            lineno=0,  # a.lineno,
-            end_lineno=0,  # a.end_lineno,
-            col_offset=0,  # a.col_offset,
-            end_col_offset=0,  # a.end_col_offset,
+            lineno=a.lineno,
+            end_lineno=a.end_lineno,
+            col_offset=a.col_offset,
+            end_col_offset=a.end_col_offset,
         )
 
     @staticmethod

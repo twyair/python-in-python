@@ -563,8 +563,10 @@ class PyRef(Generic[PyRefT]):
             vm.new_type_error(f"'{self.class_()}' does not support item assignment")
 
     def del_item(self, needle: PyObjectRef, vm: VirtualMachine) -> None:
+        from vm.builtins.dict import PyDict
+
         if dict_ := self.downcast_ref_if_exact(PyDict, vm):
-            return dict_.del_item(needle, vm)
+            return dict_._.del_item(needle, vm)
 
         mapping = PyMapping.from_pyobj(self)
         seq = PySequence.from_pyobj(self)

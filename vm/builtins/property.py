@@ -112,7 +112,7 @@ class PyProperty(po.PyClassImpl, slot.GetDescriptorMixin):
 
     @pymethod(True)
     @staticmethod
-    def r__getter__(
+    def r__getter(
         zelf: PyRef[PyProperty], getter: Optional[PyObjectRef], *, vm: VirtualMachine
     ) -> PyRef[PyProperty]:
         return PyProperty(
@@ -124,7 +124,7 @@ class PyProperty(po.PyClassImpl, slot.GetDescriptorMixin):
 
     @pymethod(True)
     @staticmethod
-    def r__setter__(
+    def r__setter(
         zelf: PyRef[PyProperty], setter: Optional[PyObjectRef], *, vm: VirtualMachine
     ) -> PyRef[PyProperty]:
         return PyProperty(
@@ -136,7 +136,7 @@ class PyProperty(po.PyClassImpl, slot.GetDescriptorMixin):
 
     @pymethod(True)
     @staticmethod
-    def r__deleter__(
+    def r__deleter(
         zelf: PyRef[PyProperty], deleter: Optional[PyObjectRef], *, vm: VirtualMachine
     ) -> PyRef[PyProperty]:
         return PyProperty(

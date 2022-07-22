@@ -5,18 +5,15 @@ import enum
 from dataclasses import dataclass
 from typing import (
     Any,
-    ClassVar,
     Generic,
     Optional,
-    Protocol,
-    Type,
     TypeVar,
     TYPE_CHECKING,
     Union,
 )
 
 from vm.builtins.pystr import PyStrRef
-
+from compiler.symboltable import Location
 
 if TYPE_CHECKING:
     from bytecode.instruction import Instruction, Label
@@ -24,12 +21,6 @@ if TYPE_CHECKING:
     from vm.pyobjectrc import PyObjectRef
     from vm.builtins.pystr import PyStrRef
     from vm.builtins.code import PyConstant
-
-
-@dataclass
-class Location:
-    row: int
-    column: int
 
 
 @dataclass

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, TypeAlias
+from typing import TYPE_CHECKING, Iterable, Iterator, Optional, TypeAlias
 
 if TYPE_CHECKING:
     from vm.builtins.pytype import PyTypeRef
@@ -31,6 +31,14 @@ class PyTraceback(po.PyClassImpl):
         next: Optional[PyRef[PyTraceback]], frame: FrameRef, lasti: int, lineno: int
     ) -> PyTraceback:
         return PyTraceback(next=next, frame=frame, lasti=lasti, lineno=lineno)
+
+    def __iter__(self) -> Iterator[PyTraceback]:
+        tb = self
+        while 1:
+            yield tb
+            if tb.next is None:
+                return
+            tb = tb.next._
 
 
 PyTracebackRef: TypeAlias = "PyRef[PyTraceback]"

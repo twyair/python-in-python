@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 import vm.builtins.pystr as pystr
 import vm.builtins.set as pyset
+import vm.builtins.dict as pydict
 import vm.frame as vm_frame
 import vm.pyobject as po
 import bytecode.bytecode as bytecode
@@ -678,7 +679,7 @@ class SetupAnnotation(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         try:
-            d = frame.locals.obj.downcast_exact(PyDict, vm)
+            d = frame.locals.obj.downcast_exact(pydict.PyDict, vm)
         except PyImplError as e:
             needle = vm.mk_str("__annotations__")
             has_annotations = frame._in(vm, needle, e.obj)
