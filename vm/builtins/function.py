@@ -251,11 +251,14 @@ class PyFunction(po.PyClassImpl, slot.CallableMixin, slot.GetDescriptorMixin):
                 if slot is not None:
                     continue
 
-                if (defaults := get_defaults()[1]) is not None:
-                    if (default := defaults._.get_item_opt(kwarg, vm)) is not None:
-                        fastlocals[code.arg_count + i] = default
-
-                vm.new_type_error(f"Missing required kw only argument: '{kwarg}'")
+                if (defaults := get_defaults()[1]) is not None and (
+                    default := defaults._.get_item_opt(kwarg, vm)
+                ) is not None:
+                    fastlocals[code.arg_count + i] = default
+                else:  # FIXME?
+                    vm.new_type_error(
+                        f"Missing required kw only argument: '{kwarg._.value}'"
+                    )
 
         if code.cell2arg is not None:
             for cell_idx, arg_idx in enumerate(code.cell2arg):

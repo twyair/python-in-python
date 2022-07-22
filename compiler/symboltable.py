@@ -464,7 +464,7 @@ class SymbolTableBuilder:
             if statement.cause is not None:
                 self.scan_expression(statement.cause, ExpressionContext.LOAD)
         else:
-            assert False
+            assert False, (statement, ast.unparse(statement))
 
     def scan_expressions(
         self, expressions: list[ast.expr], context: ExpressionContext

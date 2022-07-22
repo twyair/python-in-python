@@ -1,6 +1,8 @@
+from pathlib import Path
 from common.error import PyImplBase, PyImplError, PyImplException
 from compiler.compile import CompileError
 from compiler.mode import Mode
+from vm.builtins.int import PyInt
 from vm.vm import InitParameter, Interpreter, PySettings, VirtualMachine
 
 
@@ -37,7 +39,7 @@ def print_exception(exc: PyImplBase) -> None:
 
 def do(vm: VirtualMachine) -> None:
     scope = vm.new_scope_with_builtins()
-    with open("test_int.py") as f:
+    with open("prog.py") as f:
         prog = f.read()
     try:
         code_obj = vm.compile(
@@ -66,7 +68,11 @@ def do(vm: VirtualMachine) -> None:
 
 
 settings = PySettings(dont_write_bytecode=True, no_user_site=True)
-settings.path_list.append("/home/yair/workspace/RustPython/Lib/")
+settings.path_list.append(str((Path.cwd() / "cpython" / "Lib").resolve()))
 interpreter = Interpreter.new_with_init(settings, lambda vm: InitParameter.External)
 # Interpreter.default().enter(do)
-interpreter.enter(do)
+try:
+    interpreter.enter(do)
+except PyImplException as e:
+    print(e.exception.type._.name())
+    print(e.exception._.args._.fast_getitem(0).debug_repr())

@@ -32,7 +32,8 @@ def init_importlib(vm: VirtualMachine, initialize_parameter: vm_.InitParameter) 
         importlib = import_frozen(vm, "_frozen_importlib")
         impmod = import_builtin(vm, "_imp")
         install = importlib.get_attr(vm.ctx.new_str("_install"), vm)
-        vm.invoke(install, fn.FuncArgs([vm.sys_module, impmod]))
+        # FIXME
+        # vm.invoke(install, fn.FuncArgs([vm.sys_module, impmod]))
         return importlib
 
     importlib = vm_.enter_vm(vm, do)

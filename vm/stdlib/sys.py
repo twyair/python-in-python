@@ -93,27 +93,27 @@ class sys(po.PyModuleImpl):
     @pyattr
     @staticmethod
     def prefix(vm: VirtualMachine) -> str:
-        return option_env("RUSTPYTHON_PREFIX") or sys.default_prefix(vm)
+        return option_env("PYTHON_PREFIX") or sys.default_prefix(vm)
 
     @pyattr
     @staticmethod
     def base_prefix(vm: VirtualMachine) -> str:
-        return option_env("RUSTPYTHON_BASEPREFIX") or sys.prefix(vm)
+        return option_env("PYTHON_BASEPREFIX") or sys.prefix(vm)
 
     @pyattr
     @staticmethod
     def exec_prefix(vm: VirtualMachine) -> str:
-        return option_env("RUSTPYTHON_BASEPREFIX") or sys.prefix(vm)
+        return option_env("PYTHON_BASEPREFIX") or sys.prefix(vm)
 
     @pyattr
     @staticmethod
     def base_exec_prefix(vm: VirtualMachine) -> str:
-        return option_env("RUSTPYTHON_BASEPREFIX") or sys.exec_prefix(vm)
+        return option_env("PYTHON_BASEPREFIX") or sys.exec_prefix(vm)
 
     @pyattr
     @staticmethod
     def platlibdir(vm: VirtualMachine) -> str:
-        return option_env("RUSTPYTHON_PLATLIBDIR") or "lib"
+        return option_env("PYTHON_PLATLIBDIR") or "lib"
 
     @pyattr
     @staticmethod

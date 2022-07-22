@@ -175,8 +175,11 @@ class VirtualMachine:
 
         try:
             inner_init()
-        except PyImplException as _:
-            assert False, "initialization failed"
+        except PyImplException as e:
+            assert False, (
+                "initialization failed",
+                e,
+            )
 
         self.initialized = True
 

@@ -1843,9 +1843,9 @@ class Compiler:
         if self.done_with_future_stmts:
             self.error(CompileErrorType.INVALID_FUTURE_PLACEMENT, ())
         for feature in features:
-            if feature == "annotations":
-                pass
-            elif feature not in {
+            if feature.name == "annotations":
+                self.future_annotations = True
+            elif feature.name not in {
                 "nested_scopes",
                 "generators",
                 "division",
@@ -1854,7 +1854,7 @@ class Compiler:
                 "print_function",
                 "unicode_literals",
             }:
-                self.error(CompileErrorType.INVALID_FUTURE_FEATURE, (feature,))
+                self.error(CompileErrorType.INVALID_FUTURE_FEATURE, (feature.name,))
 
     def emit(self, instr: Instruction) -> None:
         location = compile_location(self.current_source_location)

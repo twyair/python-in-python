@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from genericpath import isfile
 from pathlib import Path
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional
@@ -41,7 +42,16 @@ class CompilationSourceFile(CompilationSource):
     value: Path
 
     def compile(self, mode: Mode, module_name: str) -> dict[str, code.FrozenModule]:
-        raise NotImplementedError
+        is_init = self.value.stem == "__init__"
+
+        return {
+            module_name: code.FrozenModule(
+                self.compile_string(
+                    self.value.read_text(), mode, module_name, lambda: "TODO"
+                ),
+                is_init,
+            )
+        }
 
 
 @dataclass
@@ -135,7 +145,19 @@ def get_module_inits() -> Iterable[tuple[str, code.FrozenModule]]:
         ls.extend(py_freeze(**kwargs))
 
     # ext_modules(source="initialized = True", module_name="__hello__")  # TODO?
-    ext_modules(dir="/home/yair/workspace/RustPython/vm/Lib/python_builtins/")
-    ext_modules(dir="/home/yair/workspace/RustPython/vm/Lib/core_modules/")
+    # ext_modules(dir="/home/yair/workspace/RustPython/vm/Lib/python_builtins/")  # FIXME
+    # ext_modules(dir="/home/yair/workspace/RustPython/vm/Lib/core_modules/")  # FIXME
+    lib = (Path.cwd() / "cpython" / "Lib").resolve()
+    paths = [
+        ("copyreg", lib / "copyreg.py"),
+        ("_frozen_importlib", lib / "importlib" / "_bootstrap.py"),
+        ("_frozen_importlib_external", lib / "importlib" / "_bootstrap_external.py"),
+    ]
+    for m, f in paths:
+        ext_modules(file=str(f), module_name=m)
+
+    # for f in lib.iterdir():
+    #     if f.is_file() and f.suffix == ".py":
+    #         ext_modules(file=str(f))
 
     return ls

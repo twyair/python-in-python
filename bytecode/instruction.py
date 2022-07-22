@@ -5,7 +5,6 @@ from collections import OrderedDict
 from typing import Optional, final, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
-# from bytecode.bytecode import CodeFlags
 from common.error import PyImplBase, PyImplError, PyImplException
 from vm.builtins.asyncgenerator import PyAsyncGenWrappedValue
 
@@ -13,7 +12,6 @@ if TYPE_CHECKING:
     from vm.builtins.coroutine import PyCoroutine
     from vm.builtins.dict import PyDict
     from vm.builtins.list import PyList
-    from vm.function_ import FuncArgs
     from vm.frame import ExecutingFrame, ExecutionResult
     from vm.vm import VirtualMachine
 
@@ -733,7 +731,7 @@ class WithCleanupStart(Instruction):
         else:
             args = [vm.ctx.get_none(), vm.ctx.get_none(), vm.ctx.get_none()]
 
-        exit_res = vm.invoke(exit, FuncArgs(args, OrderedDict()))
+        exit_res = vm.invoke(exit, fn.FuncArgs(args, OrderedDict()))
         frame.push_value(exit_res)
 
 
@@ -842,7 +840,7 @@ class GetAwaitable(Instruction):
                 "__await__",
                 lambda: f"object {awaited_obj.class_()._.name()} can't be used in 'await' expression",
             )
-            awaitable = vm.invoke(await_method, FuncArgs.empty())
+            awaitable = vm.invoke(await_method, fn.FuncArgs.empty())
         frame.push_value(awaitable)
 
 
@@ -858,7 +856,7 @@ class BeforeAsyncWith(Instruction):
         mgr = frame.pop_value()
         aexit = mgr.clone().get_attr(vm.mk_str("__aexit__"), vm)
         frame.push_value(aexit)
-        aenter_res = vm.call_special_method(mgr, "__aenter__", FuncArgs.empty())
+        aenter_res = vm.call_special_method(mgr, "__aenter__", fn.FuncArgs.empty())
         frame.push_value(aenter_res)
 
 
@@ -872,7 +870,7 @@ class GetAIter(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         aiterable = frame.pop_value()
-        aiter = vm.call_special_method(aiterable, "__aiter__", FuncArgs.empty())
+        aiter = vm.call_special_method(aiterable, "__aiter__", fn.FuncArgs.empty())
         frame.push_value(aiter)
 
 
@@ -886,9 +884,11 @@ class GetANext(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         aiter = frame.last_value()
-        awaitable = vm.call_special_method(aiter, "__anext__", FuncArgs.empty())
+        awaitable = vm.call_special_method(aiter, "__anext__", fn.FuncArgs.empty())
         if not awaitable.payload_is(PyCoroutine):
-            awaitable = vm.call_special_method(awaitable, "__await__", FuncArgs.empty())
+            awaitable = vm.call_special_method(
+                awaitable, "__await__", fn.FuncArgs.empty()
+            )
         frame.push_value(awaitable)
 
 
@@ -1266,7 +1266,7 @@ class SetupWith(Instruction, LabelArgMixin):
         frame.push_value(exit)
 
         enter_res = vm.call_special_method(
-            context_manager, "__enter__", FuncArgs.empty()
+            context_manager, "__enter__", fn.FuncArgs.empty()
         )
         frame.push_block(vm_frame.BlockFinally(self.target))
         frame.push_value(enter_res)
