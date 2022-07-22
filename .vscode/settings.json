@@ -17,4 +17,7 @@
     "workbench.startupEditor": "none",
     "workbench.colorTheme": "Default Dark+",
     "workbench.editor.highlightModifiedTabs": false,
+    "search.exclude": {
+        "cpython": true
+    },
 }
