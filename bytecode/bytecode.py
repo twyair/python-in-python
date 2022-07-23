@@ -23,15 +23,18 @@ if TYPE_CHECKING:
     from vm.builtins.code import PyConstant
 
 
-@dataclass
 class ConstantData(ABC):
-    def __eq__(self, rhs: ConstantData) -> bool:
-        assert (
-            isinstance(self, UnionConstantData)
-            and not isinstance(self, (ConstantDataNone, ConstantDataEllipsis))
-            and isinstance(rhs, UnionConstantData)
-            and not isinstance(rhs, (ConstantDataNone, ConstantDataEllipsis))
-        )
+    value: Any
+
+    def __eq__(self, rhs: object) -> bool:
+        # assert (
+        #     isinstance(self, UnionConstantData)
+        #     and not isinstance(self, (ConstantDataNone, ConstantDataEllipsis))
+        #     and isinstance(rhs, UnionConstantData)
+        #     and not isinstance(rhs, (ConstantDataNone, ConstantDataEllipsis))
+        # )
+        if not isinstance(rhs, ConstantData):
+            return NotImplemented
         if type(self) != type(rhs):
             return False
         return self.value == rhs.value
@@ -193,10 +196,12 @@ class CodeObject(Generic[C, NA]):
         )
 
     def label_targets(self) -> set[Label]:
+        from bytecode.instruction import LabelArgMixin
+
         targets = set()
         for instruction in self.instructions:
-            if (l := instruction.label_arg()) is not None:
-                targets.add(l)
+            if isinstance(instruction, LabelArgMixin):
+                targets.add(instruction.get_label())
         return targets
 
     # TODO: types

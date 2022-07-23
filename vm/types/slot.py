@@ -225,12 +225,12 @@ class GetAttrMixin(ABC):
         cls, obj: PyObjectRef, name: PyStrRef, vm: VirtualMachine
     ) -> PyObjectRef:
         try:
-            zelf = obj.downcast(cls)  # type: ignore FIXME
+            zelf = obj.downcast(cls)  # type: ignore
         except PyImplBase as _:
             # print(type(obj._), obj._, cls)
             vm.new_type_error("unexpected payload for __getattribute__")
         else:
-            return cls.getattro(zelf, name, vm)  # type: ignore FIXME
+            return cls.getattro(zelf, name, vm)  # type: ignore
 
     @pymethod(True)
     @classmethod
@@ -266,8 +266,8 @@ class SetAttrMixin(ABC):
         value: Optional[PyObjectRef],
         vm: VirtualMachine,
     ) -> None:
-        if (zelf := obj.downcast_ref(cls)) is not None:  # type: ignore FIXME
-            cls.setattro(zelf, name, value, vm)  # type: ignore FIXME
+        if (zelf := obj.downcast_ref(cls)) is not None:  # type: ignore
+            cls.setattro(zelf, name, value, vm)  # type: ignore
         else:
             vm.new_type_error("unexpected payload for __setattr__")
 
@@ -338,11 +338,11 @@ class IterableMixin(ABC):
     @classmethod
     def slot_iter(cls, zelf: PyObjectRef, vm: VirtualMachine) -> PyObjectRef:
         try:
-            r = zelf.downcast(cls)  # type: ignore FIXME?
+            r = zelf.downcast(cls)  # type: ignore
         except PyImplException as _:
             vm.new_type_error("unexpected payload for __iter__")
         else:
-            return cls.iter(r, vm)  # type: ignore FIXME?
+            return cls.iter(r, vm)  # type: ignore
 
 
 # TODO: when intersection types are available change bound to `AsMappingMixin & PyValueMixin`
@@ -364,10 +364,10 @@ class CallableMixin(ABC):
         cls, zelf: PyObject, args: FuncArgs, vm: VirtualMachine
     ) -> PyObjectRef:
         # FIXME!
-        # r = zelf.downcast_ref(cls)  # type: ignore FIXME?
+        # r = zelf.downcast_ref(cls)  # type: ignore
         # if r is None:
         #     vm.new_type_error("unexpected payload for __call__")
-        # return cls.call(r, args, vm)  # type: ignore FIXME?
+        # return cls.call(r, args, vm)  # type: ignore
         return cls.call(zelf, args, vm)
 
     @pymethod(False)
@@ -433,7 +433,7 @@ class AsMappingMixin(ABC):
     def mapping_downcast(
         cls: Type[AsMappingT], mapping: PyMapping
     ) -> PyRef[AsMappingT]:
-        return mapping.obj.downcast_unchecked_ref(cls)  # type: ignore :(
+        return mapping.obj.downcast_unchecked_ref(cls)  # type: ignore
 
 
 HashableT = TypeVar("HashableT", contravariant=True, bound="HashableMixin")

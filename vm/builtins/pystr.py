@@ -152,7 +152,7 @@ class PyStr(
                     object_, encoding._.as_str(), errors, vm
                 )
             else:
-                string = object_.str(vm)
+                string = object_.str_(vm)
         else:
             string = PyStr("").into_ref_with_type(vm, class_)
 
@@ -334,6 +334,8 @@ class PyStr(
 
     @pymethod(False)
     def format(self, fargs: FuncArgs, *, vm: VirtualMachine) -> str:
+        # FIXME
+        return self.value
         raise NotImplementedError
 
     @pymethod(True)

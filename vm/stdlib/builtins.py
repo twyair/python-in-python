@@ -452,7 +452,8 @@ class builtins(po.PyModuleImpl):
 
         classcell = to_opt(
             lambda: pyfunction_.PyCell.try_from_object(
-                vm, function._.invoke_with_locals(fn.FuncArgs(), namespace_mapping, vm)
+                vm,
+                function._.invoke_with_locals(fn.FuncArgs(), namespace_mapping, vm),
             )
         )
 

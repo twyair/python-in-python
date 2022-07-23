@@ -653,9 +653,7 @@ class ExceptionCtorInstance(ExceptionCtor):
 #         return vm.ctx.exceptions.system_exit
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception(
-    "SystemExit", "PyBaseException", "Request to exit from the interpreter."
-)
+@po.pyexception("SystemExit", PyBaseException, "Request to exit from the interpreter.")
 @dataclass
 class PySystemExit(po.PyClassImpl):
     @classmethod
@@ -665,7 +663,7 @@ class PySystemExit(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("GeneratorExit", "PyBaseException", "Request that a generator exit.")
+@po.pyexception("GeneratorExit", PyBaseException, "Request that a generator exit.")
 @dataclass
 class PyGeneratorExit(po.PyClassImpl):
     @classmethod
@@ -675,7 +673,7 @@ class PyGeneratorExit(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("KeyboardInterrupt", "PyBaseException", "Program interrupted by user.")
+@po.pyexception("KeyboardInterrupt", PyBaseException, "Program interrupted by user.")
 @dataclass
 class PyKeyboardInterrupt(po.PyClassImpl):
     @classmethod
@@ -686,7 +684,7 @@ class PyKeyboardInterrupt(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "Exception", "PyBaseException", "Common base class for all non-exit exceptions."
+    "Exception", PyBaseException, "Common base class for all non-exit exceptions."
 )
 @dataclass
 class PyException(po.PyClassImpl):
@@ -698,7 +696,7 @@ class PyException(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "StopIteration", "PyException", "Signal the end from iterator.__next__()."
+    "StopIteration", PyException, "Signal the end from iterator.__next__()."
 )
 @dataclass
 class PyStopIteration(po.PyClassImpl):
@@ -710,7 +708,7 @@ class PyStopIteration(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "StopAsyncIteration", "PyException", "Signal the end from iterator.__anext__()."
+    "StopAsyncIteration", PyException, "Signal the end from iterator.__anext__()."
 )
 @dataclass
 class PyStopAsyncIteration(po.PyClassImpl):
@@ -721,7 +719,7 @@ class PyStopAsyncIteration(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ArithmeticError", "PyException", "Base class for arithmetic errors.")
+@po.pyexception("ArithmeticError", PyException, "Base class for arithmetic errors.")
 @dataclass
 class PyArithmeticError(po.PyClassImpl):
     @classmethod
@@ -732,7 +730,7 @@ class PyArithmeticError(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "FloatingPointError", "PyArithmeticError", "Floating point operation failed."
+    "FloatingPointError", PyArithmeticError, "Floating point operation failed."
 )
 @dataclass
 class PyFloatingPointError(po.PyClassImpl):
@@ -744,7 +742,7 @@ class PyFloatingPointError(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "OverflowError", "PyArithmeticError", "Result too large to be represented."
+    "OverflowError", PyArithmeticError, "Result too large to be represented."
 )
 @dataclass
 class PyOverflowError(po.PyClassImpl):
@@ -757,7 +755,7 @@ class PyOverflowError(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "ZeroDivisionError",
-    "PyArithmeticError",
+    PyArithmeticError,
     "Second argument to a division or modulo operation was zero.",
 )
 @dataclass
@@ -769,7 +767,7 @@ class PyZeroDivisionError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("AssertionError", "PyException", "Assertion failed.")
+@po.pyexception("AssertionError", PyException, "Assertion failed.")
 @dataclass
 class PyAssertionError(po.PyClassImpl):
     @classmethod
@@ -779,7 +777,7 @@ class PyAssertionError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("AttributeError", "PyException", "Attribute not found.")
+@po.pyexception("AttributeError", PyException, "Attribute not found.")
 @dataclass
 class PyAttributeError(po.PyClassImpl):
     @classmethod
@@ -789,7 +787,7 @@ class PyAttributeError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("BufferError", "PyException", "Buffer error.")
+@po.pyexception("BufferError", PyException, "Buffer error.")
 @dataclass
 class PyBufferError(po.PyClassImpl):
     @classmethod
@@ -799,7 +797,7 @@ class PyBufferError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("EOFError", "PyException", "Read beyond end of file.")
+@po.pyexception("EOFError", PyException, "Read beyond end of file.")
 @dataclass
 class PyEOFError(po.PyClassImpl):
     @classmethod
@@ -814,7 +812,7 @@ class PyEOFError(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "ImportError",
-    "PyException",
+    PyException,
     "Import can't find module, or can't find name in module.",
 )
 @dataclass
@@ -850,7 +848,7 @@ class PyImportError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ModuleNotFoundError", "PyImportError", "Module not found.")
+@po.pyexception("ModuleNotFoundError", PyImportError, "Module not found.")
 @dataclass
 class PyModuleNotFoundError(po.PyClassImpl):
     @classmethod
@@ -860,7 +858,7 @@ class PyModuleNotFoundError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("LookupError", "PyException", "Base class for lookup errors.")
+@po.pyexception("LookupError", PyException, "Base class for lookup errors.")
 @dataclass
 class PyLookupError(po.PyClassImpl):
     @classmethod
@@ -870,7 +868,7 @@ class PyLookupError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("IndexError", "PyLookupError", "Sequence index out of range.")
+@po.pyexception("IndexError", PyLookupError, "Sequence index out of range.")
 @dataclass
 class PyIndexError(po.PyClassImpl):
     @classmethod
@@ -880,7 +878,7 @@ class PyIndexError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("KeyError", "PyLookupError", "Mapping key not found.")
+@po.pyexception("KeyError", PyLookupError, "Mapping key not found.")
 @dataclass
 class PyKeyError(po.PyClassImpl):
     @classmethod
@@ -890,7 +888,7 @@ class PyKeyError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("MemoryError", "PyException", "Out of memory.")
+@po.pyexception("MemoryError", PyException, "Out of memory.")
 @dataclass
 class PyMemoryError(po.PyClassImpl):
     @classmethod
@@ -900,7 +898,7 @@ class PyMemoryError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("NameError", "PyException", "Name not found globally.")
+@po.pyexception("NameError", PyException, "Name not found globally.")
 @dataclass
 class PyNameError(po.PyClassImpl):
     @classmethod
@@ -912,7 +910,7 @@ class PyNameError(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "UnboundLocalError",
-    "PyNameError",
+    PyNameError,
     "Local name referenced but not bound to a value.",
 )
 @dataclass
@@ -924,7 +922,7 @@ class PyUnboundLocalError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("OSError", "PyException", "Base class for I/O related errors.")
+@po.pyexception("OSError", PyException, "Base class for I/O related errors.")
 @dataclass
 class PyOSError(po.PyClassImpl):
     @classmethod
@@ -981,7 +979,7 @@ class PyOSError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("BlockingIOError", "PyOSError", "I/O operation would block.")
+@po.pyexception("BlockingIOError", PyOSError, "I/O operation would block.")
 @dataclass
 class PyBlockingIOError(po.PyClassImpl):
     @classmethod
@@ -991,7 +989,7 @@ class PyBlockingIOError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ChildProcessError", "PyOSError", "Child process error.")
+@po.pyexception("ChildProcessError", PyOSError, "Child process error.")
 @dataclass
 class PyChildProcessError(po.PyClassImpl):
     @classmethod
@@ -1001,7 +999,7 @@ class PyChildProcessError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ConnectionError", "PyOSError", "Connection error.")
+@po.pyexception("ConnectionError", PyOSError, "Connection error.")
 @dataclass
 class PyConnectionError(po.PyClassImpl):
     @classmethod
@@ -1011,7 +1009,7 @@ class PyConnectionError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("BrokenPipeError", "PyConnectionError", "Broken pipe.")
+@po.pyexception("BrokenPipeError", PyConnectionError, "Broken pipe.")
 @dataclass
 class PyBrokenPipeError(po.PyClassImpl):
     @classmethod
@@ -1021,7 +1019,7 @@ class PyBrokenPipeError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ConnectionAbortedError", "PyConnectionError", "Connection aborted.")
+@po.pyexception("ConnectionAbortedError", PyConnectionError, "Connection aborted.")
 @dataclass
 class PyConnectionAbortedError(po.PyClassImpl):
     @classmethod
@@ -1031,7 +1029,7 @@ class PyConnectionAbortedError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ConnectionRefusedError", "PyConnectionError", "Connection refused.")
+@po.pyexception("ConnectionRefusedError", PyConnectionError, "Connection refused.")
 @dataclass
 class PyConnectionRefusedError(po.PyClassImpl):
     @classmethod
@@ -1041,7 +1039,7 @@ class PyConnectionRefusedError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ConnectionResetError", "PyConnectionError", "Connection reset.")
+@po.pyexception("ConnectionResetError", PyConnectionError, "Connection reset.")
 @dataclass
 class PyConnectionResetError(po.PyClassImpl):
     @classmethod
@@ -1051,7 +1049,7 @@ class PyConnectionResetError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("FileExistsError", "PyOSError", "File already exists.")
+@po.pyexception("FileExistsError", PyOSError, "File already exists.")
 @dataclass
 class PyFileExistsError(po.PyClassImpl):
     @classmethod
@@ -1061,7 +1059,7 @@ class PyFileExistsError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("FileNotFoundError", "PyOSError", "File not found.")
+@po.pyexception("FileNotFoundError", PyOSError, "File not found.")
 @dataclass
 class PyFileNotFoundError(po.PyClassImpl):
     @classmethod
@@ -1071,7 +1069,7 @@ class PyFileNotFoundError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("InterruptedError", "PyOSError", "Interrupted by signal.")
+@po.pyexception("InterruptedError", PyOSError, "Interrupted by signal.")
 @dataclass
 class PyInterruptedError(po.PyClassImpl):
     @classmethod
@@ -1082,7 +1080,7 @@ class PyInterruptedError(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "IsADirectoryError", "PyOSError", "Operation doesn't work on directories."
+    "IsADirectoryError", PyOSError, "Operation doesn't work on directories."
 )
 @dataclass
 class PyIsADirectoryError(po.PyClassImpl):
@@ -1093,9 +1091,7 @@ class PyIsADirectoryError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception(
-    "NotADirectoryError", "PyOSError", "Operation only works on directories."
-)
+@po.pyexception("NotADirectoryError", PyOSError, "Operation only works on directories.")
 @dataclass
 class PyNotADirectoryError(po.PyClassImpl):
     @classmethod
@@ -1105,7 +1101,7 @@ class PyNotADirectoryError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("PermissionError", "PyOSError", "Not enough permissions.")
+@po.pyexception("PermissionError", PyOSError, "Not enough permissions.")
 @dataclass
 class PyPermissionError(po.PyClassImpl):
     @classmethod
@@ -1115,7 +1111,7 @@ class PyPermissionError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("ProcessLookupError", "PyOSError", "Process not found.")
+@po.pyexception("ProcessLookupError", PyOSError, "Process not found.")
 @dataclass
 class PyProcessLookupError(po.PyClassImpl):
     @classmethod
@@ -1125,7 +1121,7 @@ class PyProcessLookupError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("TimeoutError", "PyOSError", "Timeout expired.")
+@po.pyexception("TimeoutError", PyOSError, "Timeout expired.")
 @dataclass
 class PyTimeoutError(po.PyClassImpl):
     @classmethod
@@ -1136,7 +1132,7 @@ class PyTimeoutError(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "ReferenceError", "PyException", "Weak ref proxy used after referent went away."
+    "ReferenceError", PyException, "Weak ref proxy used after referent went away."
 )
 @dataclass
 class PyReferenceError(po.PyClassImpl):
@@ -1147,7 +1143,7 @@ class PyReferenceError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("RuntimeError", "PyException", "Unspecified run-time error.")
+@po.pyexception("RuntimeError", PyException, "Unspecified run-time error.")
 @dataclass
 class PyRuntimeError(po.PyClassImpl):
     @classmethod
@@ -1159,7 +1155,7 @@ class PyRuntimeError(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "NotImplementedError",
-    "PyRuntimeError",
+    PyRuntimeError,
     "Method or function hasn't been implemented yet.",
 )
 @dataclass
@@ -1171,7 +1167,7 @@ class PyNotImplementedError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("RecursionError", "PyRuntimeError", "Recursion limit exceeded.")
+@po.pyexception("RecursionError", PyRuntimeError, "Recursion limit exceeded.")
 @dataclass
 class PyRecursionError(po.PyClassImpl):
     @classmethod
@@ -1181,7 +1177,7 @@ class PyRecursionError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("SyntaxError", "PyException", "Invalid syntax.")
+@po.pyexception("SyntaxError", PyException, "Invalid syntax.")
 @dataclass
 class PySyntaxError(po.PyClassImpl):
     @classmethod
@@ -1191,7 +1187,7 @@ class PySyntaxError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("IndentationError", "PySyntaxError", "Improper indentation.")
+@po.pyexception("IndentationError", PySyntaxError, "Improper indentation.")
 @dataclass
 class PyIndentationError(po.PyClassImpl):
     @classmethod
@@ -1201,9 +1197,7 @@ class PyIndentationError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception(
-    "TabError", "PyIndentationError", "Improper mixture of spaces and tabs."
-)
+@po.pyexception("TabError", PyIndentationError, "Improper mixture of spaces and tabs.")
 @dataclass
 class PyTabError(po.PyClassImpl):
     @classmethod
@@ -1215,7 +1209,7 @@ class PyTabError(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "SystemError",
-    "PyException",
+    PyException,
     "Internal error in the Python interpreter.\n\nPlease report this to the Python maintainer, along with the traceback,\nthe Python version, and the hardware/OS platform and version.",
 )
 @dataclass
@@ -1227,7 +1221,7 @@ class PySystemError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("TypeError", "PyException", "Inappropriate argument type.")
+@po.pyexception("TypeError", PyException, "Inappropriate argument type.")
 @dataclass
 class PyTypeError(po.PyClassImpl):
     @classmethod
@@ -1238,7 +1232,7 @@ class PyTypeError(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "ValueError", "PyException", "Inappropriate argument value (of correct type)."
+    "ValueError", PyException, "Inappropriate argument value (of correct type)."
 )
 @dataclass
 class PyValueError(po.PyClassImpl):
@@ -1249,7 +1243,7 @@ class PyValueError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("UnicodeError", "PyValueError", "Unicode related error.")
+@po.pyexception("UnicodeError", PyValueError, "Unicode related error.")
 @dataclass
 class PyUnicodeError(po.PyClassImpl):
     @classmethod
@@ -1259,7 +1253,7 @@ class PyUnicodeError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("UnicodeDecodeError", "PyUnicodeError", "Unicode decoding error.")
+@po.pyexception("UnicodeDecodeError", PyUnicodeError, "Unicode decoding error.")
 @dataclass
 class PyUnicodeDecodeError(po.PyClassImpl):
     @classmethod
@@ -1269,7 +1263,7 @@ class PyUnicodeDecodeError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("UnicodeEncodeError", "PyUnicodeError", "Unicode encoding error.")
+@po.pyexception("UnicodeEncodeError", PyUnicodeError, "Unicode encoding error.")
 @dataclass
 class PyUnicodeEncodeError(po.PyClassImpl):
     @classmethod
@@ -1279,7 +1273,7 @@ class PyUnicodeEncodeError(po.PyClassImpl):
 
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("UnicodeTranslateError", "PyUnicodeError", "Unicode translation error.")
+@po.pyexception("UnicodeTranslateError", PyUnicodeError, "Unicode translation error.")
 @dataclass
 class PyUnicodeTranslateError(po.PyClassImpl):
     @classmethod
@@ -1298,7 +1292,7 @@ class PyUnicodeTranslateError(po.PyClassImpl):
 # // Warnings
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
-@po.pyexception("Warning", "PyException", "Base class for warning categories.")
+@po.pyexception("Warning", PyException, "Base class for warning categories.")
 @dataclass
 class PyWarning(po.PyClassImpl):
     @classmethod
@@ -1310,7 +1304,7 @@ class PyWarning(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "DeprecationWarning",
-    "PyWarning",
+    PyWarning,
     "Base class for warnings about deprecated features.",
 )
 @dataclass
@@ -1324,7 +1318,7 @@ class PyDeprecationWarning(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "PendingDeprecationWarning",
-    "PyWarning",
+    PyWarning,
     "Base class for warnings about features which will be deprecated\nin the future.",
 )
 @dataclass
@@ -1338,7 +1332,7 @@ class PyPendingDeprecationWarning(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "RuntimeWarning",
-    "PyWarning",
+    PyWarning,
     "Base class for warnings about dubious runtime behavior.",
 )
 @dataclass
@@ -1351,7 +1345,7 @@ class PyRuntimeWarning(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "SyntaxWarning", "PyWarning", "Base class for warnings about dubious syntax."
+    "SyntaxWarning", PyWarning, "Base class for warnings about dubious syntax."
 )
 @dataclass
 class PySyntaxWarning(po.PyClassImpl):
@@ -1363,7 +1357,7 @@ class PySyntaxWarning(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "UserWarning", "PyWarning", "Base class for warnings generated by user code."
+    "UserWarning", PyWarning, "Base class for warnings generated by user code."
 )
 @dataclass
 class PyUserWarning(po.PyClassImpl):
@@ -1376,7 +1370,7 @@ class PyUserWarning(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "FutureWarning",
-    "PyWarning",
+    PyWarning,
     "Base class for warnings about constructs that will change semantically\nin the future.",
 )
 @dataclass
@@ -1390,7 +1384,7 @@ class PyFutureWarning(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "ImportWarning",
-    "PyWarning",
+    PyWarning,
     "Base class for warnings about probable mistakes in module imports.",
 )
 @dataclass
@@ -1404,7 +1398,7 @@ class PyImportWarning(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "UnicodeWarning",
-    "PyWarning",
+    PyWarning,
     "Base class for warnings about Unicode related problems, mostly\nrelated to conversion problems.",
 )
 @dataclass
@@ -1418,7 +1412,7 @@ class PyUnicodeWarning(po.PyClassImpl):
 @po.pyimpl()
 @po.pyexception(
     "BytesWarning",
-    "PyWarning",
+    PyWarning,
     "Base class for warnings about bytes and buffer related problems, mostly\nrelated to conversion from str or comparing to str.",
 )
 @dataclass
@@ -1431,7 +1425,7 @@ class PyBytesWarning(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "ResourceWarning", "PyWarning", "Base class for warnings about resource usage."
+    "ResourceWarning", PyWarning, "Base class for warnings about resource usage."
 )
 @dataclass
 class PyResourceWarning(po.PyClassImpl):
@@ -1443,7 +1437,7 @@ class PyResourceWarning(po.PyClassImpl):
 @po.tp_flags(basetype=True, has_dict=True)
 @po.pyimpl()
 @po.pyexception(
-    "EncodingWarning", "PyWarning", "Base class for warnings about encodings."
+    "EncodingWarning", PyWarning, "Base class for warnings about encodings."
 )
 @dataclass
 class PyEncodingWarning(po.PyClassImpl):

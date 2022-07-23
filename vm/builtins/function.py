@@ -26,7 +26,7 @@ import vm.builtins.generator as pygenerator
 import vm.builtins.coroutine as pycoroutine
 import bytecode.bytecode as bytecode
 from common.deco import pymethod, pyproperty
-from common.error import PyImplBase
+from common.error import PE, Ok, PyImplBase, Result
 
 
 @po.pyimpl(constructor=True)

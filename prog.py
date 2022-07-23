@@ -22,6 +22,12 @@ class TestCase:
     def method(cls, a: int) -> int:
         return a * 2
 
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        return True
+
 
 pdebug(TestCase)
 pdebug(TestCase())
@@ -39,4 +45,25 @@ pdebug(t(222))
 pdebug(TestCase.method)
 pdebug(TestCase.method(2))
 
-4 + ""
+
+def foo():
+    try:
+        while True:
+            with TestCase():
+                pdebug("count")
+                if True:
+                    pdebug("out")
+                    return True
+            pdebug("sdsd")
+    finally:
+        pass
+
+
+foo()
+
+x = 5
+x += 9
+
+pdebug(issubclass(bool, int))
+
+raise ModuleNotFoundError()

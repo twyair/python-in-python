@@ -12,10 +12,11 @@ from typing import (
     TypeVar,
     final,
 )
-from common import debug_repr
 
 if TYPE_CHECKING:
-    from bytecode.bytecode import CodeFlags, Label, Location
+    from bytecode.bytecode import CodeFlags
+    from compiler.symboltable import Location
+    from bytecode.instruction import Label
 
     from vm.builtins.dict import PyDict, PyDictRef
 
@@ -376,6 +377,7 @@ class ExecutingFrame:
     def run(self, vm: VirtualMachine) -> ExecutionResult:
         instrs = self.code._.code.instructions
         # print(instrs)
+        print(self.code._.code.obj_name._.value, self.code._.code.source_path._.value)
         while 1:
             idx = self.get_lasti()
             self.update_lasti(lambda i: i + 1)
@@ -490,8 +492,7 @@ class ExecutingFrame:
                 k = pystr.PyStr.try_from_object(vm, k)
                 if filter_pred(k._.as_str()):
                     self.locals.mapping().ass_subscript_(k, v, vm)
-        else:
-            return None
+        return None
 
     def unwind_blocks(self, vm: VirtualMachine, reason: UnwindReason) -> FrameResult:
         while (block := self.current_block()) is not None:
@@ -543,17 +544,20 @@ class ExecutingFrame:
         parent = self.pop_value()
         obj = parent.get_attr(vm.mk_str(attr_name), vm)
         self.push_value(obj)
+        return None
 
     def store_attr(self, vm: VirtualMachine, attr: instruction.NameIdx) -> FrameResult:
         attr_name = self._get_name(attr)
         parent = self.pop_value()
         value = self.pop_value()
         parent.set_attr(vm.mk_str(attr_name), value, vm)
+        return None
 
     def delete_attr(self, vm: VirtualMachine, attr: instruction.NameIdx) -> FrameResult:
         attr_name = self._get_name(attr)
         parent = self.pop_value()
         parent.del_attr(vm.mk_str(attr_name), vm)
+        return None
 
     def push_block(self, type: BlockType) -> None:
         self.state.blocks.append(Block(type, len(self.state.stack)))
@@ -576,7 +580,6 @@ class ExecutingFrame:
         if len(self.state.stack) >= self.code._.code.max_stacksize:
             self.fatal("tried to push value onto stack but overflowed max_stacksize")
         self.state.stack.append(obj)
-        # print([debug_repr(x) for x in self.state.stack])
 
     def pop_value(self) -> PyObjectRef:
         return self.state.stack.pop()
@@ -603,23 +606,27 @@ class ExecutingFrame:
     def execute_rotate(self, amount: int) -> FrameResult:
         self.state.stack[-amount:-amount] = [self.state.stack[-1]]
         self.state.stack.pop()
+        return None
 
     def execute_subscript(self, vm: VirtualMachine) -> FrameResult:
         b_ref = self.pop_value()
         a_ref = self.pop_value()
         value = a_ref.get_item(b_ref, vm)
         self.push_value(value)
+        return None
 
     def execute_store_subscript(self, vm: VirtualMachine) -> FrameResult:
         idx = self.pop_value()
         obj = self.pop_value()
         value = self.pop_value()
         obj.set_item(idx, value, vm)
+        return None
 
     def execute_delete_subscript(self, vm: VirtualMachine) -> FrameResult:
         idx = self.pop_value()
         obj = self.pop_value()
         obj.del_item(idx, vm)
+        return None
 
     def execute_build_map(
         self, vm: VirtualMachine, size: int, unpack: bool, for_call: bool
@@ -646,6 +653,7 @@ class ExecutingFrame:
             for key, value in zip(objs[::2], objs[1::2]):
                 map_obj.set_item(key, value, vm)
         self.push_value(map_obj.into_pyobj(vm))
+        return None
 
     def execute_build_slice(self, vm: VirtualMachine, step: bool) -> FrameResult:
         step_ = self.pop_value() if step else None
@@ -658,6 +666,7 @@ class ExecutingFrame:
             None,
         )
         self.push_value(obj)
+        return None
 
     def collect_positional_args(self, nargs: int) -> FuncArgs:
         return fn.FuncArgs(args=self.pop_multiple(nargs), kwargs=OrderedDict())
@@ -665,8 +674,9 @@ class ExecutingFrame:
     def collect_keyword_args(self, nargs: int) -> FuncArgs:
         kwarg_names = self.pop_value().downcast(pytuple.PyTuple)
         args = self.pop_multiple(nargs)
-        kwarg_names = [pyobj._.as_str() for pyobj in kwarg_names._.elements]
-        return fn.FuncArgs.with_kwargs_names(args, kwarg_names)
+        return fn.FuncArgs.with_kwargs_names(
+            args, [pyobj._.as_str() for pyobj in kwarg_names._.elements]
+        )
 
     def collect_ex_args(self, vm: VirtualMachine, has_kwargs: bool) -> FuncArgs:
         kwargs = OrderedDict()
@@ -677,10 +687,10 @@ class ExecutingFrame:
                 vm.new_type_error("Kwargs must be a dict.")
             # // TODO: check collections.abc.Mapping
             for key, value in kw_dict._.entries.items():
-                key = key.payload_if_subclass(pystr.PyStr, vm)
-                if key is None:
+                key_ = key.payload_if_subclass(pystr.PyStr, vm)
+                if key_ is None:
                     vm.new_type_error("keywords must be strings")
-                kwargs[key.as_str()] = value
+                kwargs[key_.as_str()] = value
         args = vm.extract_elements_as_pyobjects(self.pop_value())
         return fn.FuncArgs(args, kwargs)
 
@@ -688,17 +698,20 @@ class ExecutingFrame:
         func_ref = self.pop_value()
         value = vm.invoke(func_ref, args)
         self.push_value(value)
+        return None
 
     def execute_method_call(self, args: FuncArgs, vm: VirtualMachine) -> FrameResult:
         func = self.pop_value()
         is_method = self.pop_value().is_(vm.ctx.true_value)
         target = self.pop_value()
+        method: po.PyMethod
         if is_method:
             method = po.PyMethodFunction(target=target, func=func)
         else:
             method = po.PyMethodAttribute(func)
         value = method.invoke(args, vm)
         self.push_value(value)
+        return None
 
     def execute_raise(
         self, vm: VirtualMachine, kind: bytecode.RaiseKind
@@ -772,7 +785,9 @@ class ExecutingFrame:
     def execute_for_iter(
         self, vm: VirtualMachine, target: Label
     ) -> Optional[ExecutionResult]:
-        top_of_stack = viter.PyIter.new(self.last_value(), None)
+        top_of_stack: viter.PyIter[PyObjectRef] = viter.PyIter.new(
+            self.last_value(), None
+        )
         # top_of_stack = viter.PyIter.try_from_object(vm, self.last_value())  # FIXME?
 
         try:
@@ -794,7 +809,8 @@ class ExecutingFrame:
             self.pop_value()
             self.jump(target)
         else:
-            assert False, debug_repr(next_obj.value)
+            assert False
+        return None
 
     def execute_make_function(
         self, vm: VirtualMachine, flags: instruction.MakeFunctionFlags
@@ -849,6 +865,7 @@ class ExecutingFrame:
         func_obj.set_attr(vm.mk_str("__annotations__"), annotations, vm)
 
         self.push_value(func_obj)
+        return None
 
     def execute_binop(
         self, vm: VirtualMachine, op: instruction.BinaryOperator

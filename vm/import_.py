@@ -123,7 +123,7 @@ def import_codeobj(
 
     vm.run_code_object(
         pycode.PyCode(code_obj).into_ref(vm), Scope.with_builtins(None, attrs, vm)
-    )
+    ).unwrap()
     return module
 
 

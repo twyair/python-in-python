@@ -1,5 +1,20 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, NoReturn, Optional
+from dataclasses import dataclass
+from functools import wraps
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    NoReturn,
+    Optional,
+    ParamSpec,
+    TypeAlias,
+    TypeVar,
+)
+
+
+import returns.result
 
 
 if TYPE_CHECKING:
@@ -49,3 +64,53 @@ class PyImplException(PyImplBase):
 
 def unreachable(msg: Optional[str] = None) -> NoReturn:
     assert False, f"unreachable: {msg}"
+
+
+_FuncParams = ParamSpec("_FuncParams")
+_ValueType = TypeVar("_ValueType", covariant=True)
+
+
+# @dataclass
+# class RException:
+#     exc: PyBaseExceptionRef
+
+#     def unwrap(self) -> NoReturn:
+#         raise PyImplException(self.exc)
+
+#     def ok_or(self, f: Callable[[PyBaseExceptionRef], R], /) -> R:
+#         return f(self.exc)
+
+
+# T = TypeVar("T")
+# R = TypeVar("R")
+
+
+# @dataclass
+# class ROk(Generic[T]):
+#     value: T
+
+#     def unwrap(self) -> T:
+#         return self.value
+
+#     def ok_or(self, f: Callable[[PyBaseExceptionRef], Any], /) -> T:
+#         return self.value
+
+
+def safe(
+    fn: Callable[_FuncParams, _ValueType]
+) -> Callable[_FuncParams, returns.result.Result[_ValueType, PyBaseExceptionRef]]:
+    @wraps(fn)
+    def decorator(*args: _FuncParams.args, **kwargs: _FuncParams.kwargs):
+        try:
+            return returns.result.Success(fn(*args, **kwargs))
+        except PyImplException as exc:
+            return returns.result.Failure(exc.exception)
+
+    return decorator
+
+
+PE: TypeAlias = "PyBaseExceptionRef"
+Result = returns.result.Result
+Ok = returns.result.Success
+
+# safe = returns.result.safe(exceptions=(PyImplException,))

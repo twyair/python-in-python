@@ -253,7 +253,7 @@ class PyRef(Generic[PyRefT]):
     def ascii(self, vm: VirtualMachine) -> AsciiString:
         raise NotImplementedError
 
-    def str(self, vm: VirtualMachine) -> PyStrRef:
+    def str_(self, vm: VirtualMachine) -> PyStrRef:
         import vm.builtins.pystr as pystr
 
         if self.class_().is_(vm.ctx.types.str_type):
@@ -354,7 +354,7 @@ class PyRef(Generic[PyRefT]):
     def as_object(self) -> PyObject:
         return self
 
-    def class_(self, vm: VirtualMachine = ...) -> PyTypeRef:
+    def class_(self) -> PyTypeRef:
         return self.type
 
     def clone_class(self) -> PyTypeRef:
@@ -395,6 +395,15 @@ class PyRef(Generic[PyRefT]):
         return self.abstract_isinstance(cls, vm)
 
     def recursive_issubclass(self, cls: PyObject, vm: VirtualMachine) -> bool:
+        from vm.builtins.pytype import PyTypeRef, PyType
+
+        try:
+            s = self.try_from_object(PyType, vm, self)
+            r = self.try_from_object(PyType, vm, cls)
+        except PyImplException:
+            pass
+        else:
+            return s._.fast_issubclass(r, vm)
         raise NotImplementedError
 
     def is_subclass(self, cls: PyObject, vm: VirtualMachine) -> bool:
@@ -512,11 +521,11 @@ class PyRef(Generic[PyRefT]):
 
         # needle = needle.into_pyobj(vm)
         try:
-            mapping = mapping.PyMapping.try_protocol(self, vm)
+            m = mapping.PyMapping.try_protocol(self, vm)
         except PyImplBase:
             pass
         else:
-            return mapping.subscript_(needle, vm)
+            return m.subscript_(needle, vm)
 
         try:
             seq = sequence.PySequence.try_protocol(self, vm)
@@ -556,9 +565,9 @@ class PyRef(Generic[PyRefT]):
 
         if (f := mapping.methods_(vm).ass_subscript) is not None:
             f(mapping, needle, value, vm)
-        elif (f := seq.methods_(vm).ass_item) is not None:
+        elif (q := seq.methods_(vm).ass_item) is not None:
             i = needle.key_as_isize(vm)
-            f(seq, i, value, vm)
+            q(seq, i, value, vm)
         else:
             vm.new_type_error(f"'{self.class_()}' does not support item assignment")
 
@@ -574,9 +583,9 @@ class PyRef(Generic[PyRefT]):
         if (f := mapping.methods_(vm).ass_subscript) is not None:
             needle = needle.into_pyobj(vm)
             return f(mapping, needle, None, vm)
-        elif f := seq.methods_(vm).ass_item:
+        elif q := seq.methods_(vm).ass_item:
             i = needle.key_as_isize(vm)
-            return f(seq, i, None, vm)
+            return q(seq, i, None, vm)
         else:
             vm.new_type_error(f"'{self.class_()}' does not support item deletion")
 
@@ -661,22 +670,22 @@ def pyref_type_error(vm: VirtualMachine, class_: PyTypeRef, obj: PyObject) -> No
     )
 
 
-class PTProtocol(Protocol):
-    @classmethod
-    def class_(cls, vm: VirtualMachine) -> PyTypeRef:
-        ...
+# class PTProtocol(Protocol):
+#     @classmethod
+#     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
+#         ...
 
-    # @classmethod
-    # def special_retrieve(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> PyRef[T]:
-    #     ...
+#     # @classmethod
+#     # def special_retrieve(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> PyRef[T]:
+#     #     ...
 
-    @classmethod
-    def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> PyRef[T]:
-        ...
+#     @classmethod
+#     def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> PyRef[T]:
+#         ...
 
 
 PyObject = PyRef[Any]
-PT = TypeVar("PT", bound=PTProtocol)
+PT = TypeVar("PT", bound=Any)  # bound=PTProtocol)
 PyObjectRef = PyObject
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from common.deco import pymethod
 
 if TYPE_CHECKING:
     from vm.pyobject import PyContext
@@ -19,6 +20,9 @@ class PyNone(po.PyClassImpl):
 
     # TODO: impl Constructor for PyNone
     # TODO: impl PyNone @ 43
+    @pymethod(True)
+    def i__bool__(self, *, vm: VirtualMachine) -> bool:
+        return False
 
 
 @po.pyimpl(constructor=True)

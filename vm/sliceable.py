@@ -23,8 +23,8 @@ class SequenceIndex(ABC):
             return SequenceIndexInt(i.as_int())
         elif (slice := obj.payload_(pyslice.PySlice)) is not None:
             return SequenceIndexSlice(slice.to_saturated(vm))
-        elif (i := vm.to_index_opt(obj)) is not None:
-            return SequenceIndexInt(i._.as_int())
+        elif (t := vm.to_index_opt(obj)) is not None:
+            return SequenceIndexInt(t._.as_int())
         else:
             vm.new_type_error(
                 f"indices must be integers or slices or classes that override __index__ operator, not '{obj.class_()}'"

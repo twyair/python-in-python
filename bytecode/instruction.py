@@ -756,10 +756,13 @@ class WithCleanupFinish(Instruction):
 
         vm.set_exception(prev_exc)
 
-        if suppress_exception:
+        if suppress_exception and (
+            reason is None or isinstance(reason, vm_frame.UnwindRaising)
+        ):
+            # FIXME
             return None
         elif reason is not None:
-            frame.unwind_blocks(vm, reason)
+            return frame.unwind_blocks(vm, reason)
         else:
             return None
 
@@ -1417,6 +1420,7 @@ class ListAppend(Instruction):
         list_ = obj.downcast_unchecked(PyList)
         item = frame.pop_value()
         list_._.append(item, vm=vm)
+        return None
 
 
 @final
@@ -1513,7 +1517,7 @@ class FormatValue(Instruction):
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
         if self.conversion == bytecode.ConversionFlag.STR:
-            value = value.str(vm)
+            value = value.str_(vm)
         elif self.conversion == bytecode.ConversionFlag.REPR:
             value = value.repr(vm)
         elif self.conversion == bytecode.ConversionFlag.ASCII:

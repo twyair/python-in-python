@@ -20,4 +20,6 @@
     "search.exclude": {
         "cpython": true
     },
+    "python.linting.mypyEnabled": true,
+    "python.linting.mypyPath": ".venv/bin/mypy",
 }

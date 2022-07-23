@@ -53,9 +53,9 @@ def do(vm: VirtualMachine) -> None:
         vm.new_syntax_error(e)
 
     try:
-        vm.run_code_object(code_obj, scope)
-    except PyImplException as e:
-        vm.print_exception(e.exception)
+        vm.run_code_object(code_obj, scope).alt(vm.print_exception)
+    # except PyImplException as e:
+    #     vm.print_exception(e.exception)
     except PyImplError as e:
         print(f"PyImplError: obj-type = {e.obj.class_()._.name()}")
         raise
@@ -63,6 +63,7 @@ def do(vm: VirtualMachine) -> None:
 
 settings = PySettings(dont_write_bytecode=True, no_user_site=True)
 settings.path_list.append(str((Path.cwd() / "cpython" / "Lib").resolve()))
+settings.path_list.append(str(Path.cwd().resolve()))
 interpreter = Interpreter.new_with_init(settings, lambda vm: InitParameter.External)
 # Interpreter.default().enter(do)
 try:

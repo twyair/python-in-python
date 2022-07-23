@@ -203,7 +203,7 @@ class PyBaseObject(po.PyClassImpl):
         zelf: PyObjectRef, format_spec: PyStrRef, *, vm: VirtualMachine
     ) -> PyStrRef:
         if not format_spec._.as_str():
-            return zelf.str(vm)
+            return zelf.str_(vm)
         else:
             vm.new_type_error(
                 f"unsupported format string passed to {zelf.class_()._.name()}.__format__"

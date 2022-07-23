@@ -326,7 +326,7 @@ class PyList(
         if index is not None:
             return
         else:
-            vm.new_value_error(f"'{needle.str(vm)}' is not in list")
+            vm.new_value_error(f"'{needle.str_(vm)}' is not in list")
 
     def _delitem(self, needle: PyObject, vm: VirtualMachine) -> None:
         i = sliceable.SequenceIndex.try_from_borrowed_object(vm, needle)

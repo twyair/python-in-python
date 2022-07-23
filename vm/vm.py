@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 from typing import (
     Callable,
+    List,
     NoReturn,
     Optional,
     Sequence,
@@ -16,6 +17,8 @@ from typing import (
     TypeVar,
     TYPE_CHECKING,
 )
+
+from returns.result import Result
 
 from common import to_opt
 from vm.builtins.traceback import PyTraceback
@@ -65,7 +68,7 @@ import vm.builtins.int as pyint
 import vm.signal as vm_signal
 
 from bytecode.bytecode import CodeObject, ConstantData, FrozenModule
-from common.error import PyImplBase, PyImplError, PyImplException
+from common.error import PE, PyImplBase, PyImplError, PyImplException, safe
 from common.hash import HashSecret
 from compiler.compile import CompileError, CompileErrorType, CompileOpts
 from compiler.mode import Mode
@@ -134,7 +137,7 @@ class VirtualMachine:
             trace_func=trace_func,
             use_tracing=False,
             recursion_limit=1000,
-            signal_handlers=signal_handlers,  # type: ignore FIXME?
+            signal_handlers=signal_handlers,  # type: ignore
             signal_rx=None,
             repr_guards=set(),
             state=PyGlobalState(
@@ -210,6 +213,7 @@ class VirtualMachine:
     def check_signals(self) -> None:
         return vm_signal.check_signals(self)
 
+    @safe
     def run_code_object(self, code: PyRef[PyCode], scope: scope.Scope) -> PyResult:
         assert self.builtins.dict is not None
         frame = vm_frame.Frame.new(
@@ -347,7 +351,6 @@ class VirtualMachine:
     def generic_getattribute(self, obj: PyObjectRef, name: PyStrRef) -> PyObjectRef:
         res = self.generic_getattribute_opt(obj, name, None)
         if res is None:
-            # print(f"{obj.class_()._.name()} has no attribute '{name._.as_str()}'")
             self.new_attribute_error(
                 f"{obj.class_()._.name()} has no attribute '{name._.as_str()}'"
             )
@@ -384,7 +387,7 @@ class VirtualMachine:
 
     def extract_elements(self, t: Type[PT], value: PyObject) -> list[PT]:
         return self.extract_elements_func(
-            value, lambda obj: t.try_from_object(self, obj)
+            value, lambda obj: t.try_from_object(self, obj)._
         )
 
     def extract_elements_func(
@@ -414,7 +417,8 @@ class VirtualMachine:
         if cap is not None and cap >= MAX_LENGTH_HINT:
             return []
 
-        return [f(x) for x in PyIterIter.new(self, iter_.as_ref(), cap, None)]
+        it: PyIterIter[PyObjectRef] = PyIterIter.new(self, iter_.as_ref(), cap, None)
+        return [f(x) for x in it]
 
     def check_signal(self) -> None:
         signal.check_signals(self)
@@ -510,7 +514,6 @@ class VirtualMachine:
                 self.new_type_error(
                     f"__index__ returned non-int (type {e.obj.class_()._.name()})"
                 )
-        return None
 
     def to_index(self, obj: PyObject) -> PyIntRef:
         index = self.to_index_opt(obj)
@@ -787,7 +790,7 @@ class VirtualMachine:
         return self._binop_generic(a, b, "&", "and")
 
     def _binop_inplace_generic(
-        self, a: PyObject, b: PyObject, name: str, op: str
+        self, a: PyObject, b: PyObject, op: str, name: str
     ) -> PyObjectRef:
         return self.call_or_unsupported(
             a,
@@ -917,7 +920,7 @@ class VirtualMachine:
                 exception._.context = context_exc
 
     def topmost_exception(self) -> Optional[PyBaseExceptionRef]:
-        cur = self.exceptions
+        cur: Optional[ExceptionStack] = self.exceptions
         while cur is not None:
             if cur.exc is not None:
                 return cur.exc
@@ -1026,13 +1029,17 @@ class VirtualMachine:
             arg = args[0]
             if str_single:
                 try:
-                    return [arg.str(self)]
+                    return [arg.str_(self)]
                 except PyImplBase as _:
                     return [PyStr.from_str("<element str() failed>", self.ctx)]
             else:
                 return [get_repr(arg)]
         else:
             return [get_repr(a) for a in args]
+
+    def split_exception(self, exc: PyBaseExceptionRef) -> List[PyObjectRef]:
+        tb = exc._.traceback
+        return [exc.class_(), exc, tb if tb is not None else self.ctx.get_none()]
 
     def print_exception(self, exc: PyBaseExceptionRef) -> None:
         # TODO
@@ -1063,8 +1070,8 @@ class VirtualMachine:
     def _write_exception_inner(self, output, exc: PyBaseExceptionRef) -> None:
         if (tb := exc._.traceback) is not None:
             output.write("Traceback (most recent call last):\n")
-            for tb in tb._:
-                self._write_traceback_entry(output, tb)
+            for tb_ in tb._:
+                self._write_traceback_entry(output, tb_)
 
         varargs = exc._.args
         args_repr = self.exception_args_as_string(varargs, True)

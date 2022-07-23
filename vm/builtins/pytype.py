@@ -413,6 +413,9 @@ class PyType(
                 f"type object '{zelf._.slot_name()}' has no attribute '{name._.as_str()}'"
             )
 
+    def fast_issubclass(self, cls: PyTypeRef, vm: VirtualMachine) -> bool:
+        return self.into_ref(vm).is_(cls) or any(m.is_(cls) for m in self.mro_)
+
 
 PyTypeRef: TypeAlias = "PyRef[PyType]"
 

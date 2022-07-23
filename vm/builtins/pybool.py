@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from vm.builtins.int import PyInt
@@ -17,7 +17,7 @@ from common.deco import pymethod
 
 
 @po.pyimpl(constructor=True)
-@po.pyclass("bool", base="PyInt")
+@po.pyclass("bool", base=pyint.PyInt)
 @dataclass
 class PyBool(po.PyClassImpl, slot.ConstructorMixin):
     @classmethod
@@ -39,7 +39,7 @@ class PyBool(po.PyClassImpl, slot.ConstructorMixin):
         zelf: PyObjectRef, format_spec: PyStrRef, *, vm: VirtualMachine
     ) -> PyStrRef:
         if not format_spec._.as_str():
-            return zelf.str(vm)
+            return zelf.str_(vm)
         else:
             vm.new_type_error("unsupported format string passed to bool.__format__")
 

@@ -166,12 +166,16 @@ class PyContext:
             pyset.PyFrozenSet.default(), types.frozenset_type, None
         )
 
-        string_cache = {}
+        string_cache: dict = {}
 
-        new_str = prc.PyRef.new_ref(pystr.PyStr("__new__"), types.str_type, None)
+        new_str: prc.PyRef[pystr.PyStr] = prc.PyRef.new_ref(
+            pystr.PyStr("__new__"), types.str_type, None
+        )
         slot_new_wrapper = create_object(
             builtinfunc.PyNativeFuncDef.new(
-                pytype.PyType.s__new__, new_str
+                # FIXME
+                lambda vm, args: pytype.PyType.s__new__("TODO", args, vm),
+                new_str,
             ).into_function(),
             types.builtin_function_or_method_type,
         )
@@ -394,14 +398,15 @@ class PyClassDef:
     DOC: ClassVar[Optional[str]]
 
 
-class _PyClassProtocol(Protocol):
-    NAME: str
-    TP_NAME: str
-    MODULE_NAME: Optional[str]
-    DOC: Optional[str]
+# class _PyClassProtocol(Protocol):
+#     NAME: str
+#     TP_NAME: str
+#     MODULE_NAME: Optional[str]
+#     DOC: Optional[str]
+#     # BASE: Any
 
 
-PC = TypeVar("PC", bound=_PyClassProtocol)
+# PC = TypeVar("PC", bound=_PyClassProtocol)
 
 
 # class ICProtocol(_PyClassProtocol):
@@ -420,7 +425,7 @@ class ImplProperty:
     deleter: Optional[MethodData] = None
 
 
-IC = TypeVar("IC")
+IC = TypeVar("IC", bound=Any)
 
 
 def pyimpl(
@@ -449,8 +454,8 @@ def pyimpl(
         impl.slots.name = cls.TP_NAME
         ms = [
             (mem, getattr(mem, "pyimpl_at"))
-            for _, mem in inspect.getmembers(cls)
-            if hasattr(mem, "pyimpl_at")
+            for name, mem in inspect.getmembers(cls)
+            if name != "BASE" and hasattr(mem, "pyimpl_at")
         ]
         for mem, data in ms:
             if isinstance(data, MethodData):
@@ -524,41 +529,42 @@ def pyimpl(
                     assert False, data.name
 
             else:
-                assert False, data
+                assert False, (mem, data)
         return cls
 
     return inner
 
 
 # TODO: use `base`
-def pyexception(name: str, base: str, doc: str):
+def pyexception(name: str, base: type, doc: str):
     def inner(cls):
         cls.NAME = name
         cls.TP_NAME = name
         cls.MODULE_NAME = None
         cls.DOC = doc
+        cls.BASE = base
         return cls
 
     return inner
 
 
-# TODO: use `base`
 def pyclass(
     name: str,
     *,
     tp_name: Optional[str] = None,
     module_name: Optional[str] = None,
     doc: Optional[str] = None,
-    base: Optional[str] = None,
-) -> Callable[[PC], PC]:
+    base: Optional[type] = None,
+) -> Callable[[Any], Any]:
     if tp_name is None:
         tp_name = name  # FIXME?
 
-    def inner(cls: PC) -> PC:
+    def inner(cls: Any) -> Any:
         cls.NAME = name
         cls.TP_NAME = tp_name
         cls.MODULE_NAME = module_name
         cls.DOC = doc
+        cls.BASE = base
 
         return cls
 
@@ -579,6 +585,7 @@ class StaticTypeMixin:
 
     @classmethod
     def static_metaclass(cls) -> PyTypeRef:
+        # TODO
         import vm.builtins.pytype as pytype
 
         return pytype.PyType.static_type()
@@ -587,7 +594,8 @@ class StaticTypeMixin:
     def static_baseclass(cls) -> PyTypeRef:
         import vm.builtins.object as oo
 
-        return oo.PyBaseObject.static_type()
+        base = cls.BASE or oo.PyBaseObject
+        return base.static_type()
 
     @classmethod
     def static_type(cls) -> PyTypeRef:
@@ -761,23 +769,23 @@ class PyModuleImpl:
         return module
 
 
-class TryFromObjectRequirements(Protocol):
-    @classmethod
-    def class_(cls, vm: VirtualMachine) -> PyTypeRef:
-        ...
+# class TryFromObjectRequirements(Protocol):
+#     @classmethod
+#     def class_(cls, vm: VirtualMachine) -> PyTypeRef:
+#         ...
 
-    @classmethod
-    def special_retrieve(
-        cls: Type[T], vm: VirtualMachine, obj: PyObjectRef
-    ) -> PyRef[T]:
-        ...
+#     @classmethod
+#     def special_retrieve(
+#         cls: Type[T], vm: VirtualMachine, obj: PyObjectRef
+#     ) -> PyRef[T]:
+#         ...
 
-    @classmethod
-    def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> T:
-        ...
+#     @classmethod
+#     def try_from_object(cls: Type[T], vm: VirtualMachine, obj: PyObjectRef) -> T:
+#         ...
 
 
-TT = TypeVar("TT", bound=TryFromObjectRequirements)
+TT = TypeVar("TT", bound=Any)  # , bound=TryFromObjectRequirements)
 
 
 class TryFromObjectMixin:
@@ -926,7 +934,6 @@ class PySequenceL(Generic[T]):
         return PySequenceL(vm.extract_elements_as_pyobjects(obj))
 
 
-@dataclass
 class PyMethod(ABC):
     @staticmethod
     def get(obj: PyObjectRef, name: PyStrRef, vm: VirtualMachine) -> PyMethod:
@@ -992,7 +999,7 @@ class PyMethod(ABC):
         obj_cls = obj.class_()
         func = obj_cls._.get_attr(name)
         if func is None:
-            print(obj_cls._.name())
+            print(obj_cls._.name(), name)
             raise PyImplError(obj)
         if func.class_()._.slots.flags.has_feature(slot.PyTypeFlags.METHOD_DESCR):
             return PyMethodFunction(target=obj, func=func)
