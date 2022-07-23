@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeAlias
+from common import to_opt
 from common.deco import pymethod
 from common.error import PyImplError
 from vm.builtins.pystr import PyStrRef
@@ -576,7 +577,6 @@ class ExceptionZoo:
         extend_exception(PyEncodingWarning, ctx, excs.encoding_warning)
 
 
-@dataclass
 class ExceptionCtor(ABC):
     @staticmethod
     def try_from_object(vm: VirtualMachine, obj: PyObjectRef) -> ExceptionCtor:
@@ -621,9 +621,9 @@ class ExceptionCtorClass(ExceptionCtor):
         if exc_inst is not None and exc_inst.isinstance(self.value):
             return exc_inst
         else:
-            args = []
             raise NotImplementedError
-            vm.invoke_exception(self.value, args)
+            # args = []
+            # vm.invoke_exception(self.value, args)
 
 
 @dataclass
@@ -636,7 +636,7 @@ class ExceptionCtorInstance(ExceptionCtor):
     def instantiate_value(
         self, value: PyObjectRef, vm: VirtualMachine
     ) -> PyBaseExceptionRef:
-        exc_inst = value.downcast(PyBaseException)
+        exc_inst = to_opt(lambda: value.downcast(PyBaseException))
         if exc_inst is not None:
             vm.new_type_error("instance exception may not have a separate value")
         else:

@@ -23,7 +23,8 @@ def primitive_to_pyobject(
     | str
     | bytes
     | PyArithmeticValue[bool | int | float | complex | str | bytes]
-    | None,
+    | None
+    | "PyValueMixin",
     vm: VirtualMachine,
 ) -> PyObjectRef:
     import vm.pyobjectrc as prc  # FIXME?
@@ -372,11 +373,13 @@ CT_RETURN: TypeAlias = "PyValueMixin | PyObjectRef | str | bytes | bool | int | 
 
 CT = TypeVar(
     "CT",
-    bound="Callable[..., CT_RETURN]",
+    bound=Any,
+    # bound="Callable[..., CT_RETURN]",
 )
 
 
-AT = TypeVar("AT", bound="Callable[[VirtualMachine], CT_RETURN]")
+# AT = TypeVar("AT", bound="Callable[[VirtualMachine], CT_RETURN]")
+AT = TypeVar("AT", bound=Any)
 
 
 def pyattr(f: AT) -> AT:

@@ -18,8 +18,6 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from returns.result import Result
-
 from common import to_opt
 from vm.builtins.traceback import PyTraceback
 

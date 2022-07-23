@@ -4,7 +4,7 @@ from abc import abstractmethod
 import ast
 import enum
 from dataclasses import dataclass
-from typing import Any, Callable, NoReturn, Optional, TypeVar
+from typing import Any, Callable, NoReturn, Optional, Type, TypeVar
 
 import bytecode.bytecode as bytecode
 import bytecode.instruction as instruction
@@ -51,7 +51,6 @@ class NameUsage(enum.Enum):
     DELETE = enum.auto()
 
 
-@dataclass
 class CallType:
     @abstractmethod
     def normal_call(self) -> Instruction:
@@ -465,7 +464,7 @@ class Compiler:
         if symbol.scope == SymbolScope.FREE:
             idx += len(info.cellvar_cache)
 
-        op = None
+        op: Optional[Type[Instruction]] = None
         if op_type == NameOpType.FAST:
             if usage == NameUsage.LOAD:
                 op = instruction.LoadFast
@@ -535,7 +534,7 @@ class Compiler:
         elif isinstance(statement, ast.ImportFrom):
             import_star = any(n.name == "*" for n in statement.names)
 
-            from_list = None
+            from_list: Optional[tuple[ConstantDataStr, ...]] = None
             if import_star:
                 if self.ctx.in_func():
                     self.error_loc(
@@ -1542,8 +1541,8 @@ class Compiler:
             if (value := try_get_constant_string(expr.values)) is not None:
                 self.emit_constant(ConstantDataStr(value))
             else:
-                for value in expr.values:
-                    self.compile_expression(value)
+                for v in expr.values:
+                    self.compile_expression(v)
                 self.emit(instruction.BuildString(len(expr.values)))
         elif isinstance(expr, ast.FormattedValue):
             if expr.format_spec is not None:
@@ -1689,6 +1688,7 @@ class Compiler:
             if keyword.arg is not None:
                 self.check_forbidden_name(keyword.arg, NameUsage.STORE)
 
+        call: CallType
         if unpack or has_double_star:
             self.emit(instruction.BuildTuple(size=size, unpack=unpack))
 
@@ -1780,7 +1780,7 @@ class Compiler:
         if init_collection is not None:
             self.emit(init_collection)
 
-        loop_labels = []
+        loop_labels: list[tuple[BlockIdx, BlockIdx]] = []
         for generator in generators:
             if generator.is_async:
                 raise NotImplementedError("async for comprehensions")
@@ -1974,8 +1974,8 @@ def compile_conversion_flag(c: Optional[int]) -> ConversionFlag:
     }[c]
 
 
-def compile_constant(value: ast.Constant) -> ConstantData:
-    value = value.value
+def compile_constant(constant: ast.Constant, /) -> ConstantData:
+    value = constant.value
     if value is None:
         return ConstantDataNone()
     if value is ...:

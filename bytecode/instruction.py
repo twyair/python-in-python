@@ -91,7 +91,6 @@ class LabelArgMixin(ABC):
         self.target = label
 
 
-@dataclass
 class Instruction(ABC):
     @abstractmethod
     def execute(
@@ -116,6 +115,7 @@ class ImportName(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.import_(vm, vm.mk_str(frame._get_name(self.idx)))
+        return None
 
     def stack_effect(self, jump: bool) -> int:
         return -1
@@ -128,6 +128,7 @@ class ImportNameless(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.import_(vm, None)
+        return None
 
     def stack_effect(self, jump: bool) -> int:
         return -1
@@ -140,6 +141,7 @@ class ImportStar(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.import_star(vm)
+        return None
 
     def stack_effect(self, jump: bool) -> int:
         return -1
@@ -155,6 +157,7 @@ class ImportFrom(Instruction):
     ) -> Optional[ExecutionResult]:
         obj = frame.import_from(vm, self.idx)
         frame.push_value(obj)
+        return None
 
     def stack_effect(self, jump: bool) -> int:
         return 1
@@ -178,6 +181,7 @@ class LoadFast(Instruction):
                 f"local variable '{frame.code._.code.varnames[self.idx]}' referenced before assignment"
             )
         frame.push_value(x)
+        return None
 
 
 @final
@@ -199,6 +203,7 @@ class LoadNameAny(Instruction):
             frame.push_value(frame.load_global_or_builtin(name, vm))
         else:
             frame.push_value(value)
+        return None
 
 
 @final
@@ -215,6 +220,7 @@ class LoadGlobal(Instruction):
         name = frame._get_name(self.idx)
         x = frame.load_global_or_builtin(vm.mk_str(name), vm)
         frame.push_value(x)
+        return None
 
 
 @final
@@ -232,6 +238,7 @@ class LoadDeref(Instruction):
         if x is None:
             frame.unbound_cell_exception(self.idx, vm)
         frame.push_value(x)
+        return None
 
 
 @final
@@ -253,6 +260,7 @@ class LoadClassDeref(Instruction):
             if value is None:
                 frame.unbound_cell_exception(self.idx, vm)
         frame.push_value(value)
+        return None
 
 
 @final
@@ -268,6 +276,7 @@ class StoreFast(Instruction):
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
         frame.fastlocals[self.idx] = value
+        return None
 
 
 @final
@@ -284,6 +293,7 @@ class StoreLocal(Instruction):
         name = frame.code._.code.names[self.idx]
         value = frame.pop_value()
         frame.locals.mapping().ass_subscript_(name, value, vm)
+        return None
 
 
 @final
@@ -299,6 +309,7 @@ class StoreGlobal(Instruction):
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
         frame.globals.set_item(frame.code._.code.names[self.idx], value, vm)
+        return None
 
 
 @final
@@ -314,6 +325,7 @@ class StoreDeref(Instruction):
     ) -> Optional[ExecutionResult]:
         value = frame.pop_value()
         frame.cells_frees[self.idx]._.set(value)
+        return None
 
 
 @final
@@ -328,6 +340,7 @@ class DeleteFast(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.fastlocals[self.idx] = None
+        return None
 
 
 @final
@@ -350,6 +363,7 @@ class DeleteLocal(Instruction):
                 vm.new_name_error(f"name '{name}' is not defined", name)
             else:
                 raise
+        return None
 
 
 @final
@@ -371,6 +385,7 @@ class DeleteGlobal(Instruction):
                 vm.new_name_error(f"name '{name}' is not defined", name)
             else:
                 raise
+        return None
 
 
 @final
@@ -385,6 +400,7 @@ class DeleteDeref(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.cells_frees[self.idx]._.set(None)
+        return None
 
 
 @final
@@ -400,6 +416,7 @@ class LoadClosure(Instruction):
     ) -> Optional[ExecutionResult]:
         value = frame.cells_frees[self.idx]
         frame.push_value(value)
+        return None
 
 
 @final
@@ -478,6 +495,7 @@ class LoadConst(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.push_value(frame.code._.code.constants[self.idx].value)
+        return None
 
 
 @final
@@ -560,6 +578,7 @@ class Pop(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.pop_value()
+        return None
 
 
 @final
@@ -596,6 +615,7 @@ class Duplicate(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.push_value(frame.last_value())
+        return None
 
 
 @final
@@ -613,6 +633,7 @@ class Duplicate2(Instruction):
         frame.push_value(top)
         frame.push_value(second_to_top)
         frame.push_value(top)
+        return None
 
 
 @final
@@ -627,6 +648,7 @@ class GetIter(Instruction):
         iterated_obj = frame.pop_value()
         iter_obj = iterated_obj.get_iter(vm)
         frame.push_value(iter_obj.into_pyobject(vm))
+        return None
 
 
 @final
@@ -690,6 +712,7 @@ class SetupAnnotation(Instruction):
             frame.locals.obj.set_item(
                 vm.mk_str("__annotations__"), vm.ctx.new_dict(), vm
             )
+        return None
 
 
 @final
@@ -734,6 +757,7 @@ class WithCleanupStart(Instruction):
 
         exit_res = vm.invoke(exit, fn.FuncArgs(args, OrderedDict()))
         frame.push_value(exit_res)
+        return None
 
 
 @final
@@ -777,6 +801,7 @@ class PopBlock(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.pop_block()
+        return None
 
 
 @final
@@ -796,6 +821,7 @@ class PrintExpr(Instruction):
             vm.new_runtime_error("lost sys.displayhook")
 
         vm.invoke(displayhook, fn.FuncArgs([expr]))
+        return None
 
 
 @final
@@ -808,6 +834,7 @@ class LoadBuildClass(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.push_value(vm.builtins.get_attr(vm.mk_str("__build_class__"), vm))
+        return None
 
 
 @final
@@ -824,6 +851,7 @@ class PopException(Instruction):
             vm.set_exception(block.type.prev_exc)
         else:
             frame.fatal("block type must be ExceptHandler here.")
+        return None
 
 
 @final
@@ -846,6 +874,7 @@ class GetAwaitable(Instruction):
             )
             awaitable = vm.invoke(await_method, fn.FuncArgs.empty())
         frame.push_value(awaitable)
+        return None
 
 
 @final
@@ -862,6 +891,7 @@ class BeforeAsyncWith(Instruction):
         frame.push_value(aexit)
         aenter_res = vm.call_special_method(mgr, "__aenter__", fn.FuncArgs.empty())
         frame.push_value(aenter_res)
+        return None
 
 
 @final
@@ -876,6 +906,7 @@ class GetAIter(Instruction):
         aiterable = frame.pop_value()
         aiter = vm.call_special_method(aiterable, "__aiter__", fn.FuncArgs.empty())
         frame.push_value(aiter)
+        return None
 
 
 @final
@@ -894,6 +925,7 @@ class GetANext(Instruction):
                 awaitable, "__await__", fn.FuncArgs.empty()
             )
         frame.push_value(awaitable)
+        return None
 
 
 @final
@@ -912,6 +944,7 @@ class EndAsyncFor(Instruction):
             assert e is not None, "Should have exception in stack"
         else:
             raise PyImplError(exc)
+        return None
 
 
 @final
@@ -924,6 +957,7 @@ class EnterFinally(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.push_block(vm_frame.BlockFinallyHandler(None, vm.current_exception()))
+        return None
 
 
 @final
@@ -944,6 +978,7 @@ class EndFinally(Instruction):
             frame.fatal(
                 "Block type must be finally handler when reaching EndFinally instruction!"
             )
+        return None
 
 
 @final
@@ -958,6 +993,7 @@ class Continue(Instruction, LabelArgMixin):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.unwind_blocks(vm, vm_frame.UnwindContinue(self.target))
+        return None
 
 
 @final
@@ -972,6 +1008,7 @@ class Jump(Instruction, LabelArgMixin):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.jump(self.target)
+        return None
 
 
 @final
@@ -989,6 +1026,7 @@ class JumpIfTrue(Instruction, LabelArgMixin):
         value = obj.try_to_bool(vm)
         if value:
             frame.jump(self.target)
+        return None
 
 
 @final
@@ -1006,6 +1044,7 @@ class JumpIfFalse(Instruction, LabelArgMixin):
         value = obj.try_to_bool(vm)
         if not value:
             frame.jump(self.target)
+        return None
 
 
 @final
@@ -1028,6 +1067,7 @@ class JumpIfTrueOrPop(Instruction, LabelArgMixin):
             frame.jump(self.target)
         else:
             frame.pop_value()
+        return None
 
 
 @final
@@ -1050,6 +1090,7 @@ class JumpIfFalseOrPop(Instruction, LabelArgMixin):
             frame.jump(self.target)
         else:
             frame.pop_value()
+        return None
 
 
 @final
@@ -1065,6 +1106,7 @@ class CallFunctionPositional(Instruction):
     ) -> Optional[ExecutionResult]:
         args = frame.collect_positional_args(self.nargs)
         frame.execute_call(args, vm)
+        return None
 
 
 @final
@@ -1080,6 +1122,7 @@ class CallFunctionKeyword(Instruction):
     ) -> Optional[ExecutionResult]:
         args = frame.collect_keyword_args(self.nargs)
         frame.execute_call(args, vm)
+        return None
 
 
 @final
@@ -1095,6 +1138,7 @@ class CallMethodPositional(Instruction):
     ) -> Optional[ExecutionResult]:
         args = frame.collect_positional_args(self.nargs)
         frame.execute_method_call(args, vm)
+        return None
 
 
 @final
@@ -1110,6 +1154,7 @@ class CallMethodKeyword(Instruction):
     ) -> Optional[ExecutionResult]:
         args = frame.collect_keyword_args(self.nargs)
         frame.execute_method_call(args, vm)
+        return None
 
 
 @final
@@ -1131,6 +1176,7 @@ class MakeFunction(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.execute_make_function(vm, self.flags)
+        return None
 
 
 @final
@@ -1146,6 +1192,7 @@ class CallFunctionEx(Instruction):
     ) -> Optional[ExecutionResult]:
         args = frame.collect_ex_args(vm, self.has_kwargs)
         frame.execute_call(args, vm)
+        return None
 
 
 @final
@@ -1172,6 +1219,7 @@ class LoadMethod(Instruction):
         frame.push_value(target)
         frame.push_value(vm.ctx.new_bool(is_method))
         frame.push_value(func)
+        return None
 
 
 @final
@@ -1187,6 +1235,7 @@ class CallMethodEx(Instruction):
     ) -> Optional[ExecutionResult]:
         args = frame.collect_ex_args(vm, self.has_kwargs)
         frame.execute_method_call(args, vm)
+        return None
 
 
 @final
@@ -1204,6 +1253,7 @@ class ForIter(Instruction, LabelArgMixin):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.execute_for_iter(vm, self.target)
+        return None
 
 
 @final
@@ -1218,6 +1268,7 @@ class SetupLoop(Instruction, LabelArgMixin):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.push_block(vm_frame.BlockLoop(self.target))
+        return None
 
 
 @final
@@ -1232,6 +1283,7 @@ class SetupFinally(Instruction, LabelArgMixin):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.push_block(vm_frame.BlockFinally(self.target))
+        return None
 
 
 @final
@@ -1249,6 +1301,7 @@ class SetupExcept(Instruction, LabelArgMixin):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.push_block(vm_frame.BlockTryExcept(self.target))
+        return None
 
 
 @final
@@ -1274,6 +1327,7 @@ class SetupWith(Instruction, LabelArgMixin):
         )
         frame.push_block(vm_frame.BlockFinally(self.target))
         frame.push_value(enter_res)
+        return None
 
 
 @final
@@ -1295,6 +1349,7 @@ class Raise(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.execute_raise(vm, self.kind)
+        return None
 
 
 @final
@@ -1315,6 +1370,7 @@ class BuildString(Instruction):
         ]
         str_obj = vm.ctx.new_str("".join(s))
         frame.push_value(str_obj.into_pyobj(vm))
+        return None
 
 
 @final
@@ -1332,6 +1388,7 @@ class BuildTuple(Instruction):
         elements = frame.get_elements(vm, self.size, self.unpack)
         list_obj = vm.ctx.new_tuple(elements)
         frame.push_value(list_obj)
+        return None
 
 
 @final
@@ -1349,6 +1406,7 @@ class BuildList(Instruction):
         elements = frame.get_elements(vm, self.size, self.unpack)
         list_obj = vm.ctx.new_list(elements)
         frame.push_value(list_obj)
+        return None
 
 
 @final
@@ -1372,6 +1430,7 @@ class BuildSet(Instruction):
             for element in elements:
                 set._.add(element, vm=vm)
         frame.push_value(set)
+        return None
 
 
 @final
@@ -1438,6 +1497,7 @@ class SetAdd(Instruction):
         set_ = obj.downcast_unchecked(pyset.PySet)
         item = frame.pop_value()
         set_._.add(item, vm=vm)
+        return None
 
 
 @final
@@ -1456,6 +1516,7 @@ class MapAdd(Instruction):
         key = frame.pop_value()
         value = frame.pop_value()
         dict_._.set_item(key, value, vm)
+        return None
 
 
 @final
@@ -1487,6 +1548,7 @@ class UnpackSequence(Instruction):
             vm.new_value_error(
                 f"not enough values to unpack (expected {self.size}, got {len(elements)})"
             )
+        return None
 
 
 @final
@@ -1530,6 +1592,7 @@ class FormatValue(Instruction):
         spec = frame.pop_value()
         formatted = vm.call_special_method(value, "__format__", fn.FuncArgs([spec]))
         frame.push_value(formatted)
+        return None
 
 
 @final
@@ -1544,6 +1607,7 @@ class Reverse(Instruction):
         self, frame: ExecutingFrame, vm: VirtualMachine
     ) -> Optional[ExecutionResult]:
         frame.state.stack[-self.amount :] = reversed(frame.state.stack[-self.amount :])
+        return None
 
 
 @final
@@ -1563,6 +1627,7 @@ class SetupAsyncWith(Instruction, LabelArgMixin):
         enter_res = frame.pop_value()
         frame.push_block(vm_frame.BlockFinally(self.target))
         frame.push_value(enter_res)
+        return None
 
 
 @final
@@ -1581,3 +1646,4 @@ class MapAddRev(Instruction):
         value = frame.pop_value()
         key = frame.pop_value()
         dict_._.set_item(key, value, vm)
+        return None

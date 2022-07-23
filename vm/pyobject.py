@@ -425,7 +425,7 @@ class ImplProperty:
     deleter: Optional[MethodData] = None
 
 
-IC = TypeVar("IC", bound=Any)
+TAny = TypeVar("TAny", bound=Any)
 
 
 def pyimpl(
@@ -445,8 +445,8 @@ def pyimpl(
     constructor: Optional[bool] = None,
     get_attr: Optional[bool] = None,
     set_attr: Optional[bool] = None,
-) -> Callable[[IC], IC]:
-    def inner(cls: IC) -> IC:
+) -> Callable[[TAny], TAny]:
+    def inner(cls: TAny) -> TAny:
         impl = cls.pyimpl_at  # type: ignore
         if impl is None:
             impl = cls.pyimpl_at = PyClassImplData()  # type: ignore
@@ -535,9 +535,8 @@ def pyimpl(
     return inner
 
 
-# TODO: use `base`
-def pyexception(name: str, base: type, doc: str):
-    def inner(cls):
+def pyexception(name: str, base: type, doc: str) -> Callable[[TAny], TAny]:
+    def inner(cls: TAny) -> TAny:
         cls.NAME = name
         cls.TP_NAME = name
         cls.MODULE_NAME = None
@@ -555,11 +554,11 @@ def pyclass(
     module_name: Optional[str] = None,
     doc: Optional[str] = None,
     base: Optional[type] = None,
-) -> Callable[[Any], Any]:
+) -> Callable[[TAny], TAny]:
     if tp_name is None:
         tp_name = name  # FIXME?
 
-    def inner(cls: Any) -> Any:
+    def inner(cls: TAny) -> TAny:
         cls.NAME = name
         cls.TP_NAME = tp_name
         cls.MODULE_NAME = module_name
@@ -633,17 +632,17 @@ class StaticTypeMixin:
         )
 
 
-class TPProtocol(Protocol):
-    TP_FLAGS: PyTypeFlags
+# class TPProtocol(Protocol):
+#     TP_FLAGS: PyTypeFlags
 
 
-TP = TypeVar("TP", bound=TPProtocol)
+# TP = TypeVar("TP", bound=TPProtocol)
 
 
 def tp_flags(
     *, basetype=False, has_dict=False, method_descr=False, heaptype=False
-) -> Callable[[TP], TP]:
-    def inner(cls: TP) -> TP:
+) -> Callable[[TAny], TAny]:
+    def inner(cls: TAny) -> TAny:
         flags = slot.PyTypeFlags.default()
         if basetype:
             flags |= slot.PyTypeFlags.BASETYPE

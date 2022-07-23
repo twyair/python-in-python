@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Protocol,
     Type,
+    TypeAlias,
     TypeVar,
     final,
 )

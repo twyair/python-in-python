@@ -50,7 +50,7 @@ class ConstantData(ABC):
 
 @dataclass
 class ConstantDataTuple(ConstantData):
-    value: tuple[ConstantData]
+    value: tuple[ConstantData, ...]
 
     def to_pyobj(self, vm: VirtualMachine) -> PyObjectRef:
         return vm.ctx.new_tuple([x.to_pyobj(vm) for x in self.value])
